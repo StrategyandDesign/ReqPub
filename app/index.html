@@ -18,6 +18,7 @@
     --shadow:0 1px 2px rgba(0,0,0,.04), 0 10px 30px rgba(0,0,0,.045);
     --shadow-sm:0 1px 2px rgba(0,0,0,.05);
     --brand:#2563FF; --brand-600:#1d4ed8; --brand-700:#1e40af; --sky:#e6f0ff; --sky-2:#dbe7ff;
+    --amber:#a35b09; --amber-bg:#fdf3e5; --good:#0f7a4f; --good-bg:#e7f6ee;
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
     --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
     --ease:cubic-bezier(.2,.7,.2,1);
@@ -273,7 +274,7 @@ function sbPullPartnerNotes(cb){
 }
 function loadPartnerThread(proj){
   if(!SB_ON||!proj)return;
-  try{ SB.rpc('partner_thread',{p_project:proj}).then(function(r){ APP.partnerThread=APP.partnerThread||{}; APP.partnerThread[proj]=(r&&!r.error&&r.data)||[]; if(APP.view==='partnerview')render(); }); }catch(e){}
+  try{ SB.rpc('partner_thread',{p_project:proj}).then(function(r){ APP.partnerThread=APP.partnerThread||{}; APP.partnerThread[proj]=(r&&!r.error&&r.data)||[]; if(APP.view==='partner'||APP.view==='partnerview')render(); }); }catch(e){}
 }
 function sbResolveContext(cb){
   if(!SB_ON){ cb&&cb('none'); return; }
@@ -297,7 +298,7 @@ function routeByContext(kind){
 }
 function loadPartnerProjects(){
   if(!SB_ON)return;
-  try{ SB.rpc('partner_projects').then(function(r){ APP.partnerProjects=(r&&r.data)||[]; if(APP.view==='partner'||APP.view==='partnerview')render(); }); }catch(e){}
+  try{ SB.rpc('partner_projects').then(function(r){ APP.partnerProjects=(r&&r.data)||[]; (APP.partnerProjects||[]).forEach(function(p){ loadPartnerThread(p.project_id); }); if(APP.view==='partner'||APP.view==='partnerview')render(); }); }catch(e){}
 }
 function doCreateOrg(name){
   if(!SB_ON)return; APP.authBusy=true; APP.authError=null; render();
@@ -1192,17 +1193,89 @@ function renderNoOrg(){
       '<button class="btn btn-ghost btn-sm" data-action="signout" style="width:100%;margin-top:10px">Sign out</button>'+
     '</div></div></div>';
 }
+function pSeenAll(){ return DB.get('rm:pseen')||{}; }
+function pSeenVer(pid){ return pSeenAll()[pid]||''; }
+function pMarkSeen(pid,label){ var m=pSeenAll(); m[pid]=label||''; DB.set('rm:pseen',m); }
+function pInfo(pid){ var p=(APP.partnerProjects||[]).filter(function(x){return x.project_id===pid;})[0]; var pay=(p&&p.payload)||{}; return {name:pay.product||pid,ver:pay.label||''}; }
+function pThread(pid){ return (APP.partnerThread&&APP.partnerThread[pid])||[]; }
+function pClip(s,n){ s=s||''; return s.length>n?s.slice(0,n).trim()+'…':s; }
+function pGreet(){ var h=new Date().getHours(); return h<12?'Good morning':(h<18?'Good afternoon':'Good evening'); }
+function pFirst(){ var nm=(APP.partner&&APP.partner.name)||''; return nm?nm.split(' ')[0]:'there'; }
+function partnerNeedsYou(){
+  var out=[];
+  (APP.partnerProjects||[]).forEach(function(p){
+    var pid=p.project_id, nm=pInfo(pid).name;
+    pThread(pid).forEach(function(n){
+      var reps=n.replies||[];
+      if(reps.length && reps[reps.length-1].from==='team'){ out.push({pid:pid,name:nm,id:n.id,note:n.text||'',reply:reps[reps.length-1]}); }
+    });
+  });
+  out.sort(function(a,b){return new Date(b.reply.at)-new Date(a.reply.at);});
+  return out;
+}
+function partnerActivity(){
+  var ev=[];
+  (APP.partnerProjects||[]).forEach(function(p){
+    var pid=p.project_id, nm=pInfo(pid).name;
+    pThread(pid).forEach(function(n){
+      ev.push({kind:'note',at:n.created_at,text:'You added a note on '+nm});
+      (n.replies||[]).forEach(function(rp){ ev.push({kind:(rp.from==='team'?'team':'you'),at:rp.at,text:(rp.from==='team'?'Team replied on ':'You replied on ')+nm}); });
+    });
+  });
+  ev.sort(function(a,b){return new Date(b.at)-new Date(a.at);});
+  return ev.slice(0,5);
+}
+function partnerTopbar(){
+  return '<div class="topbar"><div style="display:flex;align-items:center;gap:11px"><div class="brandmark">'+ico(IC.fwd).replace('class="i ','class="')+'</div><div><div style="font-weight:660;letter-spacing:-.02em;font-size:15px">ReqPub</div><div class="eyebrow" style="font-size:9.5px;letter-spacing:.18em;margin-top:1px">Partner portal</div></div></div>'+userMenu()+'</div>';
+}
 function renderPartnerHome(){
   var ps=APP.partnerProjects||[];
-  var cards=ps.length?ps.map(function(p,i){
-    var pay=p.payload||{}; var name=pay.product||p.project_id;
-    return '<button class="pcard rise" style="animation-delay:'+(i*40)+'ms" data-action="popen" data-id="'+escA(p.project_id)+'"><div style="font-weight:600;font-size:15.5px;letter-spacing:-.01em">'+esc(name)+'</div><div style="font-size:12px;color:var(--ink-3);margin-top:3px">SME review'+(pay.label?(' · v'+esc(pay.label)):'')+'</div></button>';
-  }).join(''):'<div class="empty" style="grid-column:1/-1;height:auto;padding:48px">'+ico(IC.doc)+'<div style="font-size:14px">No PRDs have been shared with you yet.</div></div>';
+  var needs=partnerNeedsYou();
+  var acts=partnerActivity();
+  var dateStr=esc(new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}));
+  var statusDot,statusText;
+  if(!ps.length){ statusDot='var(--ink-4)'; statusText='Nothing has been shared with you yet.'; }
+  else if(needs.length){ statusDot='var(--amber)'; statusText=(needs.length===1?'One reply is waiting for you.':needs.length+' replies are waiting for you.')+' Everything else is up to date.'; }
+  else { statusDot='var(--good)'; statusText="You're all caught up. We'll email you when the team needs you."; }
+  var needsHtml=needs.map(function(it){
+    return '<div class="card" style="padding:16px;margin-bottom:10px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(it.note?'8':'10')+'px"><span style="display:inline-flex;align-items:center;font-size:11.5px;font-weight:560;padding:3px 10px;border-radius:999px;background:var(--amber-bg);color:var(--amber)">Needs you</span><span style="font-size:11.5px;color:var(--ink-4)">on '+esc(it.name)+'</span></div>'+
+      (it.note?'<div style="font-size:12.5px;color:var(--ink-4);margin-bottom:9px">Your note: '+esc(pClip(it.note,90))+'</div>':'')+
+      '<div style="background:var(--sky);border-radius:11px;padding:9px 12px;margin-bottom:11px"><div style="font-size:11px;color:var(--ink-4);margin-bottom:2px">Team · '+esc(relTime(it.reply.at))+'</div><div style="font-size:13.5px;color:var(--ink-2);line-height:1.5;white-space:pre-wrap">'+esc(it.reply.text||'')+'</div></div>'+
+      '<div style="display:flex;gap:6px"><input class="input" data-preply="'+esc(it.id)+'" data-proj="'+escA(it.pid)+'" placeholder="Write a reply" style="flex:1;height:38px;font-size:13px"><button class="btn btn-primary btn-sm" data-action="preplysend" data-id="'+esc(it.id)+'" data-proj="'+escA(it.pid)+'">Send reply</button></div>'+
+    '</div>';
+  }).join('');
+  var cards=ps.map(function(p,i){
+    var pid=p.project_id, inf=pInfo(pid), thread=pThread(pid);
+    var noteN=thread.length;
+    var needN=thread.filter(function(n){var r=n.replies||[];return r.length&&r[r.length-1].from==='team';}).length;
+    var seen=pSeenVer(pid), seenBefore=!!seen, isNew=!!(inf.ver&&seen!==inf.ver);
+    var badge=inf.ver?('<span style="font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;'+(isNew?'background:var(--sky);color:var(--brand-700)':'background:var(--bg-3);color:var(--ink-3)')+'">'+(isNew?(seenBefore?'Updated · v':'New · v'):'v')+esc(inf.ver)+'</span>'):'';
+    var line=isNew?(seenBefore?'Updated since your last visit':'Ready for your first review'):(noteN?('Your notes: '+noteN+(needN?(' · '+needN+' need'+(needN>1?'':'s')+' your reply'):'')):'Reviewed. No open items.');
+    var cta=seenBefore?'Continue review':'Open review';
+    return '<button class="pcard rise" style="animation-delay:'+(i*40)+'ms" data-action="popen" data-id="'+escA(pid)+'">'+
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-weight:640;font-size:15.5px;letter-spacing:-.01em">'+esc(inf.name)+'</span>'+badge+'</div>'+
+      '<div style="font-size:12.5px;color:'+(isNew?'var(--brand-700)':'var(--ink-3)')+';margin-top:5px">'+esc(line)+'</div>'+
+      '<div style="margin-top:14px"><span class="btn btn-sec btn-sm" style="pointer-events:none">'+cta+'</span></div>'+
+    '</button>';
+  }).join('');
+  if(!ps.length){ cards='<div class="empty" style="height:auto;padding:48px">'+ico(IC.doc)+'<div style="font-size:14px">No PRDs have been shared with you yet.</div></div>'; }
+  var actHtml=acts.length?('<div class="card" style="padding:18px;margin-top:16px"><div class="eyebrow" style="font-size:9.5px;margin-bottom:12px">Recent activity</div>'+acts.map(function(e){
+    var dot=e.kind==='team'?'var(--amber)':(e.kind==='you'?'var(--brand)':'var(--line-2)');
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding:5px 0"><span style="width:8px;height:8px;border-radius:50%;background:'+dot+';margin-top:6px;flex:0 0 auto"></span><div style="flex:1"><div style="font-size:13.5px;color:var(--ink-2)">'+esc(e.text)+'</div><div style="font-size:11.5px;color:var(--ink-4);margin-top:1px">'+esc(relTime(e.at))+'</div></div></div>';
+  }).join('')+'</div>'):'';
   return shell(
-    '<div class="topbar"><div style="display:flex;align-items:center;gap:11px"><div class="brandmark">'+ico(IC.fwd).replace('class="i ','class="')+'</div><div><div style="font-weight:660;letter-spacing:-.02em;font-size:15px">ReqPub</div><div class="eyebrow" style="font-size:9.5px;letter-spacing:.18em;margin-top:1px">Partner portal</div></div></div>'+userMenu()+'</div>'+
-    '<div style="flex:1;overflow-y:auto"><div class="wrap">'+
-      '<div class="rise" style="margin-bottom:30px"><h1 style="font-size:30px;line-height:1.1;letter-spacing:-.03em;font-weight:660;margin:0 0 10px">Your PRDs</h1><p style="color:var(--ink-3);font-size:15px;margin:0">Review the requirements document prepared for you. Add notes on what is missing, unclear, or at risk.</p></div>'+
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'+cards+'</div>'+
+    partnerTopbar()+
+    '<div style="flex:1;overflow-y:auto"><div class="wrap" style="max-width:640px">'+
+      '<div class="rise" style="margin-bottom:22px">'+
+        '<div style="font-size:12px;color:var(--ink-4);margin-bottom:5px">'+dateStr+'</div>'+
+        '<h1 style="font-size:26px;line-height:1.12;letter-spacing:-.02em;font-weight:680;margin:0 0 11px">'+pGreet()+', '+esc(pFirst())+'</h1>'+
+        '<div style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-3)"><span style="width:8px;height:8px;border-radius:50%;background:'+statusDot+';flex:0 0 auto"></span><span>'+statusText+'</span></div>'+
+      '</div>'+
+      needsHtml+
+      '<div class="eyebrow" style="font-size:9.5px;margin:'+(needs.length?'22':'4')+'px 0 11px">Your PRDs</div>'+
+      '<div style="display:grid;gap:12px">'+cards+'</div>'+
+      actHtml+
     '</div></div>'
   )+overlays();
 }
@@ -2175,8 +2248,8 @@ document.addEventListener('click',function(e){
     return;
   }
   if(act==='createorg'){var on=document.getElementById('noorg-name');doCreateOrg(on?on.value.trim():'');return;}
-  if(act==='popen'){APP.partnerView=el.getAttribute('data-id');APP.pnForm={};APP.view='partnerview';render();loadPartnerThread(APP.partnerView);return;}
-  if(act==='preplysend'){var prid=el.getAttribute('data-id');var pin=document.querySelector('[data-preply="'+prid+'"]');var ptx=pin?(pin.value||'').trim():'';if(!ptx){toast('Write a reply first');return;}if(!SB_ON)return;try{SB.rpc('partner_note_reply',{p_note:prid,p_text:ptx}).then(function(r){if(r&&!r.error){if(pin)pin.value='';toast('Reply sent');loadPartnerThread(APP.partnerView);}else{toast('Could not send');}});}catch(e){}return;}
+  if(act==='popen'){var _pv=el.getAttribute('data-id');APP.partnerView=_pv;APP.pnForm={};APP.view='partnerview';pMarkSeen(_pv,pInfo(_pv).ver);render();loadPartnerThread(_pv);return;}
+  if(act==='preplysend'){var prid=el.getAttribute('data-id');var pproj=el.getAttribute('data-proj')||APP.partnerView;var pin=document.querySelector('[data-preply="'+prid+'"]');var ptx=pin?(pin.value||'').trim():'';if(!ptx){toast('Write a reply first');return;}if(!SB_ON)return;try{SB.rpc('partner_note_reply',{p_note:prid,p_text:ptx}).then(function(r){if(r&&!r.error){if(pin)pin.value='';toast('Reply sent');loadPartnerThread(pproj);}else{toast('Could not send');}});}catch(e){}return;}
   if(act==='phome'){APP.view='partner';render();return;}
   if(act==='partnersendnote'){var pf=APP.pnForm||{};if(!pf.text||!pf.text.trim()){pf.error='Write a note first';render();return;}if(!SB_ON){pf.error='Available once the workspace is connected';render();return;}pf.busy=true;pf.error=null;render();try{SB.rpc('partner_submit_note',{p_project:APP.partnerView,p_text:pf.text.trim()}).then(function(r){if(r&&!r.error&&r.data){APP.pnForm={submitted:true};loadPartnerThread(APP.partnerView);}else{pf.busy=false;pf.error='Could not send. Try again.';}render();});}catch(e){pf.busy=false;pf.error='Could not send.';render();}return;}
   if(act==='lock'){DB.del('rm:access');APP.unlocked=false;APP.menuOpen=false;APP.profileOpen=false;APP.orgOpen=false;APP.view='gate';render();return;}
