@@ -255,6 +255,7 @@ function sbShareGet(token,cb){ if(!SB_ON){cb(null);return;} try{ SB.rpc('get_sha
 function sbShareSubmit(token,kind,payload,cb){ if(!SB_ON){cb(false);return;} try{ SB.rpc('submit_share_feedback',{p_token:token,p_kind:kind,p_payload:payload}).then(function(r){ cb(!!(r&&!r.error&&r.data)); }); }catch(e){ cb(false); } }
 function sbSharePut(token,kind,pid,seq,payload){ if(!SB_ON)return; try{ SB.from('shares').upsert({token:token,kind:kind,project_id:pid,version_seq:seq,payload:payload,revoked:false},{onConflict:'token'}).then(function(r){ if(r&&r.error)console.warn('share put',r.error.message); }); }catch(e){} }
 function sbSyncProjectShares(pid){ if(!SB_ON||!pid)return; try{ var vs=DB.get('rm:proj:'+pid+':versions')||[]; vs.forEach(function(v){ sbSharePut(briefToken(pid,v.seq),'brief',pid,v.seq,buildSharePayload(pid,v.seq,'brief')); sbSharePut(fbToken(pid,v.seq),'pilot',pid,v.seq,buildSharePayload(pid,v.seq,'pilot')); }); (noteReqsGet(pid)||[]).forEach(function(q){ sbSharePut(noteToken(pid,q.id),'note',pid,0,noteReqPayload(pid,q)); }); }catch(e){} }
+function sbSendInvite(email,role){ if(!SB_ON||!email)return; try{ SB.functions.invoke('send-invite',{body:{email:email,role:role,orgName:APP.org||'',inviterEmail:(APP.user&&APP.user.email)||''}}).then(function(fr){ if(fr&&fr.error){ toast('Invited '+email+' (email not sent — deploy the send-invite function)'); } else { toast('Invitation emailed to '+email); } },function(){ toast('Invited '+email+' (email not sent yet)'); }); }catch(e){} }
 function sbPullPartnerNotes(cb){
   if(!SB_ON||!SB_ORG){ cb&&cb(); return; }
   try{ SB.from('partner_notes').select('id,project_id,name,text,created_at').then(function(res){
@@ -2058,8 +2059,8 @@ document.addEventListener('click',function(e){
   if(act==='orginvite'){
     if(!SB_ON){toast('Connect the cloud workspace to invite people');return;}
     var otab=APP.orgTab||'members';
-    if(otab==='partners'){var pe=document.getElementById('org-partner-email');var em=pe?(pe.value||'').trim():'';if(!em){toast('Enter a partner email');return;}try{SB.from('partners').insert({org_id:SB_ORG,email:em}).then(function(r){toast(r&&r.error?('Could not invite: '+r.error.message):('Partner invited: '+em));if(!r||!r.error){if(pe)pe.value='';}});}catch(e){}}
-    else{var me=document.getElementById('org-invite-email');var em2=me?(me.value||'').trim():'';var mr=document.getElementById('org-invite-role');var role=mr?(mr.value||'Viewer'):'Viewer';if(!em2){toast('Enter an email');return;}try{SB.from('org_invites').upsert({org_id:SB_ORG,email:em2,role:role.toLowerCase()},{onConflict:'org_id,email'}).then(function(r){toast(r&&r.error?('Could not invite: '+r.error.message):('Invited '+em2+' as '+role));if(!r||!r.error){if(me)me.value='';}});}catch(e){}}
+    if(otab==='partners'){var pe=document.getElementById('org-partner-email');var em=pe?(pe.value||'').trim():'';if(!em){toast('Enter a partner email');return;}try{SB.from('partners').insert({org_id:SB_ORG,email:em}).then(function(r){if(r&&r.error){toast('Could not invite: '+r.error.message);return;}if(pe)pe.value='';toast('Partner invited: '+em+' — emailing…');sbSendInvite(em,'Partner');});}catch(e){}}
+    else{var me=document.getElementById('org-invite-email');var em2=me?(me.value||'').trim():'';var mr=document.getElementById('org-invite-role');var role=mr?(mr.value||'Viewer'):'Viewer';if(!em2){toast('Enter an email');return;}try{SB.from('org_invites').upsert({org_id:SB_ORG,email:em2,role:role.toLowerCase()},{onConflict:'org_id,email'}).then(function(r){if(r&&r.error){toast('Could not invite: '+r.error.message);return;}if(me)me.value='';toast('Invited '+em2+' — emailing…');sbSendInvite(em2,role);});}catch(e){}}
     return;
   }
   if(act==='invitecopy'){
