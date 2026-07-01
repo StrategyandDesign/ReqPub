@@ -38,7 +38,7 @@
           '</div>'+
         '</div>'+
         '<div class="bottom">'+
-          '<span class="copy">© '+YEAR+' [ReqPub, Inc.] · Smart requirements. Better outcomes.</span>'+
+          '<span class="copy">© '+YEAR+' [ReqPub, Inc.] · From discovery to defensible requirements.</span>'+
           '<div class="legal-links">'+
             '<a href="/terms.html">TERMS</a>'+
             '<a href="/privacy.html">PRIVACY</a>'+
