@@ -212,7 +212,7 @@ var DB={
 };
 
 /* ===== Supabase layer (active only when SB_CFG is filled) ===== */
-var SB=null, SB_ON=false, SB_DIRTY={}, SB_TIMER=null, SB_ORG=null;
+var SB=null, SB_ON=false, SB_DIRTY={}, SB_TIMER=null, SB_ORG=null, SB_CH=null, SB_SELF={}, SB_RTIMER=null;
 function sbInit(){ try{ if(SB_CFG.url && SB_CFG.anon && window.supabase){ SB=window.supabase.createClient(SB_CFG.url, SB_CFG.anon); SB_ON=true; } }catch(e){ SB_ON=false; } return SB_ON; }
 function sbPush(k,v){ if(!SB_ON||!SB_ORG||APP.role==='Viewer')return; SB_DIRTY[k]={v:v,del:false}; sbFlushSoon(); }
 function sbDelKey(k){ if(!SB_ON||!SB_ORG||APP.role==='Viewer')return; SB_DIRTY[k]={v:null,del:true}; sbFlushSoon(); }
@@ -221,15 +221,48 @@ function sbFlush(){
   SB_TIMER=null; if(!SB_ON||!SB_ORG)return;
   var keys=Object.keys(SB_DIRTY); if(!keys.length)return;
   var ups=[], dels=[];
-  keys.forEach(function(k){ var d=SB_DIRTY[k]; if(d.del)dels.push(k); else ups.push({org_id:SB_ORG,key:k, value:d.v}); });
+  keys.forEach(function(k){ var d=SB_DIRTY[k]; SB_SELF[k]=Date.now(); if(d.del)dels.push(k); else ups.push({org_id:SB_ORG,key:k, value:d.v}); });
   SB_DIRTY={};
   if(ups.length){ try{ SB.from('kv').upsert(ups,{onConflict:'org_id,key'}).then(function(r){ if(r&&r.error)console.warn('kv upsert',r.error.message); }); }catch(e){} }
   dels.forEach(function(k){ try{ SB.from('kv').delete().eq('org_id',SB_ORG).eq('key',k).then(function(){}); }catch(e){} });
 }
+function purgeProjectCache(){
+  for(var mk in _mem){ if(_mem.hasOwnProperty(mk)&&(mk.indexOf('rm:proj:')===0||mk==='rm:index')) delete _mem[mk]; }
+  try{ var ks=[],i; for(i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k&&(k.indexOf('rm:proj:')===0||k==='rm:index'))ks.push(k); } for(i=0;i<ks.length;i++)localStorage.removeItem(ks[i]); }catch(e){}
+}
+function sbRemoteRefresh(){ if(SB_RTIMER)return; SB_RTIMER=setTimeout(function(){ SB_RTIMER=null; if(APP.activeField)return; render(); },300); }
+function sbApplyRemote(key,value,isDel){
+  if(!key||key.indexOf('rm:')!==0)return;
+  if(SB_DIRTY[key])return;                                  // a local edit is queued for this key; local wins until it flushes
+  if(SB_SELF[key]&&(Date.now()-SB_SELF[key]<3000))return;   // ignore the echo of our own just-flushed write
+  if(isDel){ delete _mem[key]; try{localStorage.removeItem(key);}catch(e){} }
+  else{ _mem[key]=value; try{localStorage.setItem(key,JSON.stringify(value));}catch(e){} }
+  if(!isDel&&APP.pid&&key===('rm:proj:'+APP.pid+':answers')&&value&&typeof value==='object'){
+    var af=(APP.activeField&&APP.activeField.qid)||null;    // merge remote field edits without stomping the field being typed in
+    Object.keys(value).forEach(function(fk){ if(fk!==af) APP.answers[fk]=value[fk]; });
+  }
+  if(!isDel&&APP.pid&&key===('rm:proj:'+APP.pid+':versions')&&Array.isArray(value)){ APP.versions=value; }
+  sbRemoteRefresh();
+}
+function sbUnsubscribe(){ try{ if(SB_CH)SB.removeChannel(SB_CH); }catch(e){} SB_CH=null; }
+function sbSubscribe(){
+  if(!SB_ON||!SB_ORG||!SB.channel)return; sbUnsubscribe();
+  try{
+    SB_CH=SB.channel('kv-'+SB_ORG).on('postgres_changes',{event:'*',schema:'public',table:'kv',filter:'org_id=eq.'+SB_ORG},function(p){
+      try{ var ev=p.eventType||p.event; var isDel=(ev==='DELETE'); var row=isDel?(p.old||{}):(p.new||{}); if(row&&row.key)sbApplyRemote(row.key,row.value,isDel); }catch(e){}
+    }).subscribe();
+  }catch(e){}
+}
+function sbPullProject(id,cb){
+  if(!SB_ON||!SB_ORG){cb&&cb();return;}
+  try{ SB.from('kv').select('key,value').eq('org_id',SB_ORG).like('key','rm:proj:'+id+':%').then(function(res){ if(res&&res.data){ res.data.forEach(function(r){ if(!SB_DIRTY[r.key])_mem[r.key]=r.value; }); } cb&&cb(); }); }catch(e){ cb&&cb(); }
+}
 function sbHydrate(cb){
   if(!SB_ON||!SB_ORG){ cb&&cb(); return; }
+  purgeProjectCache();                                      // drop any other org's cached project data before loading this org
   SB.from('kv').select('key,value').eq('org_id',SB_ORG).then(function(res){
     if(res&&res.data){ res.data.forEach(function(r){ _mem[r.key]=r.value; }); }
+    sbSubscribe();                                          // start live sync for this org
     sbPullSubmissions(function(){ sbPullPartnerNotes(function(){ cb&&cb(); }); });
   });
 }
@@ -686,6 +719,7 @@ function openProject(id){
   APP.viewSeq=null; APP.qi=0; APP.mode='worksheet'; APP.docTab='document'; APP.view='workspace'; APP.fbSeq=null; APP.activeSec=null; APP.fbOpen={}; APP.activeField=null; APP.briefShareOpen=false; APP.discOpen={}; APP.discDraft={}; APP.discFilter={status:'all',q:''}; APP.noteDraft=''; APP.noteEdit={}; APP.noteDel=null; APP.present=false;
   sbSyncProjectShares(id);
   render();
+  sbPullProject(id,function(){ if(APP.pid!==id||APP.activeField)return; APP.answers=DB.get('rm:proj:'+id+':answers')||{}; APP.versions=DB.get('rm:proj:'+id+':versions')||[]; render(); });
 }
 function persistAnswers(){
   DB.set('rm:proj:'+APP.pid+':answers',APP.answers);
@@ -735,14 +769,19 @@ function doDeleteConfirm(code){
 }
 function labelNext(major){
   if(!APP.versions.length)return '1.0';
-  var prev=APP.versions[APP.versions.length-1].label;
-  var maj=parseInt(prev.split('.')[0],10),min=parseInt(prev.split('.')[1]||'0',10);
+  var top=APP.versions.reduce(function(a,b){return ((b&&b.seq)||0)>((a&&a.seq)||0)?b:a;},APP.versions[0]);
+  var prev=(top&&top.label)||'1.0';
+  var maj=parseInt(prev.split('.')[0],10)||1,min=parseInt(prev.split('.')[1]||'0',10)||0;
   return major?((maj+1)+'.0'):(maj+'.'+(min+1));
 }
 function generate(){
   if(!APP.author||!APP.author.trim()){toast('Set your name first');return;}
+  if(SB_ON&&SB_ORG&&APP.pid){ sbPullProject(APP.pid,function(){ var fv=DB.get('rm:proj:'+APP.pid+':versions'); if(Array.isArray(fv))APP.versions=fv; doGenerate(); }); }
+  else doGenerate();
+}
+function doGenerate(){
   var label=labelNext(false);
-  var seq=(APP.versions.length?APP.versions[APP.versions.length-1].seq:0)+1;
+  var seq=APP.versions.reduce(function(m,v){return Math.max(m,(v&&v.seq)||0);},0)+1;
   var tmpVersions=APP.versions.concat([{seq:seq,label:label,createdAt:nowISO(),author:APP.author}]);
   var sections=buildSections(APP.answers,label,tmpVersions);
   var changed=[];
@@ -2526,7 +2565,7 @@ window.addEventListener('storage',function(e){
   if(APP.pid&&e.key===('rm:proj:'+APP.pid+':feedback')&&APP.view==='workspace'&&APP.docTab==='feedback'){refreshDoc();}
 });
 if(SB_ON){
-  try{ SB.auth.onAuthStateChange(function(ev){ if(ev==='SIGNED_OUT'){ _mem={}; APP.user=null; APP.unlocked=false; APP.pid=null; location.replace('/login/'); } }); }catch(e){}
+  try{ SB.auth.onAuthStateChange(function(ev){ if(ev==='SIGNED_OUT'){ sbUnsubscribe(); _mem={}; APP.user=null; APP.unlocked=false; APP.pid=null; location.replace('/login/'); } }); }catch(e){}
   SB.auth.getSession().then(function(res){
     var sess=res&&res.data&&res.data.session;
     var rr=parseHash();
