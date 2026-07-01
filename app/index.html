@@ -1385,7 +1385,7 @@ function renderInbox(){
     if(q){var hay=(it.person+' '+it.title+' '+it.text+' '+it.src).toLowerCase();if(hay.indexOf(q)<0)return false;}
     return true;
   });
-  var header='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;gap:10px"><div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Inbox</h2><div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Every communication on this PRD in one place. '+all.length+' total'+(unread?(' · '+unread+' unread'):'')+'.</div></div>'+(unread?'<button class="btn btn-sec btn-sm" data-action="ibreadall">Mark all read</button>':'')+'</div>';
+  var header='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;gap:10px"><div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Inbox</h2><div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Every communication on this PRD in one place. '+all.length+' total'+(unread?(' · '+unread+' unread'):'')+'.</div></div>'+'<div style="display:flex;gap:8px;flex:0 0 auto">'+(SB_ON?'<button class="btn btn-sec btn-sm" data-action="ibrefresh" title="Check for new replies">Refresh</button>':'')+(unread?'<button class="btn btn-sec btn-sm" data-action="ibreadall">Mark all read</button>':'')+'</div></div>';
   var search='<input class="input" id="ibSearch" data-ibsearch="1" value="'+escA(F.q||'')+'" placeholder="Search people, titles, text" style="margin:12px 0 10px;font-size:13px">';
   var filters='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px"><span class="eyebrow" style="font-size:9px">Source</span><div class="choice">'+srcs.map(schip).join('')+'</div><div style="width:8px"></div><span class="eyebrow" style="font-size:9px">Status</span><div class="choice">'+stats.map(stchip).join('')+'</div></div>';
   var items;
@@ -2183,7 +2183,8 @@ document.addEventListener('click',function(e){
   if(act==='mode'){APP.mode=el.getAttribute('data-val');render();return;}
   if(act==='next'){APP.qi=Math.min(visQ(a).length-1,APP.qi+1);render();return;}
   if(act==='back'){APP.qi=Math.max(0,APP.qi-1);render();return;}
-  if(act==='tab'){APP.docTab=el.getAttribute('data-val');if(APP.docTab==='feedback'||APP.docTab==='notes'||APP.docTab==='links')sbSyncProjectShares(APP.pid);refreshDoc();return;}
+  if(act==='tab'){APP.docTab=el.getAttribute('data-val');if(APP.docTab==='feedback'||APP.docTab==='notes'||APP.docTab==='links')sbSyncProjectShares(APP.pid);if(APP.docTab==='inbox'&&SB_ON&&SB_ORG){sbPullSubmissions(function(){sbPullPartnerNotes(function(){render();});});}refreshDoc();return;}
+  if(act==='ibrefresh'){if(!SB_ON||!SB_ORG)return;toast('Refreshing…');sbPullSubmissions(function(){sbPullPartnerNotes(function(){render();});});return;}
   if(act==='execexport'){execExport();return;}
   if(act==='ibtoggle'){var iid=el.getAttribute('data-id');APP.ibOpen=APP.ibOpen||{};APP.ibOpen[iid]=!APP.ibOpen[iid];if(APP.ibOpen[iid])readMark(APP.pid,iid);refreshDoc();return;}
   if(act==='ibsrc'){APP.inboxFilter=APP.inboxFilter||{src:'all',status:'all',q:''};APP.inboxFilter.src=el.getAttribute('data-val');refreshDoc();return;}
