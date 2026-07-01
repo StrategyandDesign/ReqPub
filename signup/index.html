@@ -185,7 +185,7 @@
         }
       }
       if(!session){
-        show('ok','Almost there — check <strong>'+email+'</strong> to confirm your email, then come back and <a href="/login/">sign in</a>. Your '+(path==='new'?'workspace':'invite')+' will be set up on first sign-in.');
+        show('ok','Almost there. Check<strong>'+email+'</strong> to confirm your email, then come back and <a href="/login/">sign in</a>. Your '+(path==='new'?'workspace':'invite')+' will be set up on first sign-in.');
         btn.disabled=false; btn.firstChild.textContent=label;
         return;
       }
