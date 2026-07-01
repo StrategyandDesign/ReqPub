@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; base-uri 'self'; frame-ancestors 'none'" />
 <title>ReqPub · From discovery to versioned, testable requirements</title>
-<meta name="description" content="ReqPub — from discovery to versioned, testable requirements, for advisory teams and their client technology teams." />
+<meta name="description" content="From discovery to versioned, testable requirements for advisory teams and their client technology teams." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='7' fill='%232563FF'/%3E%3Cpolyline points='14 11 19 16 14 21' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -256,7 +256,7 @@ function sbShareGet(token,cb){ if(!SB_ON){cb(null);return;} try{ SB.rpc('get_sha
 function sbShareSubmit(token,kind,payload,cb){ if(!SB_ON){cb(false);return;} try{ SB.rpc('submit_share_feedback',{p_token:token,p_kind:kind,p_payload:payload}).then(function(r){ cb(!!(r&&!r.error&&r.data)); }); }catch(e){ cb(false); } }
 function sbSharePut(token,kind,pid,seq,payload){ if(!SB_ON)return; try{ SB.from('shares').upsert({token:token,kind:kind,project_id:pid,version_seq:seq,payload:payload,revoked:false},{onConflict:'token'}).then(function(r){ if(r&&r.error)console.warn('share put',r.error.message); }); }catch(e){} }
 function sbSyncProjectShares(pid){ if(!SB_ON||!pid)return; try{ var vs=DB.get('rm:proj:'+pid+':versions')||[]; vs.forEach(function(v){ sbSharePut(briefToken(pid,v.seq),'brief',pid,v.seq,buildSharePayload(pid,v.seq,'brief')); sbSharePut(fbToken(pid,v.seq),'pilot',pid,v.seq,buildSharePayload(pid,v.seq,'pilot')); }); (noteReqsGet(pid)||[]).forEach(function(q){ sbSharePut(noteToken(pid,q.id),'note',pid,0,noteReqPayload(pid,q)); }); }catch(e){} }
-function sbSendInvite(email,role){ if(!SB_ON||!email)return; try{ SB.functions.invoke('send-invite',{body:{email:email,role:role,orgName:APP.org||'',inviterEmail:(APP.user&&APP.user.email)||''}}).then(function(fr){ if(fr&&fr.error){ toast('Invited '+email+' (email not sent — deploy the send-invite function)'); } else { toast('Invitation emailed to '+email); } },function(){ toast('Invited '+email+' (email not sent yet)'); }); }catch(e){} }
+function sbSendInvite(email,role){ if(!SB_ON||!email)return; try{ SB.functions.invoke('send-invite',{body:{email:email,role:role,orgName:APP.org||'',inviterEmail:(APP.user&&APP.user.email)||''}}).then(function(fr){ if(fr&&fr.error){ toast('Invited '+email+' (email not sent, deploy the send-invite function)'); } else { toast('Invitation emailed to '+email); } },function(){ toast('Invited '+email+' (email not sent yet)'); }); }catch(e){} }
 function sbPullPartnerNotes(cb){
   if(!SB_ON||!SB_ORG){ cb&&cb(); return; }
   try{ SB.from('partner_notes').select('id,project_id,name,text,created_at,replies').then(function(res){
@@ -619,9 +619,9 @@ function buildSections(a,label,versions){
 }
 function assemble(sections,a){
   var p=[]; if(sections.control)p.push(sections.control);
-  p.push('## Part I — Product Definition');
+  p.push('## Part I: Product Definition');
   ['overview','users','solution','metrics'].forEach(function(k){if(sections[k])p.push(sections[k]);});
-  p.push('## Part II — Requirements');
+  p.push('## Part II: Requirements');
   ['method','adc','functional','nonfunctional','aieval','data','interfaces','verification','traceability','people','glossary','revision'].forEach(function(k){if(sections[k])p.push(sections[k]);});
   if(a.has_ai==='Yes')p.push(APX_A);
   p.push(APX_B);
@@ -797,7 +797,7 @@ function bFeedback(pid){
   seqs.forEach(function(s){
     var items=byVer[s].slice().sort(function(a,b){return new Date(b.at)-new Date(a.at);});
     var label=items[0].label||('seq '+s);
-    p.push('### v'+label+' — '+items.length+' report'+(items.length===1?'':'s'));
+    p.push('### v'+label+': '+items.length+' report'+(items.length===1?'':'s'));
     items.forEach(function(x){
       var meta=['PRD: v'+(x.label||'')];
       if(x.build&&x.build.trim())meta.push('Build: '+x.build);
@@ -890,7 +890,7 @@ function renderExecSummary(){
   var blk=function(t,inner){return inner?('<div style="margin-bottom:20px">'+eb(t)+inner+'</div>'):'';};
   var metricRows=d.metrics.length?'<div style="display:flex;flex-direction:column;gap:6px">'+d.metrics.map(function(x){return '<div style="display:flex;gap:10px;font-size:13px;border-bottom:1px solid var(--line);padding-bottom:5px"><span style="flex:1;color:var(--ink-2)">'+esc(x.metric)+'</span><span style="font-weight:600;white-space:nowrap">'+esc(x.target||'—')+'</span></div>';}).join('')+'</div>':'';
   var mustRows=d.musts.length?'<div style="display:flex;flex-direction:column;gap:8px">'+d.musts.map(function(r){return '<div style="display:flex;gap:10px;font-size:13px"><span class="mono" style="color:var(--brand);flex:0 0 auto">'+frId(r)+'</span><span style="color:var(--ink-2)">'+esc(r.stmt)+'</span></div>';}).join('')+'</div>':'';
-  var content=empty?'<div class="empty" style="padding:44px">'+ico(IC.doc)+'<div style="font-size:13.5px">Answer the vision, goals, and requirements — the summary builds itself.</div></div>':
+  var content=empty?'<div class="empty" style="padding:44px">'+ico(IC.doc)+'<div style="font-size:13.5px">Answer the vision, goals, and requirements. The summary builds itself.</div></div>':
     blk('Vision',d.vision?para(d.vision):'')+blk('Problem',d.problem?para(d.problem):'')+blk('Top goals',d.goals.length?ul(d.goals):'')+blk('Key metrics',metricRows)+blk('Top Must-have requirements',mustRows)+blk('Key assumptions',d.assume.length?ul(d.assume):'')+blk('Constraints',d.constrain.length?ul(d.constrain):'');
   return '<div class="page"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:10px"><div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Executive summary</h2><div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">'+esc(m.product||'This PRD')+(m.label?(' · '+esc(m.label)):'')+' · auto-derived from the worksheet</div></div>'+(empty?'':'<button class="btn btn-sec btn-sm" data-action="execexport">'+ico(IC.doc,'i-sm')+'Export</button>')+'</div><div style="border-top:1px solid var(--line);padding-top:16px">'+content+'</div></div>';
 }
@@ -958,7 +958,7 @@ function fieldHTML(q){
           if(c.dyn==='components'){
             var opts=(APP.answers.components||[]).map(function(rr){return rr.name;}).filter(function(x){return x&&String(x).trim();});
             var chips='<button class="chip chip-sm'+(cv===''?' on':'')+'" data-action="rowsel" data-qid="'+q.id+'" data-ri="'+i+'" data-col="'+c.k+'" data-val="">Unassigned</button>'+opts.map(function(o){return '<button class="chip chip-sm'+(cv===o?' on':'')+'" data-action="rowsel" data-qid="'+q.id+'" data-ri="'+i+'" data-col="'+c.k+'" data-val="'+escA(o)+'">'+esc(o)+'</button>';}).join('');
-            return '<div><div class="lbl" style="font-size:11px;color:var(--ink-3);font-weight:540">'+esc(c.l)+(opts.length?'':' <span style="color:var(--ink-4);font-weight:440">— define components in Section 3 first</span>')+'</div><div class="choice">'+chips+'</div></div>';
+            return '<div><div class="lbl" style="font-size:11px;color:var(--ink-3);font-weight:540">'+esc(c.l)+(opts.length?'':' <span style="color:var(--ink-4);font-weight:440">Define components in Section 3 first</span>')+'</div><div class="choice">'+chips+'</div></div>';
           }
           if(c.sel){
             return '<div><div class="lbl" style="font-size:11px;color:var(--ink-3);font-weight:540">'+esc(c.l)+'</div><div class="choice">'+c.sel.map(function(o){return '<button class="chip chip-sm'+(cv===o?' on':'')+'" data-action="rowsel" data-qid="'+q.id+'" data-ri="'+i+'" data-col="'+c.k+'" data-val="'+escA(o)+'">'+esc(o)+'</button>';}).join('')+'</div></div>';
@@ -1049,7 +1049,7 @@ function bBrief(a){
   if(goals.length)P.push('## Goals\n\n'+goals.map(function(x){return '- '+x;}).join('\n'));
   var who=[];
   var personas=rowsFilled(a.persona);
-  if(personas.length)who.push(personas.map(function(r){return '- **'+(r.persona||'')+'**'+(r.needs?(' — '+r.needs):'');}).join('\n'));
+  if(personas.length)who.push(personas.map(function(r){return '- **'+(r.persona||'')+'**'+(r.needs?(': '+r.needs):'');}).join('\n'));
   var segs=rowsFilled(a.seg);
   if(segs.length)who.push('**Segments.** '+segs.map(function(r){return (r.segment||'')+(r.desc?(' ('+r.desc+')'):'');}).join('; '));
   if(a.context)who.push('**Where it is used.** '+a.context);
@@ -1058,7 +1058,7 @@ function bBrief(a){
   var inscope=(a.sol_in||[]).filter(Boolean);
   if(inscope.length)P.push('## What it includes\n\n'+inscope.map(function(x){return '- '+x;}).join('\n'));
   var comps=rowsFilled(a.components);
-  if(comps.length)P.push('## The pieces\n\n'+comps.map(function(r){return '- **'+(r.name||'')+'**'+(r.desc?(' — '+r.desc):'');}).join('\n'));
+  if(comps.length)P.push('## The pieces\n\n'+comps.map(function(r){return '- **'+(r.name||'')+'**'+(r.desc?(': '+r.desc):'');}).join('\n'));
   var fr=rowsFilled(a.fr);
   if(fr.length){
     var byc={},order=[];
@@ -1068,7 +1068,7 @@ function bBrief(a){
     if(blocks.length)P.push('## What it will do\n\n'+blocks.join('\n\n'));
   }
   var mets=rowsFilled(a.metrics);
-  if(mets.length)P.push('## What success looks like\n\n'+mets.map(function(r){return '- **'+(r.metric||'')+'**'+(r.target?(' — '+r.target):'')+(r.method?(' (measured by '+r.method+')'):'');}).join('\n'));
+  if(mets.length)P.push('## What success looks like\n\n'+mets.map(function(r){return '- **'+(r.metric||'')+'**'+(r.target?(': '+r.target):'')+(r.method?(' (measured by '+r.method+')'):'');}).join('\n'));
   var oos=(a.sol_out||[]).filter(Boolean);
   if(oos.length)P.push('## Not in scope\n\n'+oos.map(function(x){return '- '+x;}).join('\n'));
   return P.join('\n\n');
@@ -1143,7 +1143,7 @@ function renderNoteIntake(){
   var valid = data && (SB_ON || r.token===noteToken(r.pid,r.rid));
   if(!valid) return wrap('<div class="card" style="padding:40px;text-align:center"><div style="font-size:16px;font-weight:620;margin-bottom:6px">This request link is not valid</div><div style="color:var(--ink-3);font-size:14px;line-height:1.5">It may be invalid or expired. Ask your contact for a current one.</div></div>');
   var f=APP.noteForm||{};
-  if(f.submitted) return wrap('<div class="card" style="padding:44px 40px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:19px;font-weight:660;margin-bottom:6px">Thank you</div><div style="color:var(--ink-3);font-size:14px;margin-bottom:8px">Your input has been sent to the team.</div><div style="color:var(--ink-4);font-size:12.5px;line-height:1.55;margin:0 auto 22px;max-width:340px">What happens next: the team reviews your input against the current version and may reply or fold it into the requirements. Keep this link — you can add more anytime.</div><button class="btn btn-sec" data-action="niagain">Add more</button></div>');
+  if(f.submitted) return wrap('<div class="card" style="padding:44px 40px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:19px;font-weight:660;margin-bottom:6px">Thank you</div><div style="color:var(--ink-3);font-size:14px;margin-bottom:8px">Your input has been sent to the team.</div><div style="color:var(--ink-4);font-size:12.5px;line-height:1.55;margin:0 auto 22px;max-width:340px">What happens next: the team reviews your input against the current version and may reply or fold it into the requirements. Keep this link. You can add more anytime.</div><button class="btn btn-sec" data-action="niagain">Add more</button></div>');
   var thread=(data.thread||[]).map(function(t){return '<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--ink-4);margin-bottom:3px;font-weight:600">'+esc(t.name||'Team')+'</div><div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;white-space:pre-wrap">'+esc(t.text||'')+'</div></div>';}).join('');
   var body='<div style="margin-bottom:22px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><div class="brandmark" style="width:28px;height:28px">'+ico(IC.fwd).replace('class="i ','class="')+'</div><span class="eyebrow" style="font-size:9.5px">Request for input</span></div>'+
     '<h1 style="font-size:24px;letter-spacing:-.02em;font-weight:660;margin:0 0 4px">'+esc(data.title||'We would value your input')+'</h1>'+
@@ -1297,7 +1297,7 @@ function renderFeedbackForm(){
   var product=meta.name;
   var comps=rowsFilled(ans.components).map(function(c){return c.name;});
   var f=APP.fbForm||{};
-  if(f.submitted)return wrap('<div class="card" style="padding:44px 40px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:19px;font-weight:660;margin-bottom:6px">Thank you</div><div style="color:var(--ink-3);font-size:14px;margin-bottom:8px">Your feedback has been submitted to the team.</div><div style="color:var(--ink-4);font-size:12.5px;line-height:1.55;margin:0 auto 22px;max-width:340px">What happens next: the team triages every report by build and version, and may follow up. Keep this link — you can submit more anytime.</div><button class="btn btn-sec" data-action="fbagain">Submit more feedback</button></div>');
+  if(f.submitted)return wrap('<div class="card" style="padding:44px 40px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:19px;font-weight:660;margin-bottom:6px">Thank you</div><div style="color:var(--ink-3);font-size:14px;margin-bottom:8px">Your feedback has been submitted to the team.</div><div style="color:var(--ink-4);font-size:12.5px;line-height:1.55;margin:0 auto 22px;max-width:340px">What happens next: the team triages every report by build and version, and may follow up. Keep this link. You can submit more anytime.</div><button class="btn btn-sec" data-action="fbagain">Submit more feedback</button></div>');
   var chips=function(key,opts,cur){return '<div class="choice">'+opts.map(function(o){return '<button class="chip'+(cur===o?' on':'')+'" data-action="fbset" data-key="'+key+'" data-val="'+escA(o)+'">'+esc(o)+'</button>';}).join('')+'</div>';};
   var field=function(label,inner,req){return '<div style="margin-bottom:18px"><div style="font-size:12.5px;font-weight:560;margin-bottom:7px">'+esc(label)+(req?' <span style="color:var(--ink-4);font-weight:440">required</span>':'')+'</div>'+inner+'</div>';};
   var isBug=f.type==='Bug';
@@ -2129,7 +2129,7 @@ document.addEventListener('click',function(e){
   var el=e.target.closest('[data-action]'); if(!el)return;
   var act=el.getAttribute('data-action');
   var a=APP.answers;
-  if(!canEdit()){var WRITE={generate:1,choice:1,rowsel:1,addrow:1,delrow:1,addlist:1,dellist:1,del:1,delconfirm:1,noteadd:1,nropen:1,nrsave:1,nrdelete:1,nrclose:1,notetask:1,notedone:1,notedelete:1,notesave:1,notepromreq:1,notepromdisc:1,notekeep:1,notearchive:1,noterestore:1,discadd:1,discsave:1,discpromote:1,fbnote:1,fbpromote:1,buildset:1,ibreply:1,orginvite:1};if(WRITE[act]){toast('Read-only — your role is '+(APP.role||'Viewer'));return;}}
+  if(!canEdit()){var WRITE={generate:1,choice:1,rowsel:1,addrow:1,delrow:1,addlist:1,dellist:1,del:1,delconfirm:1,noteadd:1,nropen:1,nrsave:1,nrdelete:1,nrclose:1,notetask:1,notedone:1,notedelete:1,notesave:1,notepromreq:1,notepromdisc:1,notekeep:1,notearchive:1,noterestore:1,discadd:1,discsave:1,discpromote:1,fbnote:1,fbpromote:1,buildset:1,ibreply:1,orginvite:1};if(WRITE[act]){toast('Read-only. Your role is'+(APP.role||'Viewer'));return;}}
   var saveScroll=function(){var p=document.getElementById('intakePane');return p?p.scrollTop:0;};
   var restoreScroll=function(top){var p=document.getElementById('intakePane');if(p)p.scrollTop=top;};
   if(act==='new'){var n=document.getElementById('newName');var nm=n?n.value.trim():'';if(nm)newProject(nm);return;}
@@ -2156,8 +2156,8 @@ document.addEventListener('click',function(e){
   if(act==='orginvite'){
     if(!SB_ON){toast('Connect the cloud workspace to invite people');return;}
     var otab=APP.orgTab||'members';
-    if(otab==='partners'){var pe=document.getElementById('org-partner-email');var em=pe?(pe.value||'').trim():'';if(!em){toast('Enter a partner email');return;}try{SB.from('partners').insert({org_id:SB_ORG,email:em}).then(function(r){if(r&&r.error){toast('Could not invite: '+r.error.message);return;}if(pe)pe.value='';toast('Partner invited: '+em+' — emailing…');sbSendInvite(em,'Partner');});}catch(e){}}
-    else{var me=document.getElementById('org-invite-email');var em2=me?(me.value||'').trim():'';var mr=document.getElementById('org-invite-role');var role=mr?(mr.value||'Viewer'):'Viewer';if(!em2){toast('Enter an email');return;}try{SB.from('org_invites').upsert({org_id:SB_ORG,email:em2,role:role.toLowerCase()},{onConflict:'org_id,email'}).then(function(r){if(r&&r.error){toast('Could not invite: '+r.error.message);return;}if(me)me.value='';toast('Invited '+em2+' — emailing…');sbSendInvite(em2,role);});}catch(e){}}
+    if(otab==='partners'){var pe=document.getElementById('org-partner-email');var em=pe?(pe.value||'').trim():'';if(!em){toast('Enter a partner email');return;}try{SB.from('partners').insert({org_id:SB_ORG,email:em}).then(function(r){if(r&&r.error){toast('Could not invite: '+r.error.message);return;}if(pe)pe.value='';toast('Partner invited: '+em+', emailing…');sbSendInvite(em,'Partner');});}catch(e){}}
+    else{var me=document.getElementById('org-invite-email');var em2=me?(me.value||'').trim():'';var mr=document.getElementById('org-invite-role');var role=mr?(mr.value||'Viewer'):'Viewer';if(!em2){toast('Enter an email');return;}try{SB.from('org_invites').upsert({org_id:SB_ORG,email:em2,role:role.toLowerCase()},{onConflict:'org_id,email'}).then(function(r){if(r&&r.error){toast('Could not invite: '+r.error.message);return;}if(me)me.value='';toast('Invited '+em2+', emailing…');sbSendInvite(em2,role);});}catch(e){}}
     return;
   }
   if(act==='invitecopy'){
@@ -2169,8 +2169,8 @@ document.addEventListener('click',function(e){
     var icMsg='You are invited to the '+((APP.org)||'ReqPub')+' workspace on ReqPub as a '+icRole+'. To join: open '+location.origin+'/signup , sign up with the email '+icEmail+', and choose "I was invited".';
     try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(icMsg); }catch(e){}
     try{
-      if(icTab==='partners'){ SB.from('partners').insert({org_id:SB_ORG,email:icEmail}).then(function(r){toast(r&&r.error?('Copied, but not saved: '+r.error.message):('Invite copied — paste it to '+icEmail));}); }
-      else{ SB.from('org_invites').upsert({org_id:SB_ORG,email:icEmail,role:icRole.toLowerCase()},{onConflict:'org_id,email'}).then(function(r){toast(r&&r.error?('Copied, but not saved: '+r.error.message):('Invite copied — paste it to '+icEmail));}); }
+      if(icTab==='partners'){ SB.from('partners').insert({org_id:SB_ORG,email:icEmail}).then(function(r){toast(r&&r.error?('Copied, but not saved: '+r.error.message):('Invite copied, paste it to'+icEmail));}); }
+      else{ SB.from('org_invites').upsert({org_id:SB_ORG,email:icEmail,role:icRole.toLowerCase()},{onConflict:'org_id,email'}).then(function(r){toast(r&&r.error?('Copied, but not saved: '+r.error.message):('Invite copied, paste it to'+icEmail));}); }
     }catch(e){}
     return;
   }
