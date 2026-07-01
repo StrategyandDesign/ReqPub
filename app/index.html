@@ -703,7 +703,7 @@ function normalizeSample(s){
   return a;
 }
 function nextK(qid){var n=(APP.answers['__k_'+qid]||0)+1;APP.answers['__k_'+qid]=n;return n;}
-function newProject(name,prefill){
+function makeProject(name,prefill){
   var id=uid();
   var meta={id:id,name:name||'Untitled product',createdAt:nowISO(),updatedAt:nowISO(),latestSeq:0,latestLabel:'Draft'};
   var ans=prefill?normalizeSample(prefill):{};
@@ -711,7 +711,14 @@ function newProject(name,prefill){
   DB.set('rm:proj:'+id+':answers',ans);
   DB.set('rm:proj:'+id+':versions',[]);
   indexSet([meta].concat(indexGet()));
-  openProject(id);
+  return id;
+}
+function newProject(name,prefill){ openProject(makeProject(name,prefill)); }
+function seedPastPRDs(){
+  var have={}; indexGet().forEach(function(p){ have[(p.name||'').toLowerCase()]=1; });
+  var defs=[['RecordMade',SAMPLE_RM],['Fathering Excellence Profile',SAMPLE_FA]];
+  var made=0; defs.forEach(function(d){ if(!have[d[0].toLowerCase()]){ makeProject(d[0],d[1]); made++; } });
+  return made;
 }
 function deleteProject(id){
   var vs=DB.get('rm:proj:'+id+':versions')||[];
@@ -1791,7 +1798,7 @@ function onboardBlock(){return '<div class="card rise" style="grid-column:1/-1;p
     onbStep('2','Generate a version','Baseline v1.0 with one click.')+
     onbStep('3','Share & collect','Send a review or pilot link; replies land in your Inbox.')+
   '</div>'+
-  '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn btn-primary" data-action="sample" data-which="recordmade">'+ico(IC.spark)+'Load an example project</button><span style="font-size:12.5px;color:var(--ink-4)">or name a product above to start blank</span></div>'+
+  '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn btn-primary" data-action="seedpast">'+ico(IC.spark)+'Load our past PRDs</button><span style="font-size:12.5px;color:var(--ink-4)">Adds RecordMade and the Fathers Profile App, or name a product above to start blank</span></div>'+
 '</div>';}
 function dashActivity(list){
   var items=[];
@@ -1850,7 +1857,7 @@ function viewProjects(){
         '<p style="color:var(--ink-3);max-width:520px;font-size:15.5px;line-height:1.6;margin:0">One guided process from workshop input to a versioned, testable requirements document.</p></div>'+
       '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms">'+
         '<div style="display:flex;gap:10px;flex-wrap:wrap"><input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product to specify">'+
-        '<button class="btn btn-primary" style="height:46px" data-action="new">'+ico(IC.plus)+'New project</button>'+(function(){var _lp=DB.get('rm:lastpid');var _lpp=_lp&&list.filter(function(p){return p.id===_lp;})[0];return _lpp?'<button class="btn btn-sec" style="height:46px" data-action="open" data-id="'+_lpp.id+'">'+ico(IC.fwd)+'Resume '+esc(_lpp.name.length>16?(_lpp.name.slice(0,16)+'…'):_lpp.name)+'</button>':'';})()+'</div></div>'+
+        '<button class="btn btn-primary" style="height:46px" data-action="new">'+ico(IC.plus)+'New project</button>'+(function(){var _lp=DB.get('rm:lastpid');var _lpp=_lp&&list.filter(function(p){return p.id===_lp;})[0];return _lpp?'<button class="btn btn-sec" style="height:46px" data-action="open" data-id="'+_lpp.id+'">'+ico(IC.fwd)+'Resume '+esc(_lpp.name.length>16?(_lpp.name.slice(0,16)+'…'):_lpp.name)+'</button>':'';})()+(function(){if(!canEdit())return '';var have={};list.forEach(function(p){have[(p.name||'').toLowerCase()]=1;});var miss=(!have['recordmade'])||(!have['fathering excellence profile']);return miss?'<button class="btn btn-sec" style="height:46px" data-action="seedpast" title="Load RecordMade and the Fathers Profile App into this workspace">'+ico(IC.spark)+'Load past PRDs</button>':'';})()+'</div></div>'+
       banner+(list.length?(dashImpact(list)+dashActivity(list)):'')+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'+cards+'</div>'+
     '</div></div>'+delModal
   )+overlays();
@@ -2202,11 +2209,12 @@ document.addEventListener('click',function(e){
   var el=e.target.closest('[data-action]'); if(!el)return;
   var act=el.getAttribute('data-action');
   var a=APP.answers;
-  if(!canEdit()){var WRITE={generate:1,choice:1,rowsel:1,addrow:1,delrow:1,addlist:1,dellist:1,del:1,delconfirm:1,noteadd:1,nropen:1,nrsave:1,nrdelete:1,nrclose:1,notetask:1,notedone:1,notedelete:1,notesave:1,notepromreq:1,notepromdisc:1,notekeep:1,notearchive:1,noterestore:1,discadd:1,discsave:1,discpromote:1,fbnote:1,fbpromote:1,buildset:1,ibreply:1,orginvite:1};if(WRITE[act]){toast('Read-only. Your role is'+(APP.role||'Viewer'));return;}}
+  if(!canEdit()){var WRITE={generate:1,choice:1,rowsel:1,addrow:1,delrow:1,addlist:1,dellist:1,del:1,delconfirm:1,noteadd:1,nropen:1,nrsave:1,nrdelete:1,nrclose:1,notetask:1,notedone:1,notedelete:1,notesave:1,notepromreq:1,notepromdisc:1,notekeep:1,notearchive:1,noterestore:1,discadd:1,discsave:1,discpromote:1,fbnote:1,fbpromote:1,buildset:1,ibreply:1,orginvite:1,seedpast:1};if(WRITE[act]){toast('Read-only. Your role is'+(APP.role||'Viewer'));return;}}
   var saveScroll=function(){var p=document.getElementById('intakePane');return p?p.scrollTop:0;};
   var restoreScroll=function(top){var p=document.getElementById('intakePane');if(p)p.scrollTop=top;};
   if(act==='new'){var n=document.getElementById('newName');var nm=n?n.value.trim():'';if(nm)newProject(nm);return;}
   if(act==='sample'){var w=el.getAttribute('data-which');newProject(w==='recordmade'?'RecordMade':'Fathering Excellence Profile',w==='recordmade'?SAMPLE_RM:SAMPLE_FA);return;}
+  if(act==='seedpast'){var made=seedPastPRDs();toast(made?('Added '+made+' PRD'+(made>1?'s':'')+' to '+(orgName()||'your workspace')):'Both PRDs are already in this workspace');APP.view='projects';APP.pid=null;render();return;}
   if(act==='opentab'){var oid=el.getAttribute('data-id');if(indexGet().some(function(p){return p.id===oid;})){openProject(oid);APP.docTab=el.getAttribute('data-tab')||'document';render();}return;}
   if(act==='open'){openProject(el.getAttribute('data-id'));return;}
   if(act==='del'){var did=el.getAttribute('data-id');var dpn=indexGet().filter(function(p){return p.id===did;})[0];APP.delPending={id:did,name:dpn?dpn.name:'this project'};APP.delCode='';APP.delError=null;render();return;}
