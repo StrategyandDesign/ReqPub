@@ -752,6 +752,7 @@ function generate(){
   var idx=indexGet().map(function(p){return p.id===APP.pid?Object.assign({},p,{latestSeq:seq,latestLabel:label,updatedAt:nowISO()}):p;});
   indexSet(idx);
   APP.versions=versions; APP.viewSeq=null;
+  sbSyncProjectShares(APP.pid);   // publish the new version's brief/pilot shares so partners see the latest
   APP.docTab=(versions.length>1)?'changes':'document';
   toast('Saved v'+label);
   render();
