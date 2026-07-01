@@ -1,0 +1,4 @@
+# ReqPub — Netlify/Cloudflare Pages redirects
+# Serve the marketing page at the site root. The app lives at /index.html
+# (gated in local mode until the Supabase backend + accounts are wired).
+/            /landing.html            200
