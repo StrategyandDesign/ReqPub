@@ -254,6 +254,7 @@ function sbPullSubmissions(cb){
 function sbShareGet(token,cb){ if(!SB_ON){cb(null);return;} try{ SB.rpc('get_share',{p_token:token}).then(function(r){ cb(r&&!r.error?r.data:null); }); }catch(e){ cb(null); } }
 function sbShareSubmit(token,kind,payload,cb){ if(!SB_ON){cb(false);return;} try{ SB.rpc('submit_share_feedback',{p_token:token,p_kind:kind,p_payload:payload}).then(function(r){ cb(!!(r&&!r.error&&r.data)); }); }catch(e){ cb(false); } }
 function sbSharePut(token,kind,pid,seq,payload){ if(!SB_ON)return; try{ SB.from('shares').upsert({token:token,kind:kind,project_id:pid,version_seq:seq,payload:payload,revoked:false},{onConflict:'token'}).then(function(r){ if(r&&r.error)console.warn('share put',r.error.message); }); }catch(e){} }
+function sbSyncProjectShares(pid){ if(!SB_ON||!pid)return; try{ var vs=DB.get('rm:proj:'+pid+':versions')||[]; vs.forEach(function(v){ sbSharePut(briefToken(pid,v.seq),'brief',pid,v.seq,buildSharePayload(pid,v.seq,'brief')); sbSharePut(fbToken(pid,v.seq),'pilot',pid,v.seq,buildSharePayload(pid,v.seq,'pilot')); }); (noteReqsGet(pid)||[]).forEach(function(q){ sbSharePut(noteToken(pid,q.id),'note',pid,0,noteReqPayload(pid,q)); }); }catch(e){} }
 function sbPullPartnerNotes(cb){
   if(!SB_ON||!SB_ORG){ cb&&cb(); return; }
   try{ SB.from('partner_notes').select('id,project_id,name,text,created_at').then(function(res){
@@ -674,6 +675,7 @@ function openProject(id){
   APP.answers=DB.get('rm:proj:'+id+':answers')||{};
   APP.versions=DB.get('rm:proj:'+id+':versions')||[];
   APP.viewSeq=null; APP.qi=0; APP.mode='worksheet'; APP.docTab='document'; APP.view='workspace'; APP.fbSeq=null; APP.activeSec=null; APP.fbOpen={}; APP.activeField=null; APP.briefShareOpen=false; APP.discOpen={}; APP.discDraft={}; APP.discFilter={status:'all',q:''}; APP.noteDraft=''; APP.noteEdit={}; APP.noteDel=null; APP.present=false;
+  sbSyncProjectShares(id);
   render();
 }
 function persistAnswers(){
@@ -2068,7 +2070,7 @@ document.addEventListener('click',function(e){
   if(act==='mode'){APP.mode=el.getAttribute('data-val');render();return;}
   if(act==='next'){APP.qi=Math.min(visQ(a).length-1,APP.qi+1);render();return;}
   if(act==='back'){APP.qi=Math.max(0,APP.qi-1);render();return;}
-  if(act==='tab'){APP.docTab=el.getAttribute('data-val');refreshDoc();return;}
+  if(act==='tab'){APP.docTab=el.getAttribute('data-val');if(APP.docTab==='feedback'||APP.docTab==='notes'||APP.docTab==='links')sbSyncProjectShares(APP.pid);refreshDoc();return;}
   if(act==='ibtoggle'){var iid=el.getAttribute('data-id');APP.ibOpen=APP.ibOpen||{};APP.ibOpen[iid]=!APP.ibOpen[iid];if(APP.ibOpen[iid])readMark(APP.pid,iid);refreshDoc();return;}
   if(act==='ibsrc'){APP.inboxFilter=APP.inboxFilter||{src:'all',status:'all',q:''};APP.inboxFilter.src=el.getAttribute('data-val');refreshDoc();return;}
   if(act==='ibstatus'){APP.inboxFilter=APP.inboxFilter||{src:'all',status:'all',q:''};APP.inboxFilter.status=el.getAttribute('data-val');refreshDoc();return;}
