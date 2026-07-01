@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; base-uri 'self'; frame-ancestors 'none'" />
-<title>ReqPub · Discovery to Requirements</title>
-<meta name="description" content="ReqPub turns structured product discovery into a versioned, shareable requirements document." />
+<title>ReqPub · From discovery to versioned, testable requirements</title>
+<meta name="description" content="ReqPub — from discovery to versioned, testable requirements, for advisory teams and their client technology teams." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='7' fill='%232563FF'/%3E%3Cpolyline points='14 11 19 16 14 21' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -399,9 +399,9 @@ var Q=[
   {id:'ctrl_status',sec:'control',type:'choice',prompt:'Status',options:['Draft','In Review','Approved'],help:'Lifecycle state of this baseline.'},
   {id:'ctrl_approvers',sec:'control',type:'rows',prompt:'Approvals',help:'The roles that sign off this document.',add:'Add approver',cols:[{k:'role',l:'Role',ph:'Product / Engineering / Data and Privacy / Sponsor'},{k:'name',l:'Name',ph:'Name'}]},
 
-  {id:'ov_purpose',sec:'overview',type:'long',prompt:'Purpose and audience of this document',help:'Why this document exists and who reads it.',ph:'This document defines the requirements for ... It is written for ...'},
+  {id:'ov_purpose',sec:'overview',type:'long',prompt:'Purpose and audience of this document',help:'Why this document exists, who will read it, and how the technology team will use it.',ph:'This document defines the requirements for ... It is written for ...'},
   {id:'ov_vision',sec:'overview',type:'long',prompt:'Product vision',help:'The long-term vision and the value delivered to users and the business.',req:true},
-  {id:'ov_problem',sec:'overview',type:'long',prompt:'Problem statement',help:'The user pain or business opportunity, with evidence where you have it, and why it matters now.',req:true},
+  {id:'ov_problem',sec:'overview',type:'long',prompt:'Problem statement',help:'The user pain or business opportunity, with evidence where you have it, and why solving it matters for the client right now.',req:true},
   {id:'ov_market',sec:'overview',type:'long',prompt:'Opportunity and market',help:'Market size and the segments served. Numbers where you have them.'},
   {id:'ov_goals',sec:'overview',type:'list',prompt:'Goals and objectives',help:'Each measurable where possible.',add:'Add goal',ph:'A measurable goal'},
 
@@ -411,7 +411,7 @@ var Q=[
 
   {id:'sol_solution',sec:'solution',type:'long',prompt:'The solution and its core capability',help:'Describe the solution at a high level and the capability that addresses the problem.',req:true},
   {id:'sol_in',sec:'solution',type:'list',prompt:'In scope',help:'What the product will do, stated as capabilities rather than feature names.',add:'Add capability',ph:'A capability'},
-  {id:'sol_out',sec:'solution',type:'list',prompt:'Out of scope',help:'What the product will not do. The strongest defense against scope creep. Do not leave it blank.',add:'Add exclusion',ph:'An exclusion'},
+  {id:'sol_out',sec:'solution',type:'list',prompt:'Out of scope',help:'What the product will not do. The clearest protection against scope creep during handoff. Do not leave it blank.',add:'Add exclusion',ph:'An exclusion'},
   {id:'staged',sec:'solution',type:'choice',prompt:'Is the product staged across releases?',options:['Yes','No'],help:'If yes, you will describe each release.'},
   {id:'release',sec:'solution',type:'rows',prompt:'Release plan',help:'Each release and its objective.',add:'Add release',cond:function(a){return a.staged==='Yes';},cols:[{k:'rel',l:'Release',ph:'e.g. V1 Foundational'},{k:'obj',l:'Objective',ph:'What this release delivers'},{k:'mvp',l:'MVP date',ph:'to confirm'},{k:'ship',l:'Release date',ph:'to confirm'}]},
   {id:'components',sec:'solution',type:'rows',prompt:'Components and workstreams',help:'Large sub-features and workstreams delivered inside this product, each with an owner and a status. A sub-feature stays in this one document. Tag its requirements to it in Sections 7 to 11. A component is a vertical slice that can span functional, non-functional, evaluation, and interface requirements.',add:'Add component',cols:[{k:'name',l:'Component',ph:'e.g. E-Signature'},{k:'owner',l:'Owner',ph:'Who owns it'},{k:'status',l:'Status',sel:['Planned','Active','In Review','Shipped','Blocked']},{k:'desc',l:'Description',ph:'One line'}]},
@@ -793,7 +793,7 @@ function bFeedback(pid){
   var byVer={}; all.forEach(function(x){(byVer[x.seq]=byVer[x.seq]||[]).push(x);});
   var seqs=Object.keys(byVer).map(Number).sort(function(a,b){return b-a;});
   var p=['## Appendix C. Pilot Feedback'];
-  p.push('All feedback received during pilot testing, grouped by the version it was filed against. '+all.length+' total.');
+  p.push('All feedback received, grouped by version. Triage, assign, and promote the highest-signal items directly into requirements. '+all.length+' total.');
   seqs.forEach(function(s){
     var items=byVer[s].slice().sort(function(a,b){return new Date(b.at)-new Date(a.at);});
     var label=items[0].label||('seq '+s);
@@ -1201,7 +1201,7 @@ function renderPartnerHome(){
   return shell(
     '<div class="topbar"><div style="display:flex;align-items:center;gap:11px"><div class="brandmark">'+ico(IC.fwd).replace('class="i ','class="')+'</div><div><div style="font-weight:660;letter-spacing:-.02em;font-size:15px">ReqPub</div><div class="eyebrow" style="font-size:9.5px;letter-spacing:.18em;margin-top:1px">Partner portal</div></div></div>'+userMenu()+'</div>'+
     '<div style="flex:1;overflow-y:auto"><div class="wrap">'+
-      '<div class="rise" style="margin-bottom:30px"><h1 style="font-size:30px;line-height:1.1;letter-spacing:-.03em;font-weight:660;margin:0 0 10px">Your PRDs</h1><p style="color:var(--ink-3);font-size:15px;margin:0">Review the PRDs shared with you and send notes back to the team.</p></div>'+
+      '<div class="rise" style="margin-bottom:30px"><h1 style="font-size:30px;line-height:1.1;letter-spacing:-.03em;font-weight:660;margin:0 0 10px">Your PRDs</h1><p style="color:var(--ink-3);font-size:15px;margin:0">Review the requirements document prepared for you. Add notes on what is missing, unclear, or at risk.</p></div>'+
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'+cards+'</div>'+
     '</div></div>'
   )+overlays();
@@ -1524,7 +1524,7 @@ function renderDiscovery(){
   var STAT=['Open','Decided','Parked'];
   var SRC=['Customer','Internal','SME','Partner','Other'];
   var statusSel='<select class="input" data-action="discfilter" style="height:34px;padding:0 10px;width:auto;font-size:12px"><option value="all"'+(DF.status==='all'?' selected':'')+'>All status</option>'+STAT.map(function(s){return '<option value="'+s+'"'+(DF.status===s?' selected':'')+'>'+esc(s)+'</option>';}).join('')+'</select>';
-  var headerRow='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px"><div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Discovery</h2><div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Log of product conversations. Decisions promote into requirements.</div></div>'+statusSel+'</div>';
+  var headerRow='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px"><div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Discovery</h2><div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Capture workshop takeaways and external input. Promote the strongest items directly into the requirements document.</div></div>'+statusSel+'</div>';
   var search='<input class="input" id="discSearch" data-disc="__q" value="'+escA(DF.q||'')+'" placeholder="Search conversations, decisions, tags" style="margin-bottom:14px;font-size:13px">';
   var dr=APP.discDraft||{};
   var composer;
@@ -1745,8 +1745,8 @@ function viewProjects(){
   var _role=APP.role||'Manager';
   var _agg={unread:0,open:0,reqs:0,overdue:0};
   list.forEach(function(p){var s=projectStats(p.id);_agg.unread+=s.unread;_agg.open+=s.open;_agg.reqs+=s.reqs;_agg.overdue+=s.overdue;});
-  var _bi=[]; if(_agg.unread)_bi.push(_agg.unread+' new'); if(_role!=='Viewer'){ if(_agg.open)_bi.push(_agg.open+' to review'); if(_agg.reqs)_bi.push(_agg.reqs+' request'+(_agg.reqs===1?'':'s')+' out'); if(_agg.overdue)_bi.push(_agg.overdue+' past due'); }
-  var banner=_bi.length?('<div class="card rise" style="padding:16px 18px;margin-bottom:18px;border:1px solid var(--sky-2);background:#f7faff;display:flex;align-items:center;gap:12px"><div style="width:38px;height:38px;border-radius:11px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto">'+ico(IC.msg)+'</div><div><div style="font-size:14px;font-weight:640">'+(_role==='Viewer'?'What’s new':'At a glance')+'</div><div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">'+esc(_bi.join(' · '))+' across your PRDs.</div></div></div>'):'';
+  var _bi=[]; if(_agg.unread)_bi.push(_agg.unread+' new feedback item'+(_agg.unread===1?'':'s')); if(_role!=='Viewer'){ if(_agg.open)_bi.push(_agg.open+' item'+(_agg.open===1?'':'s')+' awaiting review'); if(_agg.reqs)_bi.push(_agg.reqs+' input request'+(_agg.reqs===1?'':'s')+' currently open'); if(_agg.overdue)_bi.push(_agg.overdue+' past due'); }
+  var banner=_bi.length?('<div class="card rise" style="padding:16px 18px;margin-bottom:18px;border:1px solid var(--sky-2);background:#f7faff;display:flex;align-items:center;gap:12px"><div style="width:38px;height:38px;border-radius:11px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto">'+ico(IC.msg)+'</div><div><div style="font-size:14px;font-weight:640">'+(_role==='Viewer'?'What’s new':'At a glance')+'</div><div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">'+esc(_bi.join(' · '))+'</div></div></div>'):'';
   var cards=list.length?list.map(function(p,i){
     var s=projectStats(p.id);
     var cb=(s.unread?'<span class="pill pill-solid">'+s.unread+' new</span>':'')+(s.open?'<span class="pill">'+s.open+' open</span>':'')+(s.overdue?'<span class="pill" style="border-color:#b42318;color:#b42318">'+s.overdue+' overdue</span>':'');
@@ -1774,7 +1774,7 @@ function viewProjects(){
     '<div class="topbar"><div style="display:flex;align-items:center;gap:11px"><div class="brandmark">'+ico(IC.fwd).replace('class="i ','class="')+'</div><div><div style="font-weight:660;letter-spacing:-.02em;font-size:15px">ReqPub</div><div class="eyebrow" style="font-size:9.5px;letter-spacing:.18em;margin-top:1px">Discovery to Requirements</div></div>'+(orgName()?'<div style="width:1px;height:26px;background:var(--line-2);margin:0 3px"></div><button class="acctchip" data-action="orgopen" data-val="settings" title="Platform account"><span class="acctdot">'+esc(orgName().charAt(0).toUpperCase())+'</span>'+esc(orgName())+'</button>':'')+'</div>'+userMenu()+'</div>'+
     '<div style="flex:1;overflow-y:auto"><div class="wrap">'+
       '<div class="rise" style="margin-bottom:40px"><h1 style="font-size:38px;line-height:1.08;letter-spacing:-.03em;font-weight:660;margin:0 0 12px;white-space:nowrap">Discovery to Requirements.</h1>'+
-        '<p style="color:var(--ink-3);max-width:520px;font-size:15.5px;line-height:1.6;margin:0">Structured discovery that produces a versioned requirements document.</p></div>'+
+        '<p style="color:var(--ink-3);max-width:520px;font-size:15.5px;line-height:1.6;margin:0">One guided process from workshop input to a versioned, testable requirements document.</p></div>'+
       '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms">'+
         '<div style="display:flex;gap:10px;flex-wrap:wrap"><input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product to specify">'+
         '<button class="btn btn-primary" style="height:46px" data-action="new">'+ico(IC.plus)+'New project</button>'+(function(){var _lp=DB.get('rm:lastpid');var _lpp=_lp&&list.filter(function(p){return p.id===_lp;})[0];return _lpp?'<button class="btn btn-sec" style="height:46px" data-action="open" data-id="'+_lpp.id+'">'+ico(IC.fwd)+'Resume '+esc(_lpp.name.length>16?(_lpp.name.slice(0,16)+'…'):_lpp.name)+'</button>':'';})()+'</div></div>'+
@@ -1873,7 +1873,7 @@ function lastChangeBanner(){
     summary=parts.length?parts.join('  ·  '):'Metadata only.';
   }
   var who=meta.author&&meta.author.trim()?meta.author:'an unnamed editor';
-  var unsaved=(APP.viewSeq==null&&hasUnsaved())?'<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)"><strong>Unsaved edits.</strong> Save a new version to record them'+(APP.author&&APP.author.trim()?' as '+esc(APP.author):'')+'.</div>':'';
+  var unsaved=(APP.viewSeq==null&&hasUnsaved())?'<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)"><strong>Unsaved changes.</strong> Generate a new version to lock them in and create a clean baseline for review'+(APP.author&&APP.author.trim()?' as '+esc(APP.author):'')+'.</div>':'';
   return '<div class="page" style="padding-top:16px;padding-bottom:0;max-width:660px"><div style="border:1px solid var(--line-2);border-radius:12px;background:var(--bg);padding:13px 15px">'+
     '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap"><span class="pill pill-solid"><span class="mono">v'+esc(meta.label)+'</span></span>'+
     '<span style="font-size:13.5px;color:var(--ink)"><strong>Last edited by '+esc(who)+'</strong></span>'+
@@ -1900,7 +1900,7 @@ function renderDoc(){
   var content;
   if(APP.docTab==='document'){
     content=d.md?(lastChangeBanner()+'<div class="page"><div class="doc-anim">'+mdToHtml(d.md)+'</div></div>'):
-      '<div class="empty">'+ico(IC.doc)+'<div style="font-size:14.5px;color:var(--ink-2);font-weight:560;margin-bottom:4px">The document builds here</div><div style="font-size:13px;max-width:240px">Answer the questions on the left.</div></div>';
+      '<div class="empty">'+ico(IC.doc)+'<div style="font-size:14.5px;color:var(--ink-2);font-weight:560;margin-bottom:4px">The requirements document builds here as you answer</div><div style="font-size:13px;max-width:240px">Start with Overview on the left.</div></div>';
     if(APP.briefShareOpen)content=briefSharePanel()+content;
   }else if(APP.docTab==='summary'){content=renderExecSummary();}
   else if(APP.docTab==='changes'){content=renderChanges();}
