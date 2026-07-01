@@ -673,6 +673,7 @@ function indexSet(list){DB.set('rm:index',list);}
 function loadProjects(){return indexGet();}
 function openProject(id){
   APP.pid=id;
+  try{DB.set('rm:lastpid',id);}catch(e){}
   APP.answers=DB.get('rm:proj:'+id+':answers')||{};
   APP.versions=DB.get('rm:proj:'+id+':versions')||[];
   APP.viewSeq=null; APP.qi=0; APP.mode='worksheet'; APP.docTab='document'; APP.view='workspace'; APP.fbSeq=null; APP.activeSec=null; APP.fbOpen={}; APP.activeField=null; APP.briefShareOpen=false; APP.discOpen={}; APP.discDraft={}; APP.discFilter={status:'all',q:''}; APP.noteDraft=''; APP.noteEdit={}; APP.noteDel=null; APP.present=false;
@@ -979,6 +980,7 @@ function notesGet(pid){return DB.get('rm:proj:'+pid+':notes')||[];}
 function notesSet(pid,arr){DB.set('rm:proj:'+pid+':notes',arr);}
 function notesAdd(pid,rec){var arr=notesGet(pid);arr.unshift(rec);notesSet(pid,arr);}
 function noteReqsGet(pid){return DB.get('rm:proj:'+pid+':noteReqs')||[];}
+function suggestFit(stmt){ stmt=(stmt||'').replace(/\s+/g,' ').trim(); if(!stmt)return ''; var s=stmt.split(/[.!?\n]/)[0].trim(); if(s.length>110)s=s.slice(0,110).trim()+'…'; return 'The requirement is met when: '+s+'. Verified by [Test / Inspection / Demonstration / Analysis]. Measure: [target value].'; }
 function noteReqsSet(pid,arr){DB.set('rm:proj:'+pid+':noteReqs',arr);}
 function noteReqsAdd(pid,rec){var arr=noteReqsGet(pid);arr.unshift(rec);noteReqsSet(pid,arr);}
 function noteToken(pid,rid){var s=pid+':'+rid+':note',h=5381;for(var i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))|0;}return Math.abs(h).toString(36);}
@@ -1094,7 +1096,7 @@ function renderNoteIntake(){
   var valid = data && (SB_ON || r.token===noteToken(r.pid,r.rid));
   if(!valid) return wrap('<div class="card" style="padding:40px;text-align:center"><div style="font-size:16px;font-weight:620;margin-bottom:6px">This request link is not valid</div><div style="color:var(--ink-3);font-size:14px;line-height:1.5">It may be invalid or expired. Ask your contact for a current one.</div></div>');
   var f=APP.noteForm||{};
-  if(f.submitted) return wrap('<div class="card" style="padding:44px 40px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:19px;font-weight:660;margin-bottom:6px">Thank you</div><div style="color:var(--ink-3);font-size:14px;margin-bottom:22px">Your input has been sent to the team.</div><button class="btn btn-sec" data-action="niagain">Add more</button></div>');
+  if(f.submitted) return wrap('<div class="card" style="padding:44px 40px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:19px;font-weight:660;margin-bottom:6px">Thank you</div><div style="color:var(--ink-3);font-size:14px;margin-bottom:8px">Your input has been sent to the team.</div><div style="color:var(--ink-4);font-size:12.5px;line-height:1.55;margin:0 auto 22px;max-width:340px">What happens next: the team reviews your input against the current version and may reply or fold it into the requirements. Keep this link — you can add more anytime.</div><button class="btn btn-sec" data-action="niagain">Add more</button></div>');
   var thread=(data.thread||[]).map(function(t){return '<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--ink-4);margin-bottom:3px;font-weight:600">'+esc(t.name||'Team')+'</div><div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;white-space:pre-wrap">'+esc(t.text||'')+'</div></div>';}).join('');
   var body='<div style="margin-bottom:22px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><div class="brandmark" style="width:28px;height:28px">'+ico(IC.fwd).replace('class="i ','class="')+'</div><span class="eyebrow" style="font-size:9.5px">Request for input</span></div>'+
     '<h1 style="font-size:24px;letter-spacing:-.02em;font-weight:660;margin:0 0 4px">'+esc(data.title||'We would value your input')+'</h1>'+
@@ -1163,7 +1165,7 @@ function renderPartnerProject(){
   var pay=p.payload||{}; var ans=pay.answers||{}; var md=bBrief(ans);
   var f=APP.pnForm||{};
   var noteCard;
-  if(f.submitted){ noteCard='<div class="card" style="padding:24px;text-align:center;margin-top:16px"><div style="width:42px;height:42px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:16px;font-weight:640;margin-bottom:4px">Thank you</div><div style="color:var(--ink-3);font-size:13.5px">Your note has been sent to the team.</div></div>'; }
+  if(f.submitted){ noteCard='<div class="card" style="padding:24px;text-align:center;margin-top:16px"><div style="width:42px;height:42px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:16px;font-weight:640;margin-bottom:4px">Thank you</div><div style="color:var(--ink-3);font-size:13.5px;margin-bottom:6px">Your note has been sent to the team.</div><div style="color:var(--ink-4);font-size:12px;line-height:1.55">What happens next: the team reviews it against the current version. Keep this link to add more.</div></div>'; }
   else { noteCard='<div class="card" style="padding:22px;margin-top:16px"><div style="font-size:14px;font-weight:640;margin-bottom:10px">Send a note to the team</div><textarea class="input" data-pni="text" rows="4" placeholder="Your input, questions, or concerns" style="resize:vertical;min-height:110px;line-height:1.6">'+esc(f.text||'')+'</textarea><button class="btn btn-primary" data-action="partnersendnote"'+(f.busy?' disabled':'')+' style="width:100%;height:44px;margin-top:12px">'+ico(IC.send)+(f.busy?'Sending...':'Send note')+'</button>'+(f.error?'<div style="color:var(--ink);font-size:12.5px;margin-top:10px;text-align:center;font-weight:540">'+esc(f.error)+'</div>':'')+'</div>'; }
   return shell(
     '<div class="topbar"><div style="display:flex;align-items:center;gap:12px;min-width:0"><button class="icobtn" data-action="phome">'+ico(IC.arrow)+'</button><div style="width:1px;height:24px;background:var(--line)"></div><div class="brandmark" style="width:24px;height:24px">'+ico(IC.fwd).replace('class="i ','class="')+'</div><div style="min-width:0"><div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(pay.product||APP.partnerView)+'</div><div class="eyebrow" style="font-size:9.5px;margin-top:1px">Partner review</div></div></div>'+userMenu()+'</div>'+
@@ -1235,7 +1237,7 @@ function renderFeedbackForm(){
   var product=meta.name;
   var comps=rowsFilled(ans.components).map(function(c){return c.name;});
   var f=APP.fbForm||{};
-  if(f.submitted)return wrap('<div class="card" style="padding:44px 40px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:19px;font-weight:660;margin-bottom:6px">Thank you</div><div style="color:var(--ink-3);font-size:14px;margin-bottom:22px">Your feedback has been submitted to the team.</div><button class="btn btn-sec" data-action="fbagain">Submit more feedback</button></div>');
+  if(f.submitted)return wrap('<div class="card" style="padding:44px 40px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">'+ico(IC.check)+'</div><div style="font-size:19px;font-weight:660;margin-bottom:6px">Thank you</div><div style="color:var(--ink-3);font-size:14px;margin-bottom:8px">Your feedback has been submitted to the team.</div><div style="color:var(--ink-4);font-size:12.5px;line-height:1.55;margin:0 auto 22px;max-width:340px">What happens next: the team triages every report by build and version, and may follow up. Keep this link — you can submit more anytime.</div><button class="btn btn-sec" data-action="fbagain">Submit more feedback</button></div>');
   var chips=function(key,opts,cur){return '<div class="choice">'+opts.map(function(o){return '<button class="chip'+(cur===o?' on':'')+'" data-action="fbset" data-key="'+key+'" data-val="'+escA(o)+'">'+esc(o)+'</button>';}).join('')+'</div>';};
   var field=function(label,inner,req){return '<div style="margin-bottom:18px"><div style="font-size:12.5px;font-weight:560;margin-bottom:7px">'+esc(label)+(req?' <span style="color:var(--ink-4);font-weight:440">required</span>':'')+'</div>'+inner+'</div>';};
   var isBug=f.type==='Bug';
@@ -1647,6 +1649,37 @@ function orgModal(){
   '</div></div>';
 }
 
+function onbStep(n,t,d){return '<div style="border:1px solid var(--line);border-radius:11px;padding:13px"><div style="width:24px;height:24px;border-radius:7px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:680;margin-bottom:9px">'+n+'</div><div style="font-size:13px;font-weight:600;margin-bottom:3px">'+esc(t)+'</div><div style="font-size:11.5px;color:var(--ink-3);line-height:1.5">'+esc(d)+'</div></div>';}
+function onboardBlock(){return '<div class="card rise" style="grid-column:1/-1;padding:26px 24px">'+
+  '<div style="font-size:16px;font-weight:660;margin-bottom:4px">Get your first PRD in three moves</div>'+
+  '<div style="font-size:13px;color:var(--ink-3);margin-bottom:16px">The document on the right builds itself as you answer.</div>'+
+  '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">'+
+    onbStep('1','Answer the worksheet','Guided questions across 16 sections.')+
+    onbStep('2','Generate a version','Baseline v1.0 with one click.')+
+    onbStep('3','Share & collect','Send a review or pilot link; replies land in your Inbox.')+
+  '</div>'+
+  '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn btn-primary" data-action="sample" data-which="recordmade">'+ico(IC.spark)+'Load an example project</button><span style="font-size:12.5px;color:var(--ink-4)">or name a product above to start blank</span></div>'+
+'</div>';}
+function dashActivity(list){
+  var items=[];
+  list.forEach(function(p){
+    commsAll(p.id).slice(0,6).forEach(function(c){ items.push({at:c.at,pid:p.id,pname:p.name,tab:'inbox',label:(c.src||'Someone')+(c.k==='note'?' sent a note':' left feedback')+(c.title?(': '+c.title):'')}); });
+    (DB.get('rm:proj:'+p.id+':versions')||[]).forEach(function(v){ items.push({at:v.createdAt,pid:p.id,pname:p.name,tab:'versions',label:'v'+v.label+' saved'+(v.author?(' by '+v.author):'')}); });
+  });
+  items=items.filter(function(x){return x.at;}).sort(function(a,b){return new Date(b.at)-new Date(a.at);}).slice(0,5);
+  if(!items.length)return '';
+  return '<div class="card rise" style="padding:14px 18px 6px;margin-bottom:14px"><div style="font-size:13px;font-weight:640;margin-bottom:6px">Recent activity</div>'+
+    items.map(function(it){return '<button data-action="opentab" data-id="'+it.pid+'" data-tab="'+it.tab+'" style="display:flex;width:100%;text-align:left;gap:10px;align-items:baseline;background:none;border:none;border-top:1px solid var(--line);padding:9px 0;cursor:pointer;font:inherit">'+
+      '<span style="font-size:12.5px;color:var(--ink-2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(it.label)+'</span>'+
+      '<span style="font-size:11px;color:var(--ink-4);flex:0 0 auto;white-space:nowrap">'+esc(it.pname)+' · '+esc(relTime(it.at))+'</span></button>';}).join('')+'</div>';
+}
+function dashImpact(list){
+  var vers=0,fb=0,proms=0;
+  list.forEach(function(p){ vers+=(DB.get('rm:proj:'+p.id+':versions')||[]).length; commsAll(p.id).forEach(function(c){fb++;if(c.promoted)proms++;}); });
+  if(!vers&&!fb)return '';
+  var cell=function(n,l){return '<div style="flex:1;min-width:90px"><div style="font-size:22px;font-weight:680;letter-spacing:-.02em">'+n+'</div><div style="font-size:11.5px;color:var(--ink-3)">'+l+'</div></div>';};
+  return '<div class="card rise" style="padding:16px 18px;margin-bottom:14px;display:flex;gap:14px;flex-wrap:wrap">'+cell(vers,'versions published')+cell(fb,'feedback items')+cell(proms,'promoted to requirements')+'</div>';
+}
 function viewProjects(){
   var list=loadProjects();
   var _role=APP.role||'Manager';
@@ -1664,7 +1697,7 @@ function viewProjects(){
         '<span class="icobtn" data-action="del" data-id="'+p.id+'">'+ico(IC.trash,'i-sm')+'</span></div>'+
       '<div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">'+(p.latestSeq>0?'<span class="pill"><span class="mono">v'+esc(p.latestLabel)+'</span></span>':'<span class="pill" style="color:var(--ink-3)">Draft, no version</span>')+cb+'</div>'+
     '</button>';
-  }).join('') : '<div class="empty" style="grid-column:1/-1;height:auto;padding:48px">'+ico(IC.doc)+'<div style="font-size:14px">No projects yet. Name a product above to start.</div></div>';
+  }).join('') : onboardBlock();
 
   var delModal='';
   if(APP.delPending){
@@ -1684,8 +1717,8 @@ function viewProjects(){
         '<p style="color:var(--ink-3);max-width:520px;font-size:15.5px;line-height:1.6;margin:0">Structured discovery that produces a versioned requirements document.</p></div>'+
       '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms">'+
         '<div style="display:flex;gap:10px;flex-wrap:wrap"><input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product to specify">'+
-        '<button class="btn btn-primary" style="height:46px" data-action="new">'+ico(IC.plus)+'New project</button></div></div>'+
-      banner+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'+cards+'</div>'+
+        '<button class="btn btn-primary" style="height:46px" data-action="new">'+ico(IC.plus)+'New project</button>'+(function(){var _lp=DB.get('rm:lastpid');var _lpp=_lp&&list.filter(function(p){return p.id===_lp;})[0];return _lpp?'<button class="btn btn-sec" style="height:46px" data-action="open" data-id="'+_lpp.id+'">'+ico(IC.fwd)+'Resume '+esc(_lpp.name.length>16?(_lpp.name.slice(0,16)+'…'):_lpp.name)+'</button>':'';})()+'</div></div>'+
+      banner+(list.length?(dashImpact(list)+dashActivity(list)):'')+'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">'+cards+'</div>'+
     '</div></div>'+delModal
   )+overlays();
 }
@@ -1730,7 +1763,8 @@ function renderWorksheet(a){
         return '<div><div class="lbl">'+esc(q.prompt)+tags+'</div>'+(q.help?'<p class="hint" style="margin:0 0 10px">'+esc(q.help)+'</p>':'<div style="height:6px"></div>')+fieldHTML(q)+'</div>';
       }).join('')+'</div></div>';
   }).join('');
-  return '<div class="page" style="max-width:600px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px"><div><h2 style="font-size:22px;letter-spacing:-.02em;font-weight:620;margin:0">Worksheet</h2><p class="hint" style="margin:4px 0 0">Answer everything on one page, then build the document.</p></div>'+genButton(true)+'</div>'+body+'<div style="display:flex;justify-content:center;padding:8px 0 20px">'+genButton()+'</div></div>';
+  var _wa=APP.answers;var _vq=visQ(_wa);var _ac=_vq.filter(function(q){return isAnswered(q,_wa[q.id]);}).length;var _pct=_vq.length?Math.round(_ac/_vq.length*100):0;
+  return '<div class="page" style="max-width:600px"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px"><div><h2 style="font-size:22px;letter-spacing:-.02em;font-weight:620;margin:0">Worksheet</h2><p class="hint" style="margin:4px 0 0">Answer everything on one page, then build the document.</p><div style="display:flex;align-items:center;gap:8px;margin-top:10px"><div style="width:120px;height:6px;border-radius:3px;background:var(--line-2);overflow:hidden"><div style="height:100%;width:'+_pct+'%;background:var(--brand);transition:width .3s"></div></div><span style="font-size:11.5px;color:var(--ink-3);font-weight:560">'+_pct+'% complete</span></div></div>'+genButton(true)+'</div>'+body+'<div style="display:flex;justify-content:center;padding:8px 0 20px">'+genButton()+'</div></div>';
 }
 function genButton(compact){
   var label=APP.versions.length?'Save new version':'Generate v1.0';
@@ -2039,6 +2073,7 @@ document.addEventListener('click',function(e){
   var restoreScroll=function(top){var p=document.getElementById('intakePane');if(p)p.scrollTop=top;};
   if(act==='new'){var n=document.getElementById('newName');var nm=n?n.value.trim():'';if(nm)newProject(nm);return;}
   if(act==='sample'){var w=el.getAttribute('data-which');newProject(w==='recordmade'?'RecordMade':'Fathering Excellence Profile',w==='recordmade'?SAMPLE_RM:SAMPLE_FA);return;}
+  if(act==='opentab'){var oid=el.getAttribute('data-id');if(indexGet().some(function(p){return p.id===oid;})){openProject(oid);APP.docTab=el.getAttribute('data-tab')||'document';render();}return;}
   if(act==='open'){openProject(el.getAttribute('data-id'));return;}
   if(act==='del'){var did=el.getAttribute('data-id');var dpn=indexGet().filter(function(p){return p.id===did;})[0];APP.delPending={id:did,name:dpn?dpn.name:'this project'};APP.delCode='';APP.delError=null;render();return;}
   if(act==='delcancel'){APP.delPending=null;APP.delCode='';APP.delError=null;render();return;}
@@ -2136,7 +2171,7 @@ document.addEventListener('click',function(e){
   if(act==='discset'){APP.discDraft=APP.discDraft||{};APP.discDraft[el.getAttribute('data-key')]=el.getAttribute('data-val');refreshDoc();return;}
   if(act==='disctoggle'){var dtid=el.getAttribute('data-id');APP.discOpen[dtid]=!APP.discOpen[dtid];refreshDoc();return;}
   if(act==='discsave'){var dd=APP.discDraft||{};if(!dd.takeaway||!dd.takeaway.trim()){dd.error='Add a takeaway';refreshDoc();return;}var dauth=(dd.author!=null?dd.author:(APP.author||'')).trim();var drec={id:'d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:nowISO(),author:dauth,source:dd.source||'',who:(dd.who||'').trim(),takeaway:dd.takeaway.trim(),tags:(dd.tags||'').trim(),status:dd.status||'Open',context:(dd.context||'').trim(),notes:(dd.notes||'').trim(),heard:(dd.heard||'').trim(),decided:(dd.decided||'').trim(),open:(dd.open||'').trim(),links:''};discAdd(APP.pid,drec);APP.discDraft={};APP.discOpen[drec.id]=false;toast('Conversation logged');refreshDoc();return;}
-  if(act==='discpromote'){var dpid=el.getAttribute('data-id');var dpa=discGet(APP.pid);var ent=null;for(var dpi=0;dpi<dpa.length;dpi++){if(dpa[dpi].id===dpid){ent=dpa[dpi];break;}}if(!ent)return;var frr=(APP.answers.fr||[]).slice();var nk=nextK('fr');frr.push({_k:nk,stmt:ent.takeaway||'',fit:'',pri:'Must',comp:''});APP.answers.fr=frr;persistAnswers();var nid='FR-'+String(nk).padStart(3,'0');ent.links=(ent.links&&ent.links.trim())?(ent.links.trim().replace(/,+\s*$/,'')+', '+nid):nid;discSet(APP.pid,dpa);toast('Promoted to '+nid+' in the worksheet');render();return;}
+  if(act==='discpromote'){var dpid=el.getAttribute('data-id');var dpa=discGet(APP.pid);var ent=null;for(var dpi=0;dpi<dpa.length;dpi++){if(dpa[dpi].id===dpid){ent=dpa[dpi];break;}}if(!ent)return;var frr=(APP.answers.fr||[]).slice();var nk=nextK('fr');frr.push({_k:nk,stmt:ent.takeaway||'',fit:suggestFit(ent.takeaway||''),pri:'Must',comp:''});APP.answers.fr=frr;persistAnswers();var nid='FR-'+String(nk).padStart(3,'0');ent.links=(ent.links&&ent.links.trim())?(ent.links.trim().replace(/,+\s*$/,'')+', '+nid):nid;discSet(APP.pid,dpa);toast('Promoted to '+nid+' in the worksheet');render();return;}
   if(act==='fbpromote'){var fpid=el.getAttribute('data-id');var fa=fbGet(APP.pid);var fx=null;for(var fi=0;fi<fa.length;fi++){if(fa[fi].id===fpid){fx=fa[fi];break;}}if(!fx)return;if(fx.promotedDisc){toast('Already in discovery');return;}var fctx=(fx.detail||'').trim();if(fx.steps&&fx.steps.trim())fctx+=(fctx?'\n\nSteps to reproduce\n':'Steps to reproduce\n')+fx.steps.trim();var fsrc=(fbOrigin(fx)==='brief')?'SME':'Customer';var fdid='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);var fdrec={id:fdid,at:nowISO(),author:(APP.author||'').trim(),source:fsrc,who:(fx.name||'').trim(),takeaway:(fx.title||'').trim(),tags:'',status:'Open',context:fctx,notes:'',heard:'',decided:'',open:'',links:'',fromFeedback:{id:fx.id,title:(fx.title||'').trim(),label:fx.label||''}};discAdd(APP.pid,fdrec);fx.promotedDisc=fdid;fbSet(APP.pid,fa);APP.discOpen=APP.discOpen||{};APP.discOpen[fdid]=false;toast('Promoted to discovery');refreshDoc();return;}
   if(act==='noteadd'){var ntext=(APP.noteDraft||'').trim();if(!ntext){toast('Write something first');return;}var nsrc=APP.noteSrc||'Me';var nby=(APP.noteBy||'').trim();var nrec={id:'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:nowISO(),text:ntext,task:false,done:false,owner:'',source:nsrc,by:(nsrc==='Me'?'':nby),status:'Kept'};notesAdd(APP.pid,nrec);APP.noteDraft='';APP.noteBy='';refreshDoc();return;}
   if(act==='notesrc'){APP.noteSrc=el.getAttribute('data-val');refreshDoc();return;}
@@ -2158,7 +2193,7 @@ document.addEventListener('click',function(e){
   if(act==='notetask'){var ntid=el.getAttribute('data-id');var nta=notesGet(APP.pid);for(var nti=0;nti<nta.length;nti++){if(nta[nti].id===ntid){nta[nti].task=!nta[nti].task;if(!nta[nti].task)nta[nti].done=false;break;}}notesSet(APP.pid,nta);refreshDoc();return;}
   if(act==='notedone'){var ndid=el.getAttribute('data-id');var nda=notesGet(APP.pid);for(var ndi=0;ndi<nda.length;ndi++){if(nda[ndi].id===ndid){nda[ndi].done=!nda[ndi].done;break;}}notesSet(APP.pid,nda);refreshDoc();return;}
   if(act==='notedelete'){var nxid=el.getAttribute('data-id');if(APP.noteDel!==nxid){APP.noteDel=nxid;refreshDoc();return;}var nxa=notesGet(APP.pid).filter(function(z){return z.id!==nxid;});notesSet(APP.pid,nxa);APP.noteDel=null;if(APP.noteEdit)delete APP.noteEdit[nxid];refreshDoc();return;}
-  if(act==='notepromreq'){var nqid=el.getAttribute('data-id');var nqa=notesGet(APP.pid);var nq=null;for(var nqi=0;nqi<nqa.length;nqi++){if(nqa[nqi].id===nqid){nq=nqa[nqi];break;}}if(!nq)return;if(nq.promotedReq){toast('Already a requirement');return;}var nqfrr=(APP.answers.fr||[]).slice();var nqk=nextK('fr');nqfrr.push({_k:nqk,stmt:(nq.text||'').trim(),fit:'',pri:'Must',comp:''});APP.answers.fr=nqfrr;persistAnswers();var nqrid='FR-'+String(nqk).padStart(3,'0');nq.promotedReq=nqrid;notesSet(APP.pid,nqa);toast('Promoted to '+nqrid+' in the worksheet');render();return;}
+  if(act==='notepromreq'){var nqid=el.getAttribute('data-id');var nqa=notesGet(APP.pid);var nq=null;for(var nqi=0;nqi<nqa.length;nqi++){if(nqa[nqi].id===nqid){nq=nqa[nqi];break;}}if(!nq)return;if(nq.promotedReq){toast('Already a requirement');return;}var nqfrr=(APP.answers.fr||[]).slice();var nqk=nextK('fr');nqfrr.push({_k:nqk,stmt:(nq.text||'').trim(),fit:suggestFit((nq.text||'').trim()),pri:'Must',comp:''});APP.answers.fr=nqfrr;persistAnswers();var nqrid='FR-'+String(nqk).padStart(3,'0');nq.promotedReq=nqrid;notesSet(APP.pid,nqa);toast('Promoted to '+nqrid+' in the worksheet');render();return;}
   if(act==='notepromdisc'){var ngid=el.getAttribute('data-id');var nga=notesGet(APP.pid);var ng=null;for(var ngi=0;ngi<nga.length;ngi++){if(nga[ngi].id===ngid){ng=nga[ngi];break;}}if(!ng)return;if(ng.promotedDisc){toast('Already in discovery');return;}var ntx=(ng.text||'').trim();var ngdid='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);var ngdrec={id:ngdid,at:nowISO(),author:(APP.author||'').trim(),source:'Internal',who:'',takeaway:ntx.split('\n')[0].slice(0,140),tags:'',status:'Open',context:ntx,notes:'',heard:'',decided:'',open:'',links:'',fromNote:true};discAdd(APP.pid,ngdrec);ng.promotedDisc=ngdid;notesSet(APP.pid,nga);APP.discOpen=APP.discOpen||{};APP.discOpen[ngdid]=false;toast('Promoted to discovery');refreshDoc();return;}
 });
 
