@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in · ReqPub</title>
+<meta name="description" content="Sign in to ReqPub — structured discovery to a versioned, shareable requirements document." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='7' fill='%232563FF'/%3E%3Cpolyline points='14 11 19 16 14 21' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0f1114; --ink-2:#26292e; --ink-3:#555b63; --ink-4:#767c85;
+    --line:#e6e8eb; --line-2:#d6dae0; --bg:#fbfbfc; --bg-hover:#f5f6f8;
+    --brand:#2563FF; --brand-600:#1d4ed8; --sky:#eef4ff;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* top bar */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:20px 30px}
+  .brand{display:inline-flex;align-items:center;gap:9px;color:var(--ink);font-weight:700;font-size:19px;letter-spacing:-.03em;text-decoration:none}
+  .top-right{display:flex;align-items:center;gap:16px}
+  .lang{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--ink-2);font:inherit;font-size:14px;cursor:default;padding:6px}
+  .btn-outline{display:inline-flex;align-items:center;height:38px;padding:0 16px;border:1px solid var(--line-2);border-radius:9px;
+    color:var(--ink);font-weight:600;font-size:14px;background:#fff;transition:.15s}
+  .btn-outline:hover{border-color:var(--ink-3);text-decoration:none}
+
+  /* layout */
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 40px}
+  .card{width:100%;max-width:440px;background:#fff;border:1px solid var(--line);border-radius:16px;
+    padding:38px 38px 34px;box-shadow:0 1px 2px rgba(16,17,20,.04),0 14px 40px rgba(16,17,20,.05)}
+  @media(max-width:520px){.card{padding:28px 22px}}
+  h1{font-size:23px;letter-spacing:-.02em;font-weight:660;margin:0 0 20px}
+
+  /* social + sso */
+  .social{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .social button,.sso{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;
+    border:1px solid var(--line-2);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:13.5px;font-weight:560;cursor:pointer;transition:.15s}
+  .social button:hover,.sso:hover{background:var(--bg-hover);border-color:var(--ink-4)}
+  .social button svg{flex:0 0 auto}
+  .sso{width:100%;margin-top:9px;font-size:14.5px}
+
+  .divider{display:flex;align-items:center;gap:14px;margin:20px 0 4px;color:var(--ink-4);font-size:12.5px}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  label{display:block;font-size:13px;font-weight:560;color:var(--ink-2);margin:16px 0 6px}
+  input{width:100%;height:46px;border:1px solid var(--line-2);border-radius:10px;padding:0 13px;font:inherit;font-size:15px;
+    color:var(--ink);background:#fff;outline:none;transition:.15s}
+  input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(37,99,255,.14)}
+  .pw-wrap{position:relative}
+  .pw-wrap input{padding-right:44px}
+  .eye{position:absolute;top:0;right:0;height:46px;width:44px;display:flex;align-items:center;justify-content:center;
+    background:none;border:none;color:var(--ink-4);cursor:pointer}
+  .eye:hover{color:var(--ink-2)}
+
+  .btn-primary{width:100%;height:47px;margin-top:20px;border:none;border-radius:10px;background:var(--brand);color:#fff;
+    font:inherit;font-size:15.5px;font-weight:620;cursor:pointer;transition:.15s}
+  .btn-primary:hover{background:var(--brand-600)}
+  .btn-primary:disabled{opacity:.6;cursor:default}
+
+  .alt{text-align:center;font-size:14px;color:var(--ink-3);margin:16px 0 0}
+  .alt a{font-weight:600}
+  .alt.small{font-size:13px;margin-top:8px}
+  .reset-lead{font-size:14px;color:var(--ink-3);margin:0 0 4px}
+
+  .msg{display:none;font-size:13px;border-radius:10px;padding:11px 13px;margin:16px 0 0}
+  .msg.show{display:block}
+  .msg.err{background:#fef2f2;border:1px solid #fecaca;color:#b42318}
+  .msg.ok{background:#f0f9f3;border:1px solid #bbf7d0;color:#15803d}
+  .msg.info{background:var(--sky);border:1px solid #d5e3ff;color:var(--brand-600)}
+  .msg code{font-family:var(--mono);font-size:12px}
+
+  .fineprint{max-width:430px;text-align:center;font-size:12px;color:var(--ink-4);margin:22px auto 0;line-height:1.55}
+  .fineprint a{color:var(--ink-3);text-decoration:underline}
+
+  /* footer */
+  .site-mini{padding:26px 20px 30px;display:flex;flex-direction:column;align-items:center;gap:10px;border-top:1px solid var(--line)}
+  .site-mini nav{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 22px}
+  .site-mini nav a{color:var(--ink-3);font-size:12.5px}
+  .site-mini nav a:hover{color:var(--ink)}
+  .site-mini .copy{color:var(--ink-4);font-size:12.5px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <svg viewBox="0 0 40 40" width="30" height="30" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="36" height="36" rx="10" fill="#2563FF"/><polyline points="16 12 24 20 16 28" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    ReqPub
+  </a>
+  <div class="top-right">
+    <button class="lang" type="button" tabindex="-1" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/></svg>English</button>
+    <a class="btn-outline" href="/signup/">Sign up</a>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <h1 id="card-title">Sign in to ReqPub</h1>
+    <div class="msg" id="msg"></div>
+
+    <!-- ============ Sign-in view ============ -->
+    <div id="view-main">
+      <div class="social">
+        <button type="button" data-oauth="google" aria-label="Continue with Google">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.09a6.6 6.6 0 0 1 0-4.18V7.07H2.18a11 11 0 0 0 0 9.86l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+          Google
+        </button>
+        <button type="button" data-oauth="apple" aria-label="Continue with Apple">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#000"><path d="M17.05 12.04c-.03-2.36 1.93-3.49 2.02-3.55-1.1-1.61-2.82-1.83-3.43-1.85-1.46-.15-2.85.86-3.59.86-.74 0-1.88-.84-3.09-.82-1.59.02-3.06.92-3.88 2.34-1.65 2.87-.42 7.12 1.19 9.45.79 1.14 1.73 2.42 2.96 2.37 1.19-.05 1.64-.77 3.08-.77 1.43 0 1.84.77 3.09.74 1.28-.02 2.09-1.16 2.87-2.31.9-1.32 1.27-2.6 1.29-2.66-.03-.01-2.48-.95-2.51-3.77zM14.68 5.09c.65-.79 1.09-1.89.97-2.99-.94.04-2.08.63-2.75 1.42-.6.7-1.13 1.82-.99 2.9 1.05.08 2.12-.53 2.77-1.33z"/></svg>
+          Apple
+        </button>
+        <button type="button" data-oauth="github" aria-label="Continue with GitHub">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#181717"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.05-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.39 1.24-3.23-.12-.3-.54-1.53.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.77.84 1.24 1.92 1.24 3.23 0 4.62-2.81 5.64-5.49 5.94.43.37.81 1.1.81 2.22 0 1.6-.01 2.9-.01 3.29 0 .32.22.7.83.58A12 12 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z"/></svg>
+          GitHub
+        </button>
+      </div>
+      <button type="button" class="sso" id="sso">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Continue with SSO
+      </button>
+
+      <div class="divider">or</div>
+
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@company.com">
+
+      <label for="password">Password</label>
+      <div class="pw-wrap">
+        <input id="password" type="password" autocomplete="current-password" placeholder="Your password">
+        <button type="button" class="eye" id="eye" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+
+      <button class="btn-primary" id="signin">Sign in</button>
+
+      <p class="alt">Don't have an account? <a href="/signup/">Sign up</a></p>
+      <p class="alt small">Forgot your <a href="#" id="forgot-email">email</a> or <a href="#" id="forgot">password</a>?</p>
+    </div>
+
+    <!-- ============ Set-new-password view (from reset email) ============ -->
+    <div id="view-reset" style="display:none">
+      <p class="reset-lead">Choose a new password for your ReqPub account.</p>
+      <label for="newpw">New password</label>
+      <div class="pw-wrap">
+        <input id="newpw" type="password" autocomplete="new-password" placeholder="At least 8 characters">
+        <button type="button" class="eye" id="eye2" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+      <label for="newpw2">Confirm new password</label>
+      <input id="newpw2" type="password" autocomplete="new-password" placeholder="Re-enter your new password">
+      <button class="btn-primary" id="setpw">Update password</button>
+      <p class="alt"><a href="/login/">Back to sign in</a></p>
+    </div>
+  </div>
+
+  <p class="fineprint">By continuing, I agree to ReqPub's <a href="/terms.html">terms</a>, <a href="/privacy.html">privacy policy</a>, and <a href="/cookies.html">cookie policy</a>.</p>
+</main>
+
+<footer class="site-mini">
+  <nav>
+    <a href="mailto:[hello@reqpub.example]">Support</a>
+    <a href="/terms.html">Terms of Use</a>
+    <a href="/privacy.html">Privacy Policy</a>
+    <a href="/cookies.html">Cookie Policy</a>
+    <a href="/do-not-share.html">Your Privacy Choices</a>
+  </nav>
+  <div class="copy">© <span id="yr">2026</span> [ReqPub, Inc.]</div>
+</footer>
+
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  var CFG = window.SB_CFG || {}; var SB = null;
+  try{ if(CFG.url && CFG.anon && window.supabase) SB = window.supabase.createClient(CFG.url, CFG.anon); }catch(e){}
+  var ORIGIN = location.origin;
+  function $(id){ return document.getElementById(id); }
+  function setMsg(t,k){ var m=$('msg'); if(!t){ m.className='msg'; m.innerHTML=''; return; } m.className='msg show '+(k||'err'); m.innerHTML=t; }
+  function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+  try{ $('yr').textContent = new Date().getFullYear(); }catch(e){}
+
+  if(!SB){ setMsg('Backend isn’t connected yet — add your Supabase keys to <code>/config.js</code>, then reload.','info'); }
+
+  var isRecovery = /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
+
+  function showReset(){
+    isRecovery = true;
+    $('view-main').style.display = 'none';
+    $('view-reset').style.display = 'block';
+    $('card-title').textContent = 'Set a new password';
+    setMsg('');
+  }
+
+  if(SB){
+    SB.auth.onAuthStateChange(function(ev){ if(ev==='PASSWORD_RECOVERY') showReset(); });
+    SB.auth.getSession().then(function(res){
+      var sess = res && res.data && res.data.session;
+      if(isRecovery){ showReset(); return; }
+      if(sess){ location.replace('/app/'); }   // already signed in
+    });
+  }
+
+  // --- email + password sign-in ---
+  function doSignin(){
+    if(!SB) return;
+    var email=($('email').value||'').trim(), pass=$('password').value||'';
+    if(!email || !pass){ setMsg('Enter your email and password.'); return; }
+    var b=$('signin'); b.disabled=true; var t=b.textContent; b.textContent='Signing in…'; setMsg('');
+    SB.auth.signInWithPassword({ email:email, password:pass }).then(function(res){
+      if(res && res.error){ b.disabled=false; b.textContent=t; setMsg(res.error.message||'Sign-in failed. Check your details and try again.'); return; }
+      location.replace('/app/');
+    }).catch(function(){ b.disabled=false; b.textContent=t; setMsg('Something went wrong. Please try again.'); });
+  }
+  $('signin').addEventListener('click', doSignin);
+  ['email','password'].forEach(function(id){ $(id).addEventListener('keydown', function(e){ if(e.key==='Enter') doSignin(); }); });
+
+  // --- social OAuth (works once enabled in Supabase) ---
+  Array.prototype.forEach.call(document.querySelectorAll('[data-oauth]'), function(btn){
+    btn.addEventListener('click', function(){
+      if(!SB) return;
+      var p = btn.getAttribute('data-oauth'); setMsg('');
+      SB.auth.signInWithOAuth({ provider:p, options:{ redirectTo: ORIGIN+'/app/' } }).then(function(res){
+        if(res && res.error){ setMsg(cap(p)+' sign-in isn’t enabled yet. (Turn it on in Supabase → Authentication → Providers.)','info'); }
+      }).catch(function(){ setMsg(cap(p)+' sign-in isn’t enabled yet.','info'); });
+    });
+  });
+
+  // --- SSO (SAML) ---
+  $('sso').addEventListener('click', function(){
+    setMsg('Single sign-on (SAML) is available for teams — contact <a href="mailto:[hello@reqpub.example]">us</a> to enable SSO for your domain.','info');
+  });
+
+  // --- forgot password / email ---
+  $('forgot').addEventListener('click', function(e){
+    e.preventDefault(); if(!SB) return;
+    var email=($('email').value||'').trim();
+    if(!email){ setMsg('Enter your email above, then click “password” again and we’ll send a reset link.','info'); $('email').focus(); return; }
+    setMsg('');
+    SB.auth.resetPasswordForEmail(email, { redirectTo: ORIGIN+'/login/' }).then(function(res){
+      if(res && res.error){ setMsg(res.error.message); return; }
+      setMsg('Check <strong>'+email+'</strong> for a link to reset your password.','ok');
+    }).catch(function(){ setMsg('Could not send the reset email. Please try again.'); });
+  });
+  $('forgot-email').addEventListener('click', function(e){
+    e.preventDefault();
+    setMsg('Not sure which email you used? Contact <a href="mailto:[hello@reqpub.example]">[hello@reqpub.example]</a> and we’ll help you recover your account.','info');
+  });
+
+  // --- set new password (after clicking the reset email link) ---
+  $('setpw').addEventListener('click', function(){
+    if(!SB) return;
+    var p1=$('newpw').value||'', p2=$('newpw2').value||'';
+    if(p1.length<8){ setMsg('Use a password of at least 8 characters.'); return; }
+    if(p1!==p2){ setMsg('Those passwords don’t match.'); return; }
+    var b=$('setpw'); b.disabled=true; var t=b.textContent; b.textContent='Updating…'; setMsg('');
+    SB.auth.updateUser({ password:p1 }).then(function(res){
+      if(res && res.error){ b.disabled=false; b.textContent=t; setMsg(res.error.message); return; }
+      setMsg('Password updated — taking you to the app…','ok');
+      setTimeout(function(){ location.replace('/app/'); }, 1200);
+    }).catch(function(){ b.disabled=false; b.textContent=t; setMsg('Could not update the password. Please try again.'); });
+  });
+
+  // --- show/hide password toggles ---
+  function bindEye(inputId, btnId){ var btn=$(btnId); if(!btn) return; btn.addEventListener('click', function(){ var i=$(inputId); i.type = i.type==='password' ? 'text' : 'password'; }); }
+  bindEye('password','eye');
+  bindEye('newpw','eye2');
+})();
+</script>
+</body>
+</html>
