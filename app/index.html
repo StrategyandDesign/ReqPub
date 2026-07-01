@@ -259,16 +259,21 @@ function sbSyncProjectShares(pid){ if(!SB_ON||!pid)return; try{ var vs=DB.get('r
 function sbSendInvite(email,role){ if(!SB_ON||!email)return; try{ SB.functions.invoke('send-invite',{body:{email:email,role:role,orgName:APP.org||'',inviterEmail:(APP.user&&APP.user.email)||''}}).then(function(fr){ if(fr&&fr.error){ toast('Invited '+email+' (email not sent — deploy the send-invite function)'); } else { toast('Invitation emailed to '+email); } },function(){ toast('Invited '+email+' (email not sent yet)'); }); }catch(e){} }
 function sbPullPartnerNotes(cb){
   if(!SB_ON||!SB_ORG){ cb&&cb(); return; }
-  try{ SB.from('partner_notes').select('id,project_id,name,text,created_at').then(function(res){
+  try{ SB.from('partner_notes').select('id,project_id,name,text,created_at,replies').then(function(res){
     try{ if(res&&res.data&&res.data.length){ res.data.forEach(function(s){
       var key='rm:proj:'+s.project_id+':notes'; var arr=_mem[key]||[];
-      if(!arr.some(function(x){return x.id===s.id;})){
-        arr.unshift({id:s.id,at:s.created_at,text:s.text||'',source:'Partner',by:s.name||'Partner',status:'Inbox',task:false,done:false,owner:''});
-        _mem[key]=arr; try{localStorage.setItem(key,JSON.stringify(arr));}catch(e){}
-      }
+      var reps=(s.replies||[]).map(function(rp){return {author:(rp.from==='team'?'Team':(rp.name||'Partner')),at:rp.at,text:rp.text||''};});
+      var ex=null; for(var i=0;i<arr.length;i++){if(arr[i].id===s.id){ex=arr[i];break;}}
+      if(ex){ ex.replies=reps; }
+      else { arr.unshift({id:s.id,at:s.created_at,text:s.text||'',source:'Partner',by:s.name||'Partner',status:'Inbox',task:false,done:false,owner:'',replies:reps}); }
+      _mem[key]=arr; try{localStorage.setItem(key,JSON.stringify(arr));}catch(e){}
     }); } }catch(e){}
     cb&&cb();
   }); }catch(e){ cb&&cb(); }
+}
+function loadPartnerThread(proj){
+  if(!SB_ON||!proj)return;
+  try{ SB.rpc('partner_thread',{p_project:proj}).then(function(r){ APP.partnerThread=APP.partnerThread||{}; APP.partnerThread[proj]=(r&&!r.error&&r.data)||[]; if(APP.view==='partnerview')render(); }); }catch(e){}
 }
 function sbResolveContext(cb){
   if(!SB_ON){ cb&&cb('none'); return; }
@@ -1004,7 +1009,7 @@ function commsAll(pid){
 }
 function commsReply(pid,k,id,text,author){
   if(k==='fb'){var fa=fbGet(pid);for(var i=0;i<fa.length;i++){if(fa[i].id===id){fa[i].notes=(fa[i].notes||[]).concat([{author:author||'Team',at:nowISO(),text:text}]);break;}}fbSet(pid,fa);}
-  else{var na=notesGet(pid);for(var j=0;j<na.length;j++){if(na[j].id===id){na[j].replies=(na[j].replies||[]).concat([{author:author||'Team',at:nowISO(),text:text}]);break;}}notesSet(pid,na);}
+  else{var na=notesGet(pid);for(var j=0;j<na.length;j++){if(na[j].id===id){na[j].replies=(na[j].replies||[]).concat([{author:author||'Team',at:nowISO(),text:text}]);if(SB_ON&&na[j].source==='Partner'){try{SB.rpc('partner_note_reply',{p_note:id,p_text:text}).then(function(){});}catch(e){}}break;}}notesSet(pid,na);}
 }
 function commsSetStatus(pid,k,id,uni){
   if(k==='fb'){var nat=({'New':'New','In review':'Triaged','Actioned':'Resolved','Closed':"Won't fix"})[uni]||'New';var fa=fbGet(pid);for(var i=0;i<fa.length;i++){if(fa[i].id===id){fa[i].status=nat;break;}}fbSet(pid,fa);}
@@ -1201,6 +1206,19 @@ function renderPartnerHome(){
     '</div></div>'
   )+overlays();
 }
+function partnerThreadCard(){
+  var thread=(APP.partnerThread&&APP.partnerThread[APP.partnerView])||[];
+  if(!thread.length)return '';
+  return '<div class="card" style="padding:22px;margin-top:16px"><div style="font-size:14px;font-weight:640;margin-bottom:6px">Your conversation with the team</div>'+thread.map(function(n){
+    var reps=(n.replies||[]);
+    return '<div style="border-top:1px solid var(--line);padding:13px 0 4px">'+
+      '<div style="font-size:13.5px;color:var(--ink-2);white-space:pre-wrap;line-height:1.55">'+esc(n.text||'')+'</div>'+
+      '<div style="font-size:11px;color:var(--ink-4);margin-top:4px">You · '+esc(relTime(n.created_at))+'</div>'+
+      reps.map(function(rp){var team=(rp.from==='team');return '<div style="margin-top:10px;max-width:90%;padding:9px 12px;border-radius:11px;background:'+(team?'var(--sky)':'var(--bg-3)')+'"><div style="font-size:13px;color:var(--ink-2);white-space:pre-wrap;line-height:1.55">'+esc(rp.text||'')+'</div><div style="font-size:10.5px;color:var(--ink-4);margin-top:3px">'+esc(team?'Team':(rp.name||'You'))+' · '+esc(relTime(rp.at))+'</div></div>';}).join('')+
+      '<div style="display:flex;gap:6px;margin-top:11px"><input class="input" data-preply="'+esc(n.id)+'" placeholder="Reply to the team" style="flex:1;height:38px;font-size:13px"><button class="btn btn-sec btn-sm" data-action="preplysend" data-id="'+esc(n.id)+'">Send</button></div>'+
+    '</div>';
+  }).join('')+'</div>';
+}
 function renderPartnerProject(){
   var p=(APP.partnerProjects||[]).filter(function(x){return x.project_id===APP.partnerView;})[0];
   if(!p)return renderPartnerHome();
@@ -1211,7 +1229,7 @@ function renderPartnerProject(){
   else { noteCard='<div class="card" style="padding:22px;margin-top:16px"><div style="font-size:14px;font-weight:640;margin-bottom:10px">Send a note to the team</div><textarea class="input" data-pni="text" rows="4" placeholder="Your input, questions, or concerns" style="resize:vertical;min-height:110px;line-height:1.6">'+esc(f.text||'')+'</textarea><button class="btn btn-primary" data-action="partnersendnote"'+(f.busy?' disabled':'')+' style="width:100%;height:44px;margin-top:12px">'+ico(IC.send)+(f.busy?'Sending...':'Send note')+'</button>'+(f.error?'<div style="color:var(--ink);font-size:12.5px;margin-top:10px;text-align:center;font-weight:540">'+esc(f.error)+'</div>':'')+'</div>'; }
   return shell(
     '<div class="topbar"><div style="display:flex;align-items:center;gap:12px;min-width:0"><button class="icobtn" data-action="phome">'+ico(IC.arrow)+'</button><div style="width:1px;height:24px;background:var(--line)"></div><div class="brandmark" style="width:24px;height:24px">'+ico(IC.fwd).replace('class="i ','class="')+'</div><div style="min-width:0"><div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(pay.product||APP.partnerView)+'</div><div class="eyebrow" style="font-size:9.5px;margin-top:1px">Partner review</div></div></div>'+userMenu()+'</div>'+
-    '<div style="flex:1;overflow-y:auto"><div style="max-width:680px;margin:0 auto;padding:34px 22px 70px">'+(md.trim()?('<div class="card" style="padding:28px 32px">'+mdToHtml(md)+'</div>'):'<div class="card" style="padding:30px;color:var(--ink-3)">Nothing shared yet.</div>')+noteCard+'</div></div>'
+    '<div style="flex:1;overflow-y:auto"><div style="max-width:680px;margin:0 auto;padding:34px 22px 70px">'+(md.trim()?('<div class="card" style="padding:28px 32px">'+mdToHtml(md)+'</div>'):'<div class="card" style="padding:30px;color:var(--ink-3)">Nothing shared yet.</div>')+partnerThreadCard()+noteCard+'</div></div>'
   )+overlays();
 }
 function doUnlock(code){
@@ -2157,9 +2175,10 @@ document.addEventListener('click',function(e){
     return;
   }
   if(act==='createorg'){var on=document.getElementById('noorg-name');doCreateOrg(on?on.value.trim():'');return;}
-  if(act==='popen'){APP.partnerView=el.getAttribute('data-id');APP.pnForm={};APP.view='partnerview';render();return;}
+  if(act==='popen'){APP.partnerView=el.getAttribute('data-id');APP.pnForm={};APP.view='partnerview';render();loadPartnerThread(APP.partnerView);return;}
+  if(act==='preplysend'){var prid=el.getAttribute('data-id');var pin=document.querySelector('[data-preply="'+prid+'"]');var ptx=pin?(pin.value||'').trim():'';if(!ptx){toast('Write a reply first');return;}if(!SB_ON)return;try{SB.rpc('partner_note_reply',{p_note:prid,p_text:ptx}).then(function(r){if(r&&!r.error){if(pin)pin.value='';toast('Reply sent');loadPartnerThread(APP.partnerView);}else{toast('Could not send');}});}catch(e){}return;}
   if(act==='phome'){APP.view='partner';render();return;}
-  if(act==='partnersendnote'){var pf=APP.pnForm||{};if(!pf.text||!pf.text.trim()){pf.error='Write a note first';render();return;}if(!SB_ON){pf.error='Available once the workspace is connected';render();return;}pf.busy=true;pf.error=null;render();try{SB.rpc('partner_submit_note',{p_project:APP.partnerView,p_text:pf.text.trim()}).then(function(r){if(r&&!r.error&&r.data){APP.pnForm={submitted:true};}else{pf.busy=false;pf.error='Could not send. Try again.';}render();});}catch(e){pf.busy=false;pf.error='Could not send.';render();}return;}
+  if(act==='partnersendnote'){var pf=APP.pnForm||{};if(!pf.text||!pf.text.trim()){pf.error='Write a note first';render();return;}if(!SB_ON){pf.error='Available once the workspace is connected';render();return;}pf.busy=true;pf.error=null;render();try{SB.rpc('partner_submit_note',{p_project:APP.partnerView,p_text:pf.text.trim()}).then(function(r){if(r&&!r.error&&r.data){APP.pnForm={submitted:true};loadPartnerThread(APP.partnerView);}else{pf.busy=false;pf.error='Could not send. Try again.';}render();});}catch(e){pf.busy=false;pf.error='Could not send.';render();}return;}
   if(act==='lock'){DB.del('rm:access');APP.unlocked=false;APP.menuOpen=false;APP.profileOpen=false;APP.orgOpen=false;APP.view='gate';render();return;}
   if(act==='mode'){APP.mode=el.getAttribute('data-val');render();return;}
   if(act==='next'){APP.qi=Math.min(visQ(a).length-1,APP.qi+1);render();return;}
