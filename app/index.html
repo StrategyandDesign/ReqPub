@@ -1615,7 +1615,7 @@ function orgModal(){
   var tabBtn=function(k,l){return '<button class="btn btn-sm" data-action="orgtab" data-val="'+k+'" style="text-transform:none;'+(tab===k?'background:var(--ink);color:#fff':'color:var(--ink-3)')+'">'+l+'</button>';};
   var content;
   if(tab==='members'){
-    content='<div class="fldlabel">Invite a teammate</div><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="org-invite-email" placeholder="name@company.com" style="flex:1;min-width:160px"><select class="input" id="org-invite-role" style="width:auto"><option>Manager</option><option>Viewer</option></select><button class="btn btn-primary btn-sm" data-action="orginvite">Invite</button></div>'+
+    content='<div class="fldlabel">Invite a teammate</div><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="org-invite-email" placeholder="name@company.com" style="flex:1;min-width:160px"><select class="input" id="org-invite-role" style="width:auto"><option>Manager</option><option>Viewer</option></select><button class="btn btn-primary btn-sm" data-action="orginvite">Invite</button><button class="btn btn-sm" data-action="invitecopy" title="Save the invite and copy a message you can send">Copy invite link</button></div>'+
       '<div style="font-size:11.5px;color:var(--ink-4);margin-top:8px">Managers edit everything. Viewers see everything but cannot edit.</div>'+
       '<div class="fldlabel" style="margin-top:18px">Members</div>'+memberRow(APP.author||'You',(APP.user&&APP.user.email)||'you · this device','Manager')+noteBackendMsg();
   }else if(tab==='partners'){
@@ -2060,6 +2060,20 @@ document.addEventListener('click',function(e){
     var otab=APP.orgTab||'members';
     if(otab==='partners'){var pe=document.getElementById('org-partner-email');var em=pe?(pe.value||'').trim():'';if(!em){toast('Enter a partner email');return;}try{SB.from('partners').insert({org_id:SB_ORG,email:em}).then(function(r){toast(r&&r.error?('Could not invite: '+r.error.message):('Partner invited: '+em));if(!r||!r.error){if(pe)pe.value='';}});}catch(e){}}
     else{var me=document.getElementById('org-invite-email');var em2=me?(me.value||'').trim():'';var mr=document.getElementById('org-invite-role');var role=mr?(mr.value||'Viewer'):'Viewer';if(!em2){toast('Enter an email');return;}try{SB.from('org_invites').upsert({org_id:SB_ORG,email:em2,role:role.toLowerCase()},{onConflict:'org_id,email'}).then(function(r){toast(r&&r.error?('Could not invite: '+r.error.message):('Invited '+em2+' as '+role));if(!r||!r.error){if(me)me.value='';}});}catch(e){}}
+    return;
+  }
+  if(act==='invitecopy'){
+    if(!SB_ON){toast('Connect the cloud workspace first');return;}
+    var icTab=APP.orgTab||'members', icEmail, icRole;
+    if(icTab==='partners'){var pe2=document.getElementById('org-partner-email');icEmail=pe2?(pe2.value||'').trim():'';icRole='Partner';}
+    else{var me3=document.getElementById('org-invite-email');icEmail=me3?(me3.value||'').trim():'';var mr3=document.getElementById('org-invite-role');icRole=mr3?(mr3.value||'Viewer'):'Viewer';}
+    if(!icEmail){toast('Enter an email first');return;}
+    var icMsg='You are invited to the '+((APP.org)||'ReqPub')+' workspace on ReqPub as a '+icRole+'. To join: open '+location.origin+'/signup , sign up with the email '+icEmail+', and choose "I was invited".';
+    try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(icMsg); }catch(e){}
+    try{
+      if(icTab==='partners'){ SB.from('partners').insert({org_id:SB_ORG,email:icEmail}).then(function(r){toast(r&&r.error?('Copied, but not saved: '+r.error.message):('Invite copied — paste it to '+icEmail));}); }
+      else{ SB.from('org_invites').upsert({org_id:SB_ORG,email:icEmail,role:icRole.toLowerCase()},{onConflict:'org_id,email'}).then(function(r){toast(r&&r.error?('Copied, but not saved: '+r.error.message):('Invite copied — paste it to '+icEmail));}); }
+    }catch(e){}
     return;
   }
   if(act==='createorg'){var on=document.getElementById('noorg-name');doCreateOrg(on?on.value.trim():'');return;}
