@@ -192,6 +192,9 @@
       finish();
     }).catch(function(){ btn.disabled=false; btn.firstChild.textContent=label; show('err','Something went wrong. Please try again.'); });
   });
+
+  // Arriving from an invite email (?invite=email): preselect "I was invited" and prefill the email.
+  try{ var _inv=new URLSearchParams(location.search).get('invite'); if(_inv){ setPath('invite'); var _e=$('email'); if(_e)_e.value=_inv; } }catch(e){}
 })();
 </script>
 <div id="site-footer"></div>
