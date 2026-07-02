@@ -7,13 +7,41 @@
   var $ = function (id) { return document.getElementById(id); };
   var say = function (el, text, ok) { el.innerHTML = text ? '<div class="' + (ok ? 'ok' : 'err') + '">' + text.replace(/[<>&]/g, '') + '</div>' : ''; };
 
-  // A recovery link lands here with type=recovery in the URL fragment.
-  if ((location.hash || '').indexOf('type=recovery') >= 0) {
+  // Recovery links arrive in two shapes depending on the project's auth flow:
+  //   implicit:  /login/#access_token=…&type=recovery
+  //   PKCE:      /login/?code=…
+  // Either way a temporary session is established, so the signed-in
+  // auto-redirect below MUST NOT run during recovery or the user is bounced
+  // into the app before they can set a new password.
+  var recovering =
+    (location.hash || '').indexOf('type=recovery') >= 0 ||
+    /[?&]code=/.test(location.search || '');
+
+  function showReset() {
+    recovering = true;
     $('paneSignin').style.display = 'none';
     $('paneReset').style.display = '';
-  } else {
-    // Already signed in? Straight to the app.
+  }
+
+  // Expired or already-used links arrive as #error=…&error_description=…
+  var errMatch = /error_description=([^&]+)/.exec(location.hash || '');
+  if (errMatch) {
+    say($('msg'), decodeURIComponent(errMatch[1].replace(/\+/g, ' ')) +
+      ' Enter your email and press Forgot to get a fresh link.');
+  }
+
+  if (recovering) showReset();
+
+  // Covers both flows definitively: Supabase fires PASSWORD_RECOVERY once the
+  // recovery session is ready, whichever URL shape delivered it.
+  sb.auth.onAuthStateChange(function (event) {
+    if (event === 'PASSWORD_RECOVERY') showReset();
+  });
+
+  if (!recovering && !errMatch) {
+    // Already signed in (and not resetting)? Straight to the app.
     sb.auth.getSession().then(function (r) {
+      if (recovering) return;
       if (r.data && r.data.session) location.replace('/app/');
     });
   }

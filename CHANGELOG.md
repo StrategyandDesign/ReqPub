@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.4.1 — auth page audit: password reset fixed, legal footers added
+
+- Fixed Forgot password end to end. Two defects: the signed-in auto-redirect
+  fired during recovery (the reset link establishes a temporary session, so
+  users were bounced into the app before they could set a new password), and
+  only one of Supabase's two link formats was handled. The page now listens
+  for the PASSWORD_RECOVERY event (covers both implicit and PKCE flows),
+  suppresses the redirect while recovering, and shows a clear message with a
+  retry path when a link is expired or already used.
+- Requires one Supabase setting: Authentication → URL Configuration →
+  Redirect URLs must include https://reqpub.com/login/ (otherwise reset
+  emails return users to the landing page instead of the reset form).
+- Login and signup now carry legal footers: Terms, Privacy, Cookies,
+  Acceptable use, and Confidentiality links with a copyright line. Signup
+  states agreement to the Terms, Privacy, and Acceptable Use policies above
+  the create button; login notes agreement below the form.
+
+
 ## 2.4.0 — section-scoped sharing, workspace switcher, invite links
 
 Sharing control
