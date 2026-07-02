@@ -1,83 +1,57 @@
-# ReqPub — GitHub Pages + Supabase setup
+# ReqPub v2
 
-This repo is the ReqPub app (static files). **GitHub Pages** hosts it; **Supabase** is the backend (accounts, data, sign-in). Push to GitHub → the site redeploys itself. Your Supabase data is separate and survives every deploy.
+From discovery to versioned, approved, testable requirements — rebuilt for real concurrent editing.
 
----
+ReqPub is a static frontend (GitHub Pages) on a Supabase backend. v2 replaces v1's client-authoritative key-value sync — the source of the lost-write incidents under nine concurrent editors — with a relational model, server-side concurrency control, live realtime, and presence. The guided worksheet, the deterministic PRD builders, the brand, and every v1 share link are preserved.
 
-## Part 1 — Supabase (the backend)
+## What changed, in one paragraph
 
-Do this once (full detail in `DEPLOY.md`):
+In v1 every shared structure was a JSON blob under one key, pushed whole with last-write-wins. Two people adding notes in the same second meant one note vanished. In v2 every shared collection is rows (adds are inserts — concurrent adds both land), every scalar worksheet field is one row with an integer `rev` (stale writes are *detected and returned*, never silently applied), version numbers are allocated server-side under a lock, all writes are awaited and retried with visible saving/saved/failed state, and everyone sees everyone's work live over authorized realtime channels with presence avatars. The same architecture pattern Figma and Linear ship: server-ordered, field-level conflict resolution — no CRDT needed for structured documents.
 
-1. In Supabase → **SQL Editor**, paste all of `backend.sql` and **Run**.
-2. **Authentication → Sign In / Providers → Email** → enable. For the first run, turn **off** "Confirm email."
-3. **Project Settings → API** → copy the **Project URL** and the **anon public** key.
-4. Open **`config.js`** and paste them into the one line:
-   ```js
-   window.SB_CFG = { url: 'https://YOURPROJECT.supabase.co', anon: 'eyJhbGci...anon-key...' };
-   ```
-   The anon key is meant to ship in the browser and is safe to commit — every table is protected by row-level security. **Never** commit the `service_role` key (the app never uses it).
+## Repository map
 
----
+```
+├── index.html, site.css, site.js      marketing landing (carried over)
+├── login/  signup/                    auth pages
+├── app/                               the product
+│   ├── index.html  app.css
+│   └── js/
+│       ├── core.js                    utilities, icons, theme
+│       ├── domain.js                  question bank + deterministic PRD builders (pure, tested)
+│       ├── data.js                    Supabase client + repository (durable, retried writes)
+│       ├── sync.js                    concurrency engine: rev-checked saves, realtime, presence
+│       ├── exports.js                 Word / Markdown / print / executive summary
+│       ├── views-app.js               shell, dashboard, workspace, palette
+│       ├── views-collab.js            inbox, feedback, discovery, notes, versions+approvals, activity
+│       ├── views-external.js          partner portal + accountless SME pages
+│       └── main.js                    state, routing, events
+├── supabase/
+│   ├── schema.sql                     v2 tables, RLS, RPCs, triggers, realtime auth
+│   ├── migrate.sql                    v1 kv → v2 rows (idempotent; v1 data left intact)
+│   ├── verify.sql                     post-migration checks
+│   └── functions/send-invite/         invite email edge function (Resend)
+├── tests/
+│   ├── domain.test.mjs                13 document/diff/brief tests
+│   ├── sync.test.mjs                  12 multi-writer concurrency simulations
+│   └── backend-e2e/run.mjs            58 checks against a real embedded Postgres
+└── terms/privacy/cookies/…            legal pages (carried over)
+```
 
-## Part 2 — GitHub + Pages (hosting)
+## Quick start
 
-The simplest, tightest loop is to make **this folder itself** the git repo, so the files I edit are the files you push.
+Deploying or migrating: read **DEPLOY.md** (the exact cutover runbook). Design rationale: **docs/ARCHITECTURE.md**.
 
-**One-time setup** (run in Terminal, inside this `reqpub` folder):
+Run the test suite:
 
 ```bash
-git init
-git add -A
-git commit -m "ReqPub"
-git branch -M main
-git remote add origin https://github.com/YOU/reqpub.git   # create the empty repo on github.com first
-git push -u origin main
+npm test              # domain + concurrency simulations (no install needed beyond node)
+npm i && npm run test:backend   # full backend e2e on an embedded Postgres
 ```
 
-**Enable Pages:** on GitHub → **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `main` / `/ (root)`** → Save. About a minute later your site is live at:
+## Roles
 
-```
-https://YOU.github.io/reqpub/
-```
+Manager (internal, writes), Viewer (internal, reads everything and can reply), Partner (external account, assigned projects only, threads with the team), SME (no account — tokened links for briefs, app testing, and input requests, each opening a live two-way thread).
 
-- The **app** opens at that root URL (the sign-in screen).
-- The **marketing page** is at `…/reqpub/landing.html`.
-- Sign up via `…/reqpub/signup.html` → **Start a workspace** → name it (e.g. *Collection Ventures*) → you're the Manager.
+## Enterprise posture
 
-> **Repo visibility:** free GitHub Pages publishes from a **public** repo. The anon key being public is fine (RLS protects the data). If you want the *code* private, either upgrade to **GitHub Pro** (Pages on private repos) or connect the private repo to **Netlify/Cloudflare Pages** (free, private-repo deploys) instead of Pages — Supabase stays the same either way.
-
----
-
-## Part 3 — The ongoing edit → live loop
-
-1. You ask for a change here; I edit the files in this folder and verify them.
-2. From this folder, you run:
-   ```bash
-   git add -A && git commit -m "what changed" && git push
-   ```
-3. GitHub Pages redeploys automatically (~1 min). **Supabase data is untouched** — redeploying the app never affects accounts or PRDs.
-
-Prefer no Terminal? On GitHub, use **Add file → Upload files** and drag the changed files in — same result.
-
----
-
-## Notes
-
-- **`.nojekyll`** is included so GitHub Pages serves every file as-is (no Jekyll processing).
-- **`_redirects`** is a Netlify/Cloudflare file; GitHub Pages ignores it (harmless). On Pages the app is the root and `landing.html` is a page.
-- **Custom domain** (optional): Settings → Pages → Custom domain, then point a CNAME at GitHub. Add your domain to Supabase → Authentication → URL settings if you later enable email confirmations.
-- **Email alerts / reminders / tamper-proof audit log** need a Supabase **Edge Function** (a small server piece) — not required for the app to work; add later.
-
-## What's in this folder
-
-| File | Purpose |
-|---|---|
-| `index.html` | The app (sign-in + workspace). Serve at the site root. |
-| `landing.html` | Public marketing page. |
-| `signup.html` | Role-aware account creation. |
-| `terms.html`, `privacy.html`, `cookies.html`, `acceptable-use.html`, `do-not-share.html` | Legal pages (drafts — have counsel review). |
-| `site.css`, `site.js` | Shared styles + footer/cookie-consent engine. |
-| `config.js` | Your Supabase URL + anon key. |
-| `backend.sql` | Run once in Supabase. |
-| `DEPLOY.md` | Full backend + deploy detail. |
-| `.nojekyll` | Tells GitHub Pages to serve files as-is. |
+Append-only audit trail written by database triggers; a real approval state machine (a version cannot be Approved while a named approver is pending); per-field edit attribution with server-stamped team identity; immutable version baselines; org-scoped RLS on every table; rate-limited anonymous endpoints; input size ceilings; command palette (⌘K); dark mode; exports carry status, approvals, and revision history. See SECURITY.md for the threat model and accepted residual risks, and CHANGELOG.md for release history.

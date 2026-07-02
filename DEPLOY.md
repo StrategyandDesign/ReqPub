@@ -1,103 +1,55 @@
-# ReqPub — deploy guide
+# Deploying ReqPub v2 — cutover runbook
 
-Four files, one folder.
+> Upgrading from an earlier v2 deployment: re-run `supabase/schema.sql` (it is
+> idempotent and applies the 2.1 hardenings: share fencing, rate limits,
+> identity triggers, size constraints), then push the new frontend. No
+> migration step is needed for a v2 → v2.1 upgrade.
 
-- `index.html` — the app (the PRD builder). **This must live at the site root.**
-- `landing.html` — the public marketing page (front door into the app).
-- `backend.sql` — the database. Run once in Supabase to go multi-user.
-- `DEPLOY.md` — this guide.
+Same Supabase project, same domain. v1 keeps working until step 4, and its data is never modified — `kv`, `partner_notes`, and `submissions` remain untouched as a fallback.
 
-The app runs with no backend at all: open `index.html` and it works in one browser, local only. Fill in two values and run the SQL and it becomes multi-user — real accounts, cloud data on every device, and share links that work for outside reviewers.
+## 0. Before you start
 
----
+Have at hand: the Supabase dashboard for the existing project, and push access to the GitHub Pages repo behind reqpub.com. Confirm `config.js` in this folder still contains your project URL and anon key (it was carried over — no change needed unless you rotated keys).
 
-## The two modes
+## 1. Backend — Supabase SQL Editor, in this order
 
-**Local floor (no setup).** Blank backend config = one browser, no login, no cross-device sync. This always works; it's the guaranteed floor. The app gate uses access code `0099` and delete code `9988`.
+1. Open **SQL Editor → New query**, paste all of `supabase/schema.sql`, **Run**. Expect "Success". Safe to re-run.
+2. New query, paste `supabase/migrate.sql`, **Run**. This copies every org's projects, worksheet answers, versions, feedback, notes, partner threads, input requests, and discovery into the new tables. Idempotent — re-running never duplicates.
+3. New query, paste `supabase/verify.sql`, **Run**. Every `pass` column should be `true`, and the v1/v2 count rows should match (small deltas only where v1 arrays contained blank items, which are intentionally skipped).
 
-**Multi-user cloud (recommended).** Filled backend config = the gate becomes a real sign-in. Projects, versions, feedback, discovery, and notes live in the account and load on any device. Share links resolve for anyone, no login.
+If any check fails, stop — v1 is still live and nothing user-facing has changed. The failure output names the entity to investigate.
 
----
+## 2. Realtime prerequisite
 
-## Go live — multi-user, in three steps
+v2 uses Broadcast-from-Database on private channels; `schema.sql` already created the triggers and the `realtime.messages` policies. No dashboard toggle is required for broadcast. (The old v1 `harden-collab.sql` publication for `kv` can stay; it is unused by v2.)
 
-### 1. Create the database (Supabase)
+## 3. Frontend — GitHub
 
-1. Create a free project at [supabase.com](https://supabase.com).
-2. In the dashboard: **Authentication → Sign In / Providers → Email**, and enable it. For the fastest first run, turn **off** "Confirm email" so you can sign in immediately (you can turn it back on later).
-3. Open the **SQL Editor**, paste the full contents of `backend.sql`, and **Run**. This creates the tables, the row-level-security rules, and the two functions the share links use.
+Replace the repo contents with the contents of this folder (keep the same repo and CNAME):
 
-### 2. Wire the app
+- Root: `index.html`, `config.js`, `site.css`, `site.js`, legal pages, `CNAME`, `.nojekyll`, `package.json`, `README.md`, redirect stubs (`app.html`, `signup.html`, `landing.html`)
+- Folders: `app/` (now contains `app.css` and `js/`), `login/`, `signup/`, `supabase/`, `tests/`, `docs/`, `.github/`
 
-Open `index.html` in a text editor. Near the top you'll find:
+Commit to `main`. GitHub Pages redeploys automatically (or via the included Actions workflow if Pages is set to "GitHub Actions").
 
-```js
-var SB_CFG = { url: '', anon: '' };
-```
+## 4. Smoke test (10 minutes, two browsers)
 
-In Supabase, open **Project Settings → API**. Copy the **Project URL** into `url` and the **anon public** key into `anon`. Save.
+1. Sign in as a manager in browser A, open a migrated project. The worksheet, versions, inbox history, discovery, and links should all be present.
+2. Sign in as a second manager in browser B (or an incognito window), open the same project. You should see each other's presence avatars in the top bar.
+3. A types in *Product vision*; B watches it arrive after A pauses. B types in *Problem statement* simultaneously — both persist. Both add a functional requirement at the same moment — two rows, two different FR numbers.
+4. Both click **Generate version** at nearly the same time — two versions with distinct numbers appear.
+5. Open an old SME brief link from before the migration — it still renders, and a submitted review appears in the Inbox live, with a reply thread the SME can see at their link.
+6. Sign in as a partner — assigned projects, published brief, migrated threads, and new-note flow all work.
+7. Check the **Activity** tab — the edits you just made are recorded with names.
 
-```js
-var SB_CFG = { url: 'https://YOURPROJECT.supabase.co', anon: 'eyJhbGci...your-anon-key...' };
-```
+## 5. Rollback
 
-> The anon public key is meant to ship in the browser. It's safe because every table is gated by row-level security. **Never** put the `service_role` key in the file.
+Frontend-only: revert the GitHub commit — v1 runs against `kv` exactly as before (v2 tables sit unused; edits made in v2 after cutover will not be reflected back into `kv`, so roll back promptly or not at all). The v1 SQL objects were never dropped.
 
-### 3. Deploy the folder
+## 6. After a comfortable soak (a week or two)
 
-Upload this folder to any static host. Pick one:
+Optionally archive v1 data: rename `kv` to `kv_v1_backup` (don't drop it), and remove the v1-only RPCs if you want a minimal surface. Nothing in v2 references them.
 
-- **Cloudflare Pages** — create a project, "Direct Upload", drag the folder.
-- **Netlify** — drag the folder onto [app.netlify.com/drop](https://app.netlify.com/drop).
-- **GitHub Pages** — push the folder to a repo, enable Pages on the branch.
+## Invite emails
 
-Keep `index.html` at the **root** of the site (e.g. `yourdomain.com/` → the app). Share links are generated against the site root and read on load, so the app has to be the thing that opens at the root URL.
-
-That's the whole install.
-
----
-
-## Where the landing page goes
-
-`landing.html` is the public marketing page. Because the **app** must own the site root (for share links), host the landing page one of these ways:
-
-- On a **separate marketing domain or subdomain** (e.g. `reqpub.com` → `landing.html`, `app.reqpub.com` → `index.html`). Recommended.
-- At a **path** on the same site (e.g. `yourdomain.com/welcome` → `landing.html`), linked from your homepage or nav.
-
-Every "Open the app" / "Sign in" button on the landing page points to `index.html`, so if both files sit in the same folder it just works.
-
----
-
-## Test checklist — the proof it works
-
-1. Open your deployed site. Sign up with an email and password.
-2. Create a project, answer a few questions, generate a version.
-3. Go to **Feedback**, select that version, copy the **PRD review link**.
-4. Open that link in an incognito window or a second device, with no login. You should see the plain-language summary with **no requirement detail**. Submit a review.
-5. Back in your account, reload. The review appears in **Feedback → From the brief**.
-6. Repeat with the **App testing link**. A submitted report appears under **From the app**.
-
-If all six pass, you're multi-user.
-
----
-
-## What changed in this build
-
-- **ReqPub brand applied** — Req Blue (#2563FF), the boxed-arrow logo, Inter typeface, favicon, and ReqPub naming across the app chrome, sign-in, and gate.
-- **Richer export** — the document toolbar now offers **Word (.doc)**, **PDF** (branded print with a ReqPub cover), and **Markdown**, alongside copy.
-- **Public landing page** — `landing.html`, a responsive marketing front door that links into the app.
-- **Backend unchanged** — same Supabase schema and share-link security model as before.
-
----
-
-## If something doesn't connect
-
-In this order:
-
-1. Email confirmation is still on — check your inbox, or turn it off in Authentication.
-2. `backend.sql` didn't fully run — run it again and read the output.
-3. The URL or anon key is mistyped — re-copy both from Project Settings → API.
-
-## Security, in one paragraph
-
-Each account sees only its own data. Anonymous reviewers never touch a table directly — they call two functions, `get_share` and `submit_share_feedback`, which validate the link and return or accept only what they should. The PRD reviewer receives the curated summary and nothing else (no requirement IDs, fit criteria, non-functional requirements, schedule, or internal notes — that exclusion is built into what gets published, not just hidden in the page). The `service_role` key never appears in the app.
+The `send-invite` edge function is unchanged. If it was deployed for v1, invites keep emailing; if not, invites still work — managers can tell people to sign up with the invited email (the account is claimed automatically at first sign-in).
