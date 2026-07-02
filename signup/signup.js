@@ -8,6 +8,20 @@
   var sb = window.supabase.createClient(cfg.url, cfg.anon);
   var $ = function (id) { return document.getElementById(id); };
 
+  // Invite links carry the workspace name and the invited email
+  // (/signup/?ws=Collection%20Ventures&email=lee@fathers.com): show where
+  // they are headed and prefill the email so they cannot mistype it.
+  try {
+    var params = new URLSearchParams(location.search);
+    var ws = (params.get('ws') || '').slice(0, 120);
+    var invitedEmail = (params.get('email') || '').slice(0, 320);
+    if (ws) {
+      $('wsBannerName').textContent = ws;
+      $('wsBanner').style.display = '';
+    }
+    if (invitedEmail) $('email').value = invitedEmail;
+  } catch (e) { /* no params */ }
+
   $('signupForm').addEventListener('submit', function (e) {
     e.preventDefault();
     var btn = $('signupBtn');

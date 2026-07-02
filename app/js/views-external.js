@@ -51,7 +51,8 @@ export function renderBriefView(APP) {
   const header = '<div style="margin-bottom:22px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap">' +
     '<span class="pill pill-solid"><span class="mono">v' + esc(p.label || '?') + '</span></span><span class="eyebrow" style="font-size:9.5px">Review brief</span></div>' +
     '<h1 style="font-size:27px;letter-spacing:-.02em;font-weight:660;margin:0 0 8px">' + esc(p.product || 'Untitled') + '</h1>' +
-    '<div style="color:var(--ink-3);font-size:13.5px;line-height:1.5">' + ((p.answers && p.answers.ctrl_org) ? esc(p.answers.ctrl_org) + '. ' : '') + 'Plain-language summary for review. No requirement detail, schedule, or internal notes.</div></div>';
+    '<div style="color:var(--ink-3);font-size:13.5px;line-height:1.5">' + ((p.answers && p.answers.ctrl_org) ? esc(p.answers.ctrl_org) + '. ' : '') + 'Plain-language summary for review. No requirement detail, schedule, or internal notes.' +
+    (Array.isArray(p.sections) && p.sections.length && p.sections.length < 9 ? ' The team shared ' + p.sections.length + ' section' + (p.sections.length === 1 ? '' : 's') + ' of this document.' : '') + '</div></div>';
   let reviewCard;
   if (f.submitted) {
     reviewCard = '<div class="card" style="padding:30px;text-align:center;margin-top:18px">' +
@@ -137,35 +138,98 @@ export function renderNoteIntake(APP) {
 
 /* ---------------- partner portal ---------------- */
 const greet = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
+const partnerOf = (APP) => (APP.ctx && APP.ctx.partner) || {};
+
+/* Per-card state the whole portal reasons about: does the team owe them a
+   look (a reply is waiting), or do they owe the team one (a new version)? */
+export function partnerCardState(APP, p) {
+  const pay = p.payload || {};
+  const thread = (APP.partnerThreads && APP.partnerThreads[p.project_id]) || [];
+  const waiting = thread.filter((t) => (t.messages || []).length && (t.messages[t.messages.length - 1].from === 'team')).length;
+  const seen = (APP.partnerSeen || {})[p.project_id] || '';
+  const newVersion = !!(pay.label && seen && pay.label !== seen);
+  const neverSeen = !!(pay.label && !seen);
+  return { pay, thread, waiting, newVersion: newVersion || neverSeen, label: pay.label || '' };
+}
+
+function partnerMenu(APP) {
+  if (!APP.menuOpen) return '';
+  const pr = partnerOf(APP);
+  return '<div class="umback" data-action="menuclose"></div><div class="umpop">' +
+    '<div class="umhead"><span class="umav lg" style="background:var(--purple)">' + esc(initials(pr.name || pr.email || 'P')) + '</span>' +
+    '<div style="min-width:0"><div class="umname">' + esc(pr.name || 'Add your name') + '</div>' +
+    '<div class="umsub">' + esc([pr.title, pr.company].filter(Boolean).join(' · ') || pr.email || '') + '</div>' +
+    '<span class="umrole" style="margin-top:5px;color:var(--purple);background:#f1ebfd;border-color:#e4d9fb">Partner</span></div></div>' +
+    '<div class="umsep"></div>' +
+    '<button class="umitem" data-action="pprofopen">' + ico(IC.user) + 'Profile &amp; name</button>' +
+    '<div class="umsep"></div><button class="umitem danger" data-action="signout">' + ico(IC.signout) + 'Sign out</button></div>';
+}
+
+export function partnerProfileModal(APP) {
+  const pr = partnerOf(APP);
+  return '<div class="modal-back" data-action="modalback"><div class="modal-card" role="dialog" aria-modal="true" data-stop="1">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>Your profile</h3><button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
+    '<div class="hint" style="margin-top:4px">Shown to the build team on every note and reply you send.</div>' +
+    '<div class="fldlabel">Full name</div><input class="input" id="ppName" value="' + escA(pr.name || '') + '" placeholder="First and last">' +
+    '<div class="fldlabel">Title</div><input class="input" id="ppTitle" value="' + escA(pr.title || '') + '" placeholder="e.g. Director of Research">' +
+    '<div class="fldlabel">Organization</div><input class="input" id="ppCompany" value="' + escA(pr.company || '') + '" placeholder="e.g. Canfield Group">' +
+    '<div class="fldlabel">Email</div><input class="input" value="' + escA(pr.email || (APP.user && APP.user.email) || '') + '" readonly style="color:var(--ink-4)">' +
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button class="btn btn-sec" data-action="modalclose">Cancel</button>' +
+    '<button class="btn btn-primary" data-action="pprofsave">Save profile</button></div></div></div>';
+}
 
 function partnerTopbar(APP) {
+  const pr = partnerOf(APP);
   return '<div class="topbar"><div style="display:flex;align-items:center;gap:11px">' + brandmark() +
     '<div><div style="font-weight:660;letter-spacing:-.02em;font-size:15px">ReqPub</div><div class="eyebrow" style="font-size:9.5px;letter-spacing:.18em;margin-top:1px">Partner portal</div></div></div>' +
     '<div style="display:flex;align-items:center;gap:8px"><span class="pill" style="color:var(--purple);border-color:var(--purple)">Partner</span>' +
-    '<button class="umbtn" data-action="usermenu"><span class="umav" style="background:var(--purple)">' + esc(initials((APP.ctx && APP.ctx.partner && APP.ctx.partner.name) || (APP.user && APP.user.email) || 'P')) + '</span></button></div></div>';
+    '<button class="umbtn" data-action="usermenu" title="Account"><span class="umav" style="background:var(--purple)">' + esc(initials(pr.name || pr.email || (APP.user && APP.user.email) || 'P')) + '</span></button></div></div>';
 }
 
+const partnerChrome = (APP, inner) =>
+  '<div class="app">' + partnerTopbar(APP) + inner + '</div>' +
+  '<div id="toast-slot" aria-live="polite" aria-atomic="true"></div>' +
+  partnerMenu(APP) + (APP.pprofOpen ? partnerProfileModal(APP) : '');
+
 export function renderPartnerHome(APP) {
-  const projects = APP.partnerProjects || [];
-  const name = ((APP.ctx && APP.ctx.partner && APP.ctx.partner.name) || '').split(' ')[0] || 'there';
+  const pr = partnerOf(APP);
+  const first = (pr.name || '').split(' ')[0] || 'there';
+  const projects = (APP.partnerProjects || []).slice();
+
+  // Needs-your-attention first: team replies waiting, then unseen versions.
+  projects.sort((x, y) => {
+    const a = partnerCardState(APP, x), b = partnerCardState(APP, y);
+    if (b.waiting !== a.waiting) return b.waiting - a.waiting;
+    if (b.newVersion !== a.newVersion) return (b.newVersion ? 1 : 0) - (a.newVersion ? 1 : 0);
+    return String(a.pay.product || '').localeCompare(String(b.pay.product || ''));
+  });
+
+  const nameNudge = !pr.name
+    ? '<div class="card rise" style="padding:14px 16px;margin-bottom:18px;border:1px solid #e4d9fb;background:#f8f5fe;display:flex;align-items:center;gap:12px">' +
+      '<span class="umav" style="background:var(--purple);flex:0 0 auto">?</span>' +
+      '<div style="flex:1;font-size:13px;color:var(--ink-2)">Add your name so the team knows who is writing to them.</div>' +
+      '<button class="btn btn-primary btn-sm" data-action="pprofopen">Add name</button></div>'
+    : '';
+
   const cards = projects.length ? projects.map((p) => {
-    const pay = p.payload || {};
-    const thread = (APP.partnerThreads && APP.partnerThreads[p.project_id]) || [];
-    const waiting = thread.filter((t) => (t.messages || []).length && (t.messages[t.messages.length - 1].from === 'team')).length;
+    const st = partnerCardState(APP, p);
     return '<button class="pcard" data-action="popen" data-id="' + escA(p.project_id) + '">' +
       '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0">' +
-      '<div style="font-weight:600;font-size:15.5px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(pay.product || p.project_id) + '</div>' +
-      '<div style="font-size:12px;color:var(--ink-3);margin-top:3px">' + (pay.label ? 'Published v' + esc(pay.label) : 'No published brief yet') + '</div></div>' +
-      (waiting ? '<span class="pill pill-brand">' + waiting + ' repl' + (waiting === 1 ? 'y' : 'ies') + '</span>' : '') + '</div>' +
-      '<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap"><span class="pill">' + thread.length + ' note' + (thread.length === 1 ? '' : 's') + ' sent</span></div></button>';
+      '<div style="font-weight:600;font-size:15.5px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(st.pay.product || p.project_id) + '</div>' +
+      '<div style="font-size:12px;color:var(--ink-3);margin-top:3px">' + (st.label ? 'Published v' + esc(st.label) : 'No published brief yet') + '</div></div>' +
+      '<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">' +
+      (st.waiting ? '<span class="pill pill-brand">' + st.waiting + ' repl' + (st.waiting === 1 ? 'y' : 'ies') + '</span>' : '') +
+      (st.newVersion && st.label ? '<span class="pill pill-amber">New v' + esc(st.label) + '</span>' : '') + '</div></div>' +
+      '<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap"><span class="pill">' + st.thread.length + ' note' + (st.thread.length === 1 ? '' : 's') + ' sent</span></div></button>';
   }).join('') : '<div class="card" style="grid-column:1/-1;padding:34px;text-align:center;color:var(--ink-3)"><div style="font-size:15px;font-weight:600;color:var(--ink-2);margin-bottom:5px">No assignments yet</div><div style="font-size:13px">When the team assigns you a PRD it appears here with its latest published brief.</div></div>';
-  return '<div class="app">' + partnerTopbar(APP) +
+
+  return partnerChrome(APP,
     '<div style="flex:1;overflow-y:auto"><div class="wrap" style="max-width:820px">' +
-    '<div class="rise" style="margin-bottom:30px"><h1 style="font-size:30px;letter-spacing:-.025em;font-weight:660;margin:0 0 8px">' + esc(greet()) + ', ' + esc(name) + '.</h1>' +
+    '<div class="rise" style="margin-bottom:26px"><h1 style="font-size:30px;letter-spacing:-.025em;font-weight:660;margin:0 0 8px">' + esc(greet()) + ', ' + esc(first) + '.</h1>' +
     '<p style="color:var(--ink-3);font-size:14.5px;line-height:1.6;margin:0;max-width:560px">Your role: review each PRD with your subject-matter experts, gather their concerns and requests, and relay them to the build team below. Every note opens a thread the team answers directly.</p></div>' +
+    nameNudge +
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">' + cards + '</div>' +
-    '</div></div></div><div id="toast-slot" aria-live="polite" aria-atomic="true"></div>' +
-    (APP.menuOpen ? '<div class="umback" data-action="menuclose"></div><div class="umpop"><button class="umitem danger" data-action="signout">' + ico(IC.signout) + 'Sign out</button></div>' : '');
+    '</div></div>');
 }
 
 export function renderPartnerProject(APP) {
@@ -182,10 +246,10 @@ export function renderPartnerProject(APP) {
       '<div style="font-size:11px;color:var(--ink-4);margin-bottom:4px">You · ' + esc(relTime(t.at)) + '</div>' +
       '<div style="font-size:13px;color:var(--ink-2);line-height:1.55;white-space:pre-wrap">' + esc(t.body) + '</div>' +
       (msgs ? '<div style="margin-top:10px">' + msgs + '</div>' : '') +
-      '<textarea class="input" data-preplydraft="' + escA(t.id) + '" rows="1" placeholder="Reply" style="font-size:12.5px;resize:vertical;min-height:38px;line-height:1.5;margin-top:9px"></textarea>' +
+      '<textarea class="input" data-preplydraft="' + escA(t.id) + '" rows="1" aria-label="Reply" style="font-size:12.5px;resize:vertical;min-height:38px;line-height:1.5;margin-top:9px"></textarea>' +
       '<div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="btn btn-sec btn-sm" data-action="preply" data-id="' + escA(t.id) + '">Reply</button></div></div>';
   }).join('');
-  return '<div class="app">' + partnerTopbar(APP) +
+  return partnerChrome(APP,
     '<div style="flex:1;overflow-y:auto"><div class="wrap" style="max-width:760px">' +
     '<button class="btn btn-ghost btn-sm" data-action="phome" style="margin-bottom:14px">' + ico(IC.arrow, 'i-sm') + 'All assignments</button>' +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px"><h1 style="font-size:26px;letter-spacing:-.02em;font-weight:660;margin:0">' + esc(pay.product || pid) + '</h1>' +
@@ -193,14 +257,13 @@ export function renderPartnerProject(APP) {
     (md ? '<div class="card" style="padding:26px 30px;margin-bottom:22px">' + mdToHtml(md) + '</div>'
         : '<div class="card" style="padding:26px;margin-bottom:22px;color:var(--ink-3);font-size:13.5px">The team has not published a brief for this PRD yet.</div>') +
     '<div class="card" style="padding:18px;margin-bottom:18px;border:1px solid var(--sky-2);background:var(--sky)">' +
-    '<div style="font-size:14px;font-weight:640;margin-bottom:3px">Relay a request or concern</div>' +
-    '<div style="font-size:12px;color:var(--ink-3);margin-bottom:11px">Goes straight to the build team&rsquo;s inbox and opens a thread.</div>' +
-    '<textarea class="input" id="pPostBody" rows="3" placeholder="What your SMEs need the team to know" style="resize:vertical;min-height:70px;line-height:1.55"></textarea>' +
+    '<div style="font-size:14px;font-weight:640;margin-bottom:3px">Send a note to the team</div>' +
+    '<div style="font-size:12px;color:var(--ink-3);margin-bottom:11px">It lands in their inbox and opens a thread right here.</div>' +
+    '<textarea class="input" id="pPostBody" rows="3" aria-label="Note to the team" style="resize:vertical;min-height:70px;line-height:1.55"></textarea>' +
     '<div style="display:flex;justify-content:flex-end;margin-top:9px"><button class="btn btn-primary btn-sm" data-action="ppost" data-id="' + escA(pid) + '">' + ico(IC.send, 'i-sm') + 'Send to team</button></div></div>' +
     '<div class="eyebrow" style="font-size:9.5px;margin:0 0 10px">Your threads</div>' +
     (notes || '<div class="hint" style="padding:8px 2px">No notes yet. Anything you send appears here with the team&rsquo;s replies.</div>') +
-    '</div></div></div><div id="toast-slot" aria-live="polite" aria-atomic="true"></div>' +
-    (APP.menuOpen ? '<div class="umback" data-action="menuclose"></div><div class="umpop"><button class="umitem danger" data-action="signout">' + ico(IC.signout) + 'Sign out</button></div>' : '');
+    '</div></div>');
 }
 
 /* ---------------- signed in, but no workspace ---------------- */

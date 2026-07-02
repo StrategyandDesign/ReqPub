@@ -319,6 +319,22 @@ export function assemble(sections, a) {
   return p.join('\n\n');
 }
 
+/* ---- Brief sections: what a shared review brief can contain ----
+   The team picks which of these an SME or partner sees. Filtering happens
+   when the payload is BUILT, so unshared content never leaves the server. */
+export const BRIEF_SECTIONS = [
+  { key: 'building', label: 'What we are building', def: true },
+  { key: 'goals', label: 'Goals', def: true },
+  { key: 'who', label: 'Who it is for', def: true },
+  { key: 'solution', label: 'The solution', def: true },
+  { key: 'includes', label: 'What it includes', def: false },
+  { key: 'pieces', label: 'Components', def: false },
+  { key: 'willdo', label: 'What it will do', def: true },
+  { key: 'success', label: 'Success metrics', def: false },
+  { key: 'oos', label: 'Not in scope', def: true }
+];
+export const defaultBriefSections = () => BRIEF_SECTIONS.filter((s) => s.def).map((s) => s.key);
+
 /* ---- The plain-language review brief (SME-facing) ---- */
 export function bBrief(a) {
   const P = [];

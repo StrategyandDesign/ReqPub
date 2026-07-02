@@ -1,11 +1,11 @@
 {
   "name": "reqpub",
-  "version": "2.1.0",
+  "version": "2.4.0",
   "private": true,
   "type": "module",
-  "description": "ReqPub — discovery to versioned, approved, testable requirements. Static frontend (GitHub Pages) + Supabase backend.",
+  "description": "ReqPub \u2014 discovery to versioned, approved, testable requirements. Static frontend (GitHub Pages) + Supabase backend.",
   "scripts": {
-    "test": "node tests/domain.test.mjs && node tests/sync.test.mjs",
+    "test": "node tests/domain.test.mjs && node tests/sync.test.mjs && node tests/share.test.mjs",
     "test:backend": "node tests/backend-e2e/run.mjs"
   },
   "devDependencies": {

@@ -271,6 +271,32 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:0}
   background:var(--bg);border:2px solid var(--line-2)}
 .tl-item.hot::before{background:var(--brand);border-color:var(--brand)}
 
+/* ---- Live edit-follow in the document pane ---- */
+.doc-flash{background:var(--sky);box-shadow:0 0 0 6px var(--sky);border-radius:6px;transition:background 1.2s var(--ease),box-shadow 1.2s var(--ease)}
+.doc-flash.fade{background:transparent;box-shadow:0 0 0 6px transparent}
+
+/* ---- Presentation mode ---- */
+.present-back{position:fixed;inset:0;background:var(--bg);z-index:90;display:flex;flex-direction:column}
+.present-bar{height:54px;flex:0 0 54px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line);background:var(--glass);backdrop-filter:blur(8px)}
+.present-scroll{flex:1;min-height:0;overflow-y:auto}
+.present-scroll .page{max-width:780px;padding:56px 48px 120px}
+.present-scroll .md h1{font-size:34px}
+.present-scroll .md h2{font-size:22px}
+.present-scroll .md p,.present-scroll .md li{font-size:16.5px;line-height:1.75}
+.present-scroll .md td,.present-scroll .md th{font-size:14px}
+
+/* ---- Workspace switcher (anchored left under the topbar) ---- */
+.umpop.left{left:16px;right:auto;width:300px}
+
+/* ---- Access hub ---- */
+.acc-sec{border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg);padding:18px;margin-bottom:14px}
+.acc-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.acc-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.acc-head h3{font-size:14.5px;font-weight:640;letter-spacing:-.01em;margin:0}
+.acc-sub{font-size:11.5px;color:var(--ink-4);line-height:1.5;margin:0 0 12px 44px}
+.acc-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.acc-row:first-of-type{border-top:none}
+
 /* ---- Print ---- */
 #printArea{display:none}
 .rp-cover{border-bottom:2.5px solid var(--brand);padding-bottom:16px;margin-bottom:26px}

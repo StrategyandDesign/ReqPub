@@ -32,7 +32,7 @@ export function renderTab(APP, a) {
     case 'discovery': return renderDiscovery(APP);
     case 'notes': return renderNotes(APP);
     case 'people': return renderPeople(APP);
-    case 'links': return renderLinks(APP);
+    case 'access': return renderAccess(APP);
     case 'activity': return renderActivity(APP);
     case 'versions': default: return renderVersions(APP);
   }
@@ -133,16 +133,24 @@ function renderInbox(APP) {
 function shareRow(APP, kind, title, sub, seq) {
   const share = (APP.shares || []).find((s) => s.kind === kind && s.version_seq === seq && !s.revoked);
   const link = share ? location.origin + location.pathname + '#' + (kind === 'brief' ? 'brief' : 'fb') + '/' + APP.pid + '/' + seq + '/' + share.token : null;
+  const isMgr = APP.role === 'manager';
+  const secCount = share && Array.isArray(share.sections) ? share.sections.length : null;
+  const secLine = kind === 'brief' && link
+    ? '<div style="display:flex;align-items:center;gap:8px;margin-top:9px;font-size:11.5px;color:var(--ink-4)">' +
+      (secCount ? secCount + ' section' + (secCount === 1 ? '' : 's') + ' shared' : 'All sections shared') +
+      (isMgr ? ' · <button data-action="briefpickopen" style="color:var(--brand);font-weight:560;font-size:11.5px">Edit sections</button>' : '') + '</div>'
+    : '';
+  const createBtn = kind === 'brief'
+    ? '<button class="btn btn-sec btn-sm" data-action="briefpickopen">' + ico(IC.link, 'i-sm') + 'Choose sections &amp; create link</button>'
+    : '<button class="btn btn-sec btn-sm" data-action="sharepub" data-kind="' + kind + '" data-seq="' + seq + '">' + ico(IC.link, 'i-sm') + 'Create link</button>';
   return '<div class="card" style="padding:16px;margin-bottom:12px">' +
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">' + ico(kind === 'brief' ? IC.send : IC.link, 'i-sm') + '<span style="font-size:13px;font-weight:600">' + esc(title) + '</span></div>' +
     '<div style="font-size:11.5px;color:var(--ink-4);margin-bottom:11px;line-height:1.5">' + esc(sub) + '</div>' +
     (link
       ? '<div style="display:flex;gap:8px;align-items:center"><input class="input" readonly value="' + escA(link) + '" style="flex:1;min-width:0;font-family:var(--mono);font-size:11px;color:var(--ink-3)">' +
         '<button class="btn btn-sec btn-sm" data-action="copylink" data-link="' + escA(link) + '">' + ico(IC.copy, 'i-sm') + 'Copy</button>' +
-        (APP.role === 'manager' ? '<button class="btn btn-ghost btn-sm" data-action="sharerevoke" data-token="' + escA(share.token) + '">Revoke</button>' : '') + '</div>'
-      : (APP.role === 'manager'
-        ? '<button class="btn btn-sec btn-sm" data-action="sharepub" data-kind="' + kind + '" data-seq="' + seq + '">' + ico(IC.link, 'i-sm') + 'Create link</button>'
-        : '<div class="hint">No live link. A manager can create one.</div>')) +
+        (isMgr ? '<button class="btn btn-ghost btn-sm" data-action="sharerevoke" data-token="' + escA(share.token) + '">Revoke</button>' : '') + '</div>' + secLine
+      : (isMgr ? createBtn : '<div class="hint">No live link. A manager can create one.</div>')) +
     '</div>';
 }
 
@@ -313,36 +321,91 @@ function renderPeople(APP) {
     '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Everyone who has contributed to this PRD. Tap a person to filter the Inbox.</div></div>' + rows + '</div>';
 }
 
-/* ---------------- links ---------------- */
-function renderLinks(APP) {
+/* ---------------- access hub ----------------
+   One page that answers: who can reach this project, through which door,
+   and what can they do. Organized by audience, not by artifact. */
+function renderAccess(APP) {
   const base = location.origin + location.pathname;
   const isMgr = APP.role === 'manager';
-  const rows = [];
-  (APP.shares || []).filter((s) => !s.revoked).forEach((s) => {
-    const kindLabel = s.kind === 'brief' ? 'PRD review' : s.kind === 'pilot' ? 'App testing' : 'Note intake';
-    if (s.kind === 'note') return; // request links render from input_requests below
+  const acc = APP.access || { members: [], partners: [] };
+  const latest = (APP.versions || []).length ? APP.versions[APP.versions.length - 1] : null;
+
+  const section = (iconPath, bg, color, title, sub, body) =>
+    '<div class="acc-sec"><div class="acc-head"><div class="acc-ic" style="background:' + bg + ';color:' + color + '">' + ico(iconPath, 'i-sm') + '</div><h3>' + title + '</h3></div>' +
+    '<p class="acc-sub">' + sub + '</p>' + body + '</div>';
+
+  /* 1 — the team (workspace-wide) */
+  const managers = acc.members.filter((m) => m.role === 'manager').length;
+  const viewers = acc.members.filter((m) => m.role === 'viewer').length;
+  const teamBody = '<div class="acc-row" style="border-top:none;padding-top:2px">' +
+    '<span style="flex:1;font-size:13px;color:var(--ink-2)">' +
+    (acc.members.length ? acc.members.length + ' teammate' + (acc.members.length === 1 ? '' : 's') +
+      ' <span style="color:var(--ink-4)">(' + managers + ' edit' + (viewers ? ', ' + viewers + ' read and reply' : '') + ')</span>'
+      : 'Teammates share every project in this workspace.') + '</span>' +
+    (isMgr ? '<button class="btn btn-sec btn-sm" data-action="orgopen">' + ico(IC.users, 'i-sm') + 'Manage team</button>' : '') + '</div>';
+
+  /* 2 — partners (this project) */
+  const pRows = (acc.partners || []).map((p) => {
+    const has = !!p.acc[APP.pid];
+    return '<div class="acc-row">' +
+      '<span class="umav" style="background:var(--purple);width:26px;height:26px;font-size:10.5px">' + esc(initials(p.name || p.email)) + '</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.name || p.email) + '</div>' +
+      '<div style="font-size:11px;color:var(--ink-4)">' + esc(p.email) + '</div></div>' +
+      (isMgr
+        ? '<button class="chip chip-sm' + (has ? ' on' : '') + '" data-action="accgrant" data-id="' + escA(p.id) + '" data-has="' + (has ? '1' : '') + '">' + (has ? 'Has access' : 'No access') + '</button>'
+        : '<span class="pill' + (has ? ' pill-solid' : '') + '">' + (has ? 'Has access' : 'No access') + '</span>') +
+      '</div>';
+  }).join('');
+  const pAdd = isMgr
+    ? '<div class="acc-row"><input class="input" id="accPName" placeholder="Name" style="height:34px;font-size:12.5px;flex:1;min-width:90px">' +
+      '<input class="input" id="accPEmail" type="email" placeholder="email@client.com" style="height:34px;font-size:12.5px;flex:1.4;min-width:140px">' +
+      '<button class="btn btn-primary btn-sm" data-action="accpadd">Add + grant</button></div>'
+    : '';
+  const partnersBody = (pRows || '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">' +
+    (isMgr ? 'No partners yet. Add one below; they sign in with their email.' : 'No partners yet.') + '</span></div>') + pAdd;
+
+  /* 3 — guest links for the latest version */
+  const guestBody = latest
+    ? shareRow(APP, 'brief', 'PRD review · v' + latest.label, 'A plain-language brief. Reviews land in the Inbox and open a two-way thread — no account on their side.', latest.seq) +
+      shareRow(APP, 'pilot', 'App testing · v' + latest.label, 'For people using the build. Reports land in the Inbox against this exact version.', latest.seq)
+    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">Generate a version first — guest links always point at a numbered baseline.</span></div>';
+
+  /* 4 — input requests */
+  const reqRows = (APP.requests || []).map((r) => {
+    const link = base + '#note/' + APP.pid + '/' + r.token;
+    const cnt = (APP.comms || []).filter((c) => c.request_id === r.id).length;
+    return '<div class="acc-row" style="flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:150px"><div style="font-size:13px;font-weight:560">' + esc(r.title) + '</div>' +
+      '<div style="font-size:11px;color:var(--ink-4)">' + cnt + ' response' + (cnt === 1 ? '' : 's') + ' · ' + esc(relTime(r.created_at)) + (r.due ? ' · due ' + esc(r.due) : '') + '</div></div>' +
+      '<span class="pill' + (r.status === 'closed' ? '' : ' pill-solid') + '">' + (r.status === 'closed' ? 'Closed' : 'Live') + '</span>' +
+      '<button class="btn btn-sec btn-sm" data-action="copylink" data-link="' + escA(link) + '">' + ico(IC.copy, 'i-sm') + 'Copy</button>' +
+      (isMgr ? '<button class="btn btn-ghost btn-sm" data-action="nrclose" data-id="' + escA(r.id) + '">' + (r.status === 'closed' ? 'Reopen' : 'Revoke') + '</button>' : '') +
+      '</div>';
+  }).join('');
+  const reqBody = (reqRows || '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">No requests yet. Ask a specific question, send the link, and the answers thread back here.</span></div>') +
+    (isMgr ? '<div class="acc-row"><button class="btn btn-sec btn-sm" data-action="accnewreq">' + ico(IC.plus, 'i-sm') + 'New input request</button></div>' : '');
+
+  /* 5 — older links still live */
+  const older = (APP.shares || []).filter((s) => !s.revoked && s.kind !== 'note' && (!latest || s.version_seq !== latest.seq));
+  const olderBody = older.length ? older.map((s) => {
     const v = (APP.versions || []).find((x) => x.seq === s.version_seq);
     const link = base + '#' + (s.kind === 'brief' ? 'brief' : 'fb') + '/' + APP.pid + '/' + s.version_seq + '/' + s.token;
-    rows.push('<div class="card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
-      '<div style="font-weight:600;font-size:13.5px">' + esc(kindLabel) + ' · ' + (v ? 'v' + esc(v.label) : 'v?') + '</div><span class="pill pill-solid">Live</span></div>' +
-      '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input class="input" readonly value="' + escA(link) + '" style="flex:1;min-width:0;font-family:var(--mono);font-size:11px;color:var(--ink-3);height:32px">' +
+    return '<div class="acc-row"><span style="flex:1;font-size:12.5px;color:var(--ink-2)">' + (s.kind === 'brief' ? 'PRD review' : 'App testing') + ' · ' + (v ? 'v' + esc(v.label) : 'v?') + '</span>' +
       '<button class="btn btn-sec btn-sm" data-action="copylink" data-link="' + escA(link) + '">Copy</button>' +
-      (isMgr ? '<button class="btn btn-ghost btn-sm" data-action="sharerevoke" data-token="' + escA(s.token) + '">Revoke</button>' : '') + '</div></div>');
-  });
-  (APP.requests || []).forEach((r) => {
-    const link = base + '#note/' + APP.pid + '/' + r.token;
-    rows.push('<div class="card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">' +
-      '<div style="min-width:0"><div style="font-weight:600;font-size:13.5px">Input request · ' + esc(r.title) + '</div>' +
-      '<div style="font-size:11px;color:var(--ink-4);margin-top:2px">' + esc(relTime(r.created_at)) + (r.due ? ' · due ' + esc(r.due) : '') + '</div></div>' +
-      '<span class="pill' + (r.status === 'closed' ? '' : ' pill-solid') + '">' + (r.status === 'closed' ? 'Closed' : 'Live') + '</span></div>' +
-      '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><input class="input" readonly value="' + escA(link) + '" style="flex:1;min-width:0;font-family:var(--mono);font-size:11px;color:var(--ink-3);height:32px">' +
-      '<button class="btn btn-sec btn-sm" data-action="copylink" data-link="' + escA(link) + '">Copy</button>' +
-      (isMgr ? '<button class="btn btn-ghost btn-sm" data-action="nrclose" data-id="' + escA(r.id) + '">' + (r.status === 'closed' ? 'Reopen' : 'Revoke') + '</button>' : '') + '</div></div>');
-  });
-  const body = rows.length ? rows.join('')
-    : '<div class="empty">' + ico(IC.link) + '<div style="font-size:14px;color:var(--ink-2);font-weight:560;margin-bottom:4px">No links yet</div><div style="font-size:13px;max-width:280px">Generate a version, then create review and testing links from the Feedback tab, or a note request from Notes.</div></div>';
-  return '<div class="page" style="max-width:600px"><div style="margin-bottom:14px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Links</h2>' +
-    '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Every shareable link for this PRD, in one place. Copy or revoke — revocation is immediate and server-side.</div></div>' + body + '</div>';
+      (isMgr ? '<button class="btn btn-ghost btn-sm" data-action="sharerevoke" data-token="' + escA(s.token) + '">Revoke</button>' : '') + '</div>';
+  }).join('') : '';
+
+  return '<div class="page" style="max-width:640px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:16px">' +
+    '<div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Access</h2>' +
+    '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Everyone outside this window reaches the project through what is below. Grants and revocations take effect immediately.</div></div>' +
+    (isMgr ? '<button class="btn btn-primary btn-sm" data-action="shareopen" style="flex:0 0 auto">' + ico(IC.send, 'i-sm') + 'Share…</button>' : '') + '</div>' +
+    section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
+    section(IC.user, '#f1ebfd', 'var(--purple)', 'Partners', 'Manage SMEs on the client side. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
+    section(IC.send, '#e6f7fb', 'var(--teal)', 'Review &amp; testing links', 'No account needed. Each recipient gets a private thread back to your inbox. Anyone with the link can respond, so share deliberately.', guestBody) +
+    section(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'Input requests', 'Ask SMEs a specific question before or after the PRD exists. Responses land in the Inbox, linked to the request.', reqBody) +
+    (olderBody ? section(IC.hist, 'var(--bg-3)', 'var(--ink-3)', 'Older links still live', 'Links for earlier versions that were never revoked.', olderBody) : '') +
+    '</div>';
 }
 
 /* ---------------- versions + approvals ---------------- */

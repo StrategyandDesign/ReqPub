@@ -78,8 +78,12 @@ returns text language sql security definer stable set search_path = public as $$
 $$;
 
 -- Random, URL-safe, non-enumerable share/reply tokens.
+-- search_path includes `extensions`: on Supabase, pgcrypto (gen_random_bytes)
+-- lives there, while a plain Postgres installs it into public. Without this,
+-- every function that mints a token fails on Supabase with
+-- "function gen_random_bytes does not exist".
 create or replace function url_token(p_bytes int default 18)
-returns text language sql volatile as $$
+returns text language sql volatile set search_path = public, extensions as $$
   select translate(encode(gen_random_bytes(p_bytes), 'base64'), '+/=', '-_');
 $$;
 
@@ -889,6 +893,22 @@ grant execute on function request_submit(text, text, text) to anon, authenticate
 -- ----------------------------------------------------------------------------
 -- 11) Partner portal RPCs (account-holding external collaborators)
 -- ----------------------------------------------------------------------------
+
+-- Partner-editable profile. Columns are additive and default-safe for v1 rows.
+alter table partners add column if not exists title text not null default '';
+alter table partners add column if not exists company text not null default '';
+
+create or replace function partner_update_profile(p_name text, p_title text, p_company text)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  update partners
+     set name = left(coalesce(trim(p_name), ''), 120),
+         title = left(coalesce(trim(p_title), ''), 120),
+         company = left(coalesce(trim(p_company), ''), 160)
+   where user_id = auth.uid();
+  return found;
+end; $$;
+grant execute on function partner_update_profile(text, text, text) to authenticated;
 create or replace function partner_projects_v2()
 returns jsonb language sql security definer stable set search_path = public as $$
   select coalesce(jsonb_agg(jsonb_build_object(
@@ -960,7 +980,8 @@ returns jsonb language sql security definer stable set search_path = public as $
     'memberships', coalesce((
       select jsonb_agg(jsonb_build_object('org_id', m.org_id, 'org_name', o.name, 'role', m.role))
       from org_members m join orgs o on o.id = m.org_id where m.user_id = auth.uid()), '[]'::jsonb),
-    'partner', (select jsonb_build_object('id', p.id, 'org_id', p.org_id, 'name', p.name)
+    'partner', (select jsonb_build_object('id', p.id, 'org_id', p.org_id, 'name', p.name,
+                                          'title', p.title, 'company', p.company, 'email', p.email)
                 from partners p where p.user_id = auth.uid() limit 1));
 $$;
 grant execute on function v2_context() to authenticated;

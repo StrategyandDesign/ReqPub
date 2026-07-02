@@ -95,7 +95,7 @@ export const repo = {
     return (pr.data || []).map((p) => ({ ...p, acc: acc[p.id] || {} }));
   },
   async addPartner(orgId, email, name) {
-    return durable(() => sb.from('partners').insert({ org_id: orgId, email, name }));
+    return durable(() => sb.from('partners').insert({ org_id: orgId, email, name }).select().single());
   },
   async removePartner(id) { return durable(() => sb.from('partners').delete().eq('id', id)); },
   async grantPartner(partnerId, projectId) {
@@ -226,7 +226,8 @@ export const repo = {
   },
   shareRevoke(token) { return rpc('share_revoke', { p_token: token }); },
   async sharesFor(pid) {
-    const r = await durable(() => sb.from('shares').select('token,kind,version_seq,revoked,updated_at').eq('project_id', pid));
+    const r = await durable(() => sb.from('shares')
+      .select('token,kind,version_seq,revoked,updated_at,sections:payload->sections').eq('project_id', pid));
     return r.data || [];
   },
   getShare(token) { return rpc('get_share', { p_token: token }); },
@@ -241,6 +242,9 @@ export const repo = {
   partnerThread(pid) { return rpc('partner_thread_v2', { p_project: pid }); },
   partnerPost(pid, body) { return rpc('partner_post', { p_project: pid, p_body: body }); },
   partnerReply(commId, body) { return rpc('partner_reply', { p_comm: commId, p_body: body }); },
+  partnerUpdateProfile(name, title, company) {
+    return rpc('partner_update_profile', { p_name: name, p_title: title, p_company: company });
+  },
 
   /* ---- activity ---- */
   async activity(pid, limit = 80) {
@@ -265,7 +269,10 @@ export function stripInternal(obj) {
   }
   return obj;
 }
-export function buildSharePayload(project, answers, versionLabel, seq, kind, build) {
+/* Brief payloads are section-scoped: only the answer fields backing the
+   selected sections are included, so unshared content is absent from the
+   payload itself — not merely hidden by the page that renders it. */
+export function buildSharePayload(project, answers, versionLabel, seq, kind, build, sectionKeys) {
   const filled = (arr) => (arr || []).filter((r) => Object.keys(r || {}).some((c) => c !== '_k' && r[c] && String(r[c]).trim()));
   if (kind === 'pilot') {
     return {
@@ -273,15 +280,27 @@ export function buildSharePayload(project, answers, versionLabel, seq, kind, bui
       answers: { components: filled(answers.components).map((c) => ({ name: c.name })) }
     };
   }
-  const ca = {
-    ctrl_org: answers.ctrl_org, ctrl_product: answers.ctrl_product,
-    ov_purpose: answers.ov_purpose, ov_vision: answers.ov_vision, ov_problem: answers.ov_problem,
-    ov_market: answers.ov_market, ov_goals: answers.ov_goals,
-    seg: answers.seg, persona: answers.persona, context: answers.context,
-    sol_solution: answers.sol_solution, sol_in: answers.sol_in, sol_out: answers.sol_out,
-    components: filled(answers.components).map((c) => ({ name: c.name, desc: c.desc })),
-    fr: (answers.fr || []).map((x) => ({ stmt: x.stmt || '', comp: x.comp || '' })),
-    metrics: answers.metrics
-  };
-  return { product: project.name || '', label: versionLabel || '', answers: stripInternal(ca) };
+  const secs = Array.isArray(sectionKeys) && sectionKeys.length
+    ? sectionKeys
+    : ['building', 'goals', 'who', 'solution', 'includes', 'pieces', 'willdo', 'success', 'oos'];
+  const has = (k) => secs.includes(k);
+  const ca = { ctrl_org: answers.ctrl_org, ctrl_product: answers.ctrl_product };
+  if (has('building')) {
+    ca.ov_purpose = answers.ov_purpose; ca.ov_vision = answers.ov_vision;
+    ca.ov_problem = answers.ov_problem; ca.ov_market = answers.ov_market;
+  }
+  if (has('goals')) ca.ov_goals = answers.ov_goals;
+  if (has('who')) { ca.seg = answers.seg; ca.persona = answers.persona; ca.context = answers.context; }
+  if (has('solution')) ca.sol_solution = answers.sol_solution;
+  if (has('includes')) ca.sol_in = answers.sol_in;
+  if (has('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name, desc: c.desc }));
+  if (has('willdo')) {
+    ca.fr = (answers.fr || []).map((x) => ({ stmt: x.stmt || '', comp: x.comp || '' }));
+    // Requirement grouping needs component names even when the components
+    // section itself is not shared. Names only, no descriptions.
+    if (!has('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name }));
+  }
+  if (has('success')) ca.metrics = answers.metrics;
+  if (has('oos')) ca.sol_out = answers.sol_out;
+  return { product: project.name || '', label: versionLabel || '', sections: secs, answers: stripInternal(ca) };
 }

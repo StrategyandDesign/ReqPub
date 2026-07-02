@@ -4,10 +4,10 @@
    ============================================================================ */
 
 import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce } from './core.js';
-import { assembleAnswers, buildSections, suggestFit, changeNote } from './domain.js';
+import { assembleAnswers, buildSections, suggestFit, changeNote, qById, mdToHtml, defaultBriefSections } from './domain.js';
 import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
-import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems } from './views-app.js';
+import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary } from './exports.js';
@@ -25,10 +25,12 @@ const APP = {
   noteDraft: '', noteSrc: 'team', noteBy: '', reqDraft: {}, reqDel: null,
   discDraft: {}, discQ: '', discDel: null,
   menuOpen: false, profileOpen: false, orgOpen: false, orgData: null,
+  present: false, shareOpen: false, access: { members: [], partners: [] }, activeQid: null,
+  wsMenuOpen: false, wsCreating: false, briefPickOpen: false, briefPick: [],
   genOpen: false, gen: {}, palOpen: false, palQ: '', palSel: 0,
   delPending: null, delError: null, toast: null,
   share: null, shareKind: null, shareForm: {}, smeThread: null, request: null,
-  partnerProjects: [], partnerThreads: {}, partnerPid: null,
+  partnerProjects: [], partnerThreads: {}, partnerPid: null, partnerSeen: {}, pprofOpen: false,
   authBusy: false, authError: null, bundleLoading: false
 };
 window.APP = APP; // aids debugging in the console; harmless in production
@@ -89,14 +91,75 @@ function toast(t) {
 }
 
 /* Re-render, but never yank the DOM out from under someone mid-keystroke.
-   Deferred renders run when the field blurs (or on the trailing edge). */
+   Deferred renders run when the field blurs (or on the trailing edge). The
+   document pane is the exception: it lives in its own scroll container, so it
+   is live-patched while you type — your words appear in the document as you
+   write them, and so do your teammates'. */
 const deferredRender = debounce(() => { if (!APP.activeField) render(); }, 900);
 function scheduleRender(reason) {
   if (reason === 'savechip') { patchSaveChips(); return; }
-  if (APP.activeField) { deferredRender(); return; }
+  if (APP.activeField) {
+    if (reason && (reason.startsWith('field:') || reason.startsWith('rows:'))) patchDocPane();
+    deferredRender();
+    return;
+  }
   if (renderQueued) return;
   renderQueued = true;
   requestAnimationFrame(() => { renderQueued = false; render(); });
+}
+
+/* ---- live edit-follow: patch the rendered document and reveal the section
+   being edited, without touching the worksheet DOM ---- */
+let lastRevealedSec = null;
+const patchDocPane = debounce(() => {
+  if (APP.view !== 'workspace' || APP.viewSeq != null) return;
+  const a = assembleAnswers(APP.fields, APP.rows);
+  if (APP.docTab === 'document') {
+    const el = document.getElementById('docScroll');
+    if (el) {
+      const keep = el.scrollTop;
+      el.innerHTML = documentTabHTML(APP, a);
+      el.scrollTop = keep;
+    }
+  }
+  if (APP.present) {
+    const p = document.getElementById('presentScroll');
+    if (p) {
+      const d = currentDocMd(APP, a);
+      const keep = p.scrollTop;
+      p.innerHTML = '<div class="page">' + (d.md ? mdToHtml(d.md) : '') + '</div>';
+      p.scrollTop = keep;
+    }
+  }
+  revealActiveSection();
+}, 300);
+
+function revealActiveSection(force) {
+  const qid = APP.activeQid;
+  if (!qid || APP.viewSeq != null) return;
+  const q = qById[qid];
+  if (!q) return;
+  if (!force && q.sec === lastRevealedSec) return;
+  const container = APP.present ? document.getElementById('presentScroll')
+    : (APP.docTab === 'document' ? document.getElementById('docScroll') : null);
+  if (!container) return;
+  const el = container.querySelector('#docsec-' + q.sec);
+  if (!el) return;
+  lastRevealedSec = q.sec;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.classList.add('doc-flash');
+  setTimeout(() => el.classList.add('fade'), 700);
+  setTimeout(() => el.classList.remove('doc-flash', 'fade'), 2100);
+}
+
+async function loadAccessData() {
+  if (!APP.orgId) return;
+  const [members, partners] = await Promise.all([
+    repo.members(APP.orgId),
+    APP.role === 'manager' ? repo.orgPartners(APP.orgId) : Promise.resolve(APP.access.partners || [])
+  ]);
+  APP.access = { members, partners };
+  scheduleRender('access');
 }
 function patchSaveChips() {
   // Surgical update so typing is never interrupted by chip changes.
@@ -192,6 +255,7 @@ async function boot() {
   } else if (APP.ctx.partner) {
     APP.role = 'partner';
     APP.view = 'partner';
+    pseenLoad();
     render();
     loadPartner();
   } else {
@@ -255,6 +319,8 @@ async function openProject(id) {
   APP.fields = {}; APP.rows = {}; APP.versions = []; APP.comms = []; APP.msgs = {};
   APP.requests = []; APP.discovery = []; APP.reads = {}; APP.snapshots = {}; APP.shares = [];
   APP.approvals = {}; APP.conflicts = {}; APP.openComms = {}; APP.openDisc = {}; APP.openSecs = {};
+  APP.present = false; APP.activeQid = null; lastRevealedSec = null;
+  APP.access = { members: [], partners: [] };
   APP.bundleLoading = true;
   render();
 
@@ -280,6 +346,7 @@ function goHome() {
   sync.flushNow();
   sync.unsubscribeProject();
   APP.pid = null; APP.project = null; APP.view = 'projects'; APP.activeField = null;
+  APP.present = false; APP.activeQid = null;
   render();
   refreshDashboardStats();
 }
@@ -313,8 +380,9 @@ async function generateVersion() {
     render(); return;
   }
   // Publish the SME-safe payloads for this baseline (brief + app testing).
+  // The brief carries the project's remembered section selection.
   await Promise.all([
-    repo.sharePut(APP.pid, 'brief', out.seq, buildSharePayload(APP.project || { name: answers.ctrl_product }, answers, out.label, out.seq, 'brief')),
+    repo.sharePut(APP.pid, 'brief', out.seq, buildSharePayload(APP.project || { name: answers.ctrl_product }, answers, out.label, out.seq, 'brief', '', briefSecsSaved(APP.pid))),
     repo.sharePut(APP.pid, 'pilot', out.seq, buildSharePayload(APP.project || { name: answers.ctrl_product }, answers, out.label, out.seq, 'pilot'))
   ]);
   APP.shares = await repo.sharesFor(APP.pid);
@@ -350,7 +418,15 @@ async function submitShare() {
   }
   const out = r.data;
   f.busy = false;
-  if (r.error || !out || !out.ok) { f.error = 'Could not send — check your connection and try again.'; render(); return; }
+  if (r.error || !out || !out.ok) {
+    const why = out && out.error;
+    f.error = why === 'invalid_link' ? 'This link is no longer active. Ask your contact for a current one.'
+      : why === 'rate_limited' ? 'This link reached its hourly submission limit. Please try again in a little while.'
+      : why === 'too_long' ? 'Your message is too long for one submission. Please shorten it.'
+      : why === 'empty' ? 'Please add your input before sending.'
+      : 'Could not send. Check your connection and try again; if it keeps failing, tell your contact.';
+    render(); return;
+  }
   f.submitted = true;
   if (out.reply_token) {
     try { localStorage.setItem(smeTokenKey(), out.reply_token); } catch { /* private mode */ }
@@ -361,15 +437,38 @@ async function submitShare() {
 }
 
 /* ---------------- partner ---------------- */
+let lastPartnerRefresh = 0;
 async function loadPartner() {
+  lastPartnerRefresh = Date.now();
   const r = await repo.partnerProjects();
   APP.partnerProjects = (r.data && Array.isArray(r.data)) ? r.data : [];
   await Promise.all(APP.partnerProjects.map(async (p) => {
     const t = await repo.partnerThread(p.project_id);
     APP.partnerThreads[p.project_id] = (t.data && Array.isArray(t.data)) ? t.data : [];
   }));
+  if (APP.view === 'partnerview' && APP.partnerPid) pseenMark(APP.partnerPid);
   render();
 }
+
+function pseenLoad() {
+  try { APP.partnerSeen = JSON.parse(localStorage.getItem('rp:pseen') || '{}') || {}; }
+  catch { APP.partnerSeen = {}; }
+}
+function pseenMark(pid) {
+  const p = (APP.partnerProjects || []).find((x) => x.project_id === pid);
+  const label = p && p.payload && p.payload.label;
+  if (!label) return;
+  APP.partnerSeen[pid] = label;
+  try { localStorage.setItem('rp:pseen', JSON.stringify(APP.partnerSeen)); } catch { /* private mode */ }
+}
+
+/* The portal refreshes itself when the partner comes back to the tab, so what
+   they see is always current without a reload button. */
+window.addEventListener('focus', () => {
+  if ((APP.view === 'partner' || APP.view === 'partnerview') && Date.now() - lastPartnerRefresh > 15000) {
+    loadPartner();
+  }
+});
 
 /* ---------------- org modal ---------------- */
 async function loadOrgData(tab) {
@@ -380,6 +479,26 @@ async function loadOrgData(tab) {
   ]);
   Object.assign(APP.orgData, { members, invites, partners });
   render();
+}
+
+/* Ensure a guest link exists for the latest version, then return it. */
+async function ensureShareLink(kind) {
+  const latest = APP.versions.length ? APP.versions[APP.versions.length - 1] : null;
+  if (!latest) return null;
+  let share = (APP.shares || []).find((s) => s.kind === kind && s.version_seq === latest.seq && !s.revoked);
+  if (!share) {
+    const answers = assembleAnswers(APP.fields, APP.rows);
+    await ensureSnapshot(latest.seq);
+    const snapAns = APP.snapshots[latest.seq] ? (APP.snapshots[latest.seq].snapshot.answers || answers) : answers;
+    const r = await repo.sharePut(APP.pid, kind, latest.seq,
+      buildSharePayload(APP.project || {}, snapAns, latest.label, latest.seq, kind, latest.build,
+        kind === 'brief' ? briefSecsSaved(APP.pid) : null));
+    if (r.error || !r.data) return null;
+    APP.shares = await repo.sharesFor(APP.pid);
+    share = (APP.shares || []).find((s) => s.kind === kind && s.version_seq === latest.seq && !s.revoked);
+  }
+  if (!share) return null;
+  return location.origin + location.pathname + '#' + (kind === 'brief' ? 'brief' : 'fb') + '/' + APP.pid + '/' + latest.seq + '/' + share.token;
 }
 
 /* ---------------- event delegation ---------------- */
@@ -395,7 +514,7 @@ document.addEventListener('click', async (e) => {
   switch (a) {
     /* chrome */
     case 'usermenu': APP.menuOpen = !APP.menuOpen; render(); break;
-    case 'menuclose': APP.menuOpen = false; render(); break;
+    case 'menuclose': APP.menuOpen = false; APP.wsMenuOpen = false; APP.wsCreating = false; render(); break;
     case 'modalback': if (e.target === t) { closeModals(); render(); } break;
     case 'modalclose': closeModals(); render(); break;
     case 'themeset': themeSet(t.dataset.val); render(); break;
@@ -488,6 +607,7 @@ document.addEventListener('click', async (e) => {
     case 'tab': {
       APP.docTab = t.dataset.val; APP.docShow = true;
       if (APP.docTab === 'activity') APP.activityLog = await repo.activity(APP.pid);
+      if (APP.docTab === 'access') loadAccessData();
       if (APP.docTab === 'changes' || APP.docTab === 'document' || APP.docTab === 'summary') {
         const seq = APP.viewSeq != null ? APP.viewSeq : (APP.versions.length ? APP.versions[APP.versions.length - 1].seq : null);
         if (APP.docTab === 'changes' && seq != null) {
@@ -504,6 +624,106 @@ document.addEventListener('click', async (e) => {
     case 'genkind': APP.gen.major = t.dataset.val === 'major'; APP.gen.note = val('genNote'); render(); break;
     case 'genconfirm': APP.gen.note = val('genNote'); await generateVersion(); break;
 
+    /* presentation mode */
+    case 'present': APP.present = true; lastRevealedSec = null; render(); break;
+    case 'presentclose': APP.present = false; render(); break;
+
+    /* share hub */
+    case 'shareopen': closeModals(); APP.shareOpen = true; render(); break;
+    case 'shr-team': closeModals(); APP.orgOpen = true; render(); loadOrgData('members'); break;
+    case 'shr-partner': closeModals(); APP.docTab = 'access'; render(); loadAccessData(); break;
+    case 'shr-pilot': {
+      const link = await ensureShareLink('pilot');
+      closeModals();
+      if (!link) { toast('Could not create the link — try again'); render(); break; }
+      APP.docTab = 'access';
+      render();
+      loadAccessData();
+      if (await copyText(link)) toast('Testing link copied — send it to your tester');
+      break;
+    }
+
+    /* brief sharing goes through the section picker */
+    case 'shr-brief': case 'briefpickopen': {
+      if (APP.role !== 'manager' || !APP.versions.length) break;
+      closeModals();
+      const latest = APP.versions[APP.versions.length - 1];
+      const live = (APP.shares || []).find((s) => s.kind === 'brief' && s.version_seq === latest.seq && !s.revoked);
+      APP.briefPick = (live && Array.isArray(live.sections) && live.sections.length)
+        ? live.sections.slice() : briefSecsSaved(APP.pid);
+      APP.briefPickOpen = true;
+      render();
+      break;
+    }
+    case 'briefpicktoggle': {
+      const k = t.dataset.val;
+      APP.briefPick = APP.briefPick.includes(k)
+        ? APP.briefPick.filter((x) => x !== k) : APP.briefPick.concat([k]);
+      render();
+      break;
+    }
+    case 'briefpickconfirm': {
+      const latest = APP.versions[APP.versions.length - 1];
+      if (!latest || !APP.briefPick.length) break;
+      const secs = APP.briefPick.slice();
+      await ensureSnapshot(latest.seq);
+      const answers = APP.snapshots[latest.seq]
+        ? (APP.snapshots[latest.seq].snapshot.answers || assembleAnswers(APP.fields, APP.rows))
+        : assembleAnswers(APP.fields, APP.rows);
+      const live = (APP.shares || []).find((s) => s.kind === 'brief' && s.version_seq === latest.seq && !s.revoked);
+      const r = await repo.sharePut(APP.pid, 'brief', latest.seq,
+        buildSharePayload(APP.project || {}, answers, latest.label, latest.seq, 'brief', latest.build, secs),
+        live ? live.token : null);
+      if (r.error || !r.data) { toast('Could not publish — try again'); break; }
+      briefSecsStore(APP.pid, secs);
+      APP.shares = await repo.sharesFor(APP.pid);
+      closeModals();
+      APP.docTab = 'access';
+      render();
+      loadAccessData();
+      const link = location.origin + location.pathname + '#brief/' + APP.pid + '/' + latest.seq + '/' + r.data;
+      if (await copyText(link)) toast('Review link copied — ' + secs.length + ' section' + (secs.length === 1 ? '' : 's') + ' shared');
+      break;
+    }
+
+    /* workspace switcher */
+    case 'wsmenu': closeModals(); APP.wsMenuOpen = true; render(); break;
+    case 'wscreate': APP.wsCreating = true; render(); setTimeout(() => { const el = document.getElementById('wsName'); if (el) el.focus(); }, 30); break;
+    case 'wscreatego': {
+      const name = val('wsName').trim();
+      if (!name) { toast('Name the workspace first'); break; }
+      const r = await repo.createOrg(name);
+      if (r.error) { toast('Could not create workspace'); break; }
+      closeModals();
+      APP.ctx = await repo.context();
+      const m = (APP.ctx.memberships || []).find((x) => x.org_name === name) || (APP.ctx.memberships || [])[0];
+      if (m) { sync.unsubscribeProject(); await enterOrg(m); toast('Workspace created — you are its first manager'); }
+      break;
+    }
+    case 'shr-request': case 'accnewreq': closeModals(); APP.docTab = 'notes'; APP.reqDraft = { open: true }; render(); break;
+
+    /* access hub: partners on this project */
+    case 'accgrant': {
+      if (APP.role !== 'manager') break;
+      const had = t.dataset.has === '1';
+      const r = had ? await repo.revokePartner(id, APP.pid) : await repo.grantPartner(id, APP.pid);
+      if (r.error) { toast('Could not update access'); break; }
+      toast(had ? 'Access revoked' : 'Access granted — they see the latest published brief');
+      loadAccessData();
+      break;
+    }
+    case 'accpadd': {
+      const name = val('accPName').trim(), email = val('accPEmail').trim().toLowerCase();
+      if (!email || !email.includes('@')) { toast('Enter a valid email'); break; }
+      const r = await repo.addPartner(APP.orgId, email, name);
+      if (r.error || !r.data) { toast('Could not add partner'); break; }
+      await repo.grantPartner(r.data.id, APP.pid);
+      repo.sendInviteEmail(email, 'partner', APP.org, APP.user.email);
+      toast('Partner added with access to this project');
+      loadAccessData();
+      break;
+    }
+
     /* palette */
     case 'palette': openPalette(); break;
     case 'palclose': if (e.target === t) { APP.palOpen = false; render(); } break;
@@ -517,7 +737,9 @@ document.addEventListener('click', async (e) => {
       const cur = APP.fields[q] && APP.fields[q].value;
       sync.editField(q, cur === t.dataset.val ? '' : t.dataset.val);
       sync.flushNow();
+      APP.activeQid = q;
       render();
+      revealActiveSection(true);
       break;
     }
     case 'addrow': {
@@ -772,8 +994,19 @@ document.addEventListener('click', async (e) => {
     }
 
     /* partner */
-    case 'popen': APP.partnerPid = t.dataset.id; APP.view = 'partnerview'; render(); break;
+    case 'popen': APP.partnerPid = t.dataset.id; APP.view = 'partnerview'; pseenMark(t.dataset.id); render(); break;
     case 'phome': APP.view = 'partner'; render(); loadPartner(); break;
+    case 'pprofopen': closeModals(); APP.pprofOpen = true; render(); break;
+    case 'pprofsave': {
+      const name = val('ppName').trim(), title = val('ppTitle').trim(), company = val('ppCompany').trim();
+      const r = await repo.partnerUpdateProfile(name, title, company);
+      if (r.error || r.data !== true) { toast('Could not save profile'); break; }
+      if (APP.ctx && APP.ctx.partner) Object.assign(APP.ctx.partner, { name, title, company });
+      APP.pprofOpen = false;
+      toast('Profile saved');
+      render();
+      break;
+    }
     case 'ppost': {
       const el = document.getElementById('pPostBody');
       const body = el ? el.value.trim() : '';
@@ -845,11 +1078,12 @@ document.addEventListener('change', async (e) => {
   }
 });
 
-/* input events (typing) — save without re-rendering */
+/* input events (typing) — save without re-rendering the worksheet; the
+   document pane follows the keystrokes live */
 document.addEventListener('input', (e) => {
   const t = e.target;
-  if (t.matches('[data-field]')) sync.editField(t.dataset.field, t.value);
-  else if (t.matches('input[data-rowfield], textarea[data-rowfield]')) sync.editRow(t.dataset.rowfield, t.dataset.rowid, { [t.dataset.colkey]: t.value });
+  if (t.matches('[data-field]')) { sync.editField(t.dataset.field, t.value); APP.activeQid = t.dataset.field; patchDocPane(); }
+  else if (t.matches('input[data-rowfield], textarea[data-rowfield]')) { sync.editRow(t.dataset.rowfield, t.dataset.rowid, { [t.dataset.colkey]: t.value }); APP.activeQid = t.dataset.rowfield; patchDocPane(); }
   else if (t.matches('[data-draft]')) APP.drafts[t.dataset.draft] = t.value;
   else if (t.matches('[data-ibsearch]')) { APP.inboxFilter.q = t.value; deferredRender(); }
   else if (t.matches('[data-discsearch]')) { APP.discQ = t.value; deferredRender(); }
@@ -864,8 +1098,15 @@ document.addEventListener('input', (e) => {
 /* focus tracking → presence + render deferral */
 document.addEventListener('focusin', (e) => {
   const t = e.target;
-  if (t.matches('[data-field]')) sync.setActiveField(t.dataset.field);
-  else if (t.matches('[data-rowfield]')) sync.setActiveField('row:' + t.dataset.rowid + ':' + t.dataset.colkey);
+  if (t.matches('[data-field]')) {
+    sync.setActiveField(t.dataset.field);
+    APP.activeQid = t.dataset.field;
+    revealActiveSection(true);
+  } else if (t.matches('[data-rowfield]')) {
+    sync.setActiveField('row:' + t.dataset.rowid + ':' + t.dataset.colkey);
+    APP.activeQid = t.dataset.rowfield;
+    revealActiveSection(true);
+  }
 });
 document.addEventListener('focusout', (e) => {
   const t = e.target;
@@ -879,8 +1120,21 @@ document.addEventListener('focusout', (e) => {
 /* keyboard */
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); return; }
+  // Cmd/Ctrl+Enter sends the message you are writing, wherever you are.
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    const t = e.target;
+    let btn = null;
+    if (t.matches && t.matches('[data-draft]')) btn = document.querySelector('[data-action="reply"][data-id="' + CSS.escape(t.dataset.draft) + '"]');
+    else if (t.id === 'pPostBody') btn = document.querySelector('[data-action="ppost"]');
+    else if (t.matches && t.matches('[data-preplydraft]')) btn = document.querySelector('[data-action="preply"][data-id="' + CSS.escape(t.dataset.preplydraft) + '"]');
+    else if (t.matches && t.matches('[data-notedraft]')) btn = document.querySelector('[data-action="noteadd"]');
+    else if (t.id === 'smeReplyBody') btn = document.querySelector('[data-action="smereply"]');
+    if (btn) { e.preventDefault(); btn.click(); }
+    return;
+  }
   if (e.key === 'Escape') {
-    if (APP.palOpen || APP.menuOpen || APP.profileOpen || APP.orgOpen || APP.genOpen || APP.delPending) {
+    if (APP.present) { APP.present = false; render(); return; }
+    if (APP.palOpen || APP.menuOpen || APP.profileOpen || APP.orgOpen || APP.genOpen || APP.delPending || APP.shareOpen) {
       closeModals(); render();
     }
     return;
@@ -896,6 +1150,20 @@ document.addEventListener('keydown', (e) => {
 function closeModals() {
   APP.palOpen = false; APP.menuOpen = false; APP.profileOpen = false;
   APP.orgOpen = false; APP.genOpen = false; APP.delPending = null; APP.delError = null;
+  APP.shareOpen = false; APP.pprofOpen = false;
+  APP.wsMenuOpen = false; APP.wsCreating = false; APP.briefPickOpen = false;
+}
+
+/* Per-project memory of which brief sections the team last shared. */
+function briefSecsSaved(pid) {
+  try {
+    const v = JSON.parse(localStorage.getItem('rp:briefsecs:' + pid) || 'null');
+    if (Array.isArray(v) && v.length) return v;
+  } catch { /* fall through */ }
+  return defaultBriefSections();
+}
+function briefSecsStore(pid, secs) {
+  try { localStorage.setItem('rp:briefsecs:' + pid, JSON.stringify(secs)); } catch { /* private mode */ }
 }
 function openPalette() {
   closeModals(); APP.palOpen = true; APP.palQ = ''; APP.palSel = 0; render();

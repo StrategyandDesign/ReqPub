@@ -4,7 +4,7 @@
    ============================================================================ */
 
 import { esc, escA, ico, IC, brandmark, initials, relTime, themeGet } from './core.js';
-import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff } from './domain.js';
+import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, BRIEF_SECTIONS } from './domain.js';
 import { renderTab, unreadCount } from './views-collab.js';
 import { execSummaryHTML } from './exports.js';
 
@@ -69,12 +69,76 @@ export function overlays(APP) {
       themeRow() +
       '<div class="umsep"></div><button class="umitem danger" data-action="signout">' + ico(IC.signout) + 'Sign out</button></div>';
   }
+  if (APP.wsMenuOpen) out += wsMenu(APP);
   if (APP.profileOpen) out += profileModal(APP);
   if (APP.orgOpen) out += orgModal(APP);
   if (APP.genOpen) out += generateModal(APP);
   if (APP.palOpen) out += palette(APP);
   if (APP.delPending) out += deleteModal(APP);
+  if (APP.shareOpen) out += shareModal(APP);
+  if (APP.briefPickOpen) out += briefPicker(APP);
   return out;
+}
+
+/* Workspace switcher: one email, many workspaces, one obvious place to move
+   between them, create another, or open settings. */
+function wsMenu(APP) {
+  const orgs = (APP.ctx && APP.ctx.memberships) || [];
+  const rows = orgs.map((m) =>
+    '<button class="umitem" data-action="orgswitch" data-id="' + escA(m.org_id) + '">' +
+    '<span class="acctdot">' + esc((m.org_name || 'W').charAt(0).toUpperCase()) + '</span>' +
+    '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(m.org_name) + '</span>' +
+    (m.org_id === APP.orgId ? ico(IC.check, 'i-sm') : '<span class="umrole">' + esc(m.role) + '</span>') + '</button>').join('');
+  const create = APP.wsCreating
+    ? '<div style="display:flex;gap:6px;padding:10px 16px"><input class="input" id="wsName" placeholder="New workspace name" style="height:34px;font-size:12.5px;flex:1">' +
+      '<button class="btn btn-primary btn-sm" data-action="wscreatego">Create</button></div>'
+    : '<button class="umitem" data-action="wscreate">' + ico(IC.plus) + 'Create a new workspace…</button>';
+  return '<div class="umback" data-action="menuclose"></div><div class="umpop left" role="menu" aria-label="Workspaces">' +
+    '<div style="padding:12px 16px 6px" class="eyebrow">Your workspaces</div>' + rows +
+    '<div class="umsep"></div>' +
+    (APP.role === 'manager' ? '<button class="umitem" data-action="orgopen">' + ico(IC.users) + 'Workspace settings &amp; invites</button>' : '') +
+    create + '</div>';
+}
+
+/* Section picker for review briefs: preselected defaults, adjustable, and the
+   choice is remembered per project. Filtering happens at payload build. */
+function briefPicker(APP) {
+  const picked = APP.briefPick || [];
+  const latest = APP.versions.length ? APP.versions[APP.versions.length - 1] : null;
+  const chips = BRIEF_SECTIONS.map((s) =>
+    '<button class="chip' + (picked.includes(s.key) ? ' on' : '') + '" data-action="briefpicktoggle" data-val="' + s.key + '" style="height:36px;font-size:13px">' + esc(s.label) + '</button>').join('');
+  return '<div class="modal-back" data-action="modalback"><div class="modal-card" role="dialog" aria-modal="true" data-stop="1">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>What should reviewers see?</h3><button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
+    '<div class="hint" style="margin-top:4px">The link shares only the sections you pick' + (latest ? ' from v' + esc(latest.label) : '') + '. Unselected content is left out of the share entirely, not hidden. Fit criteria, schedules, and internal notes are never included.</div>' +
+    '<div class="fldlabel">Sections</div><div class="choice">' + chips + '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:18px">' +
+    '<span class="hint">' + picked.length + ' of ' + BRIEF_SECTIONS.length + ' selected</span>' +
+    '<div style="display:flex;gap:8px"><button class="btn btn-sec" data-action="modalclose">Cancel</button>' +
+    '<button class="btn btn-primary" data-action="briefpickconfirm"' + (picked.length && latest ? '' : ' disabled') + '>Publish &amp; copy link</button></div></div>' +
+    '</div></div>';
+}
+
+/* One door for every audience: pick who, get exactly the right next step. */
+function shareModal(APP) {
+  const latest = APP.versions.length ? APP.versions[APP.versions.length - 1] : null;
+  const row = (iconPath, bg, color, title, desc, action, disabled) =>
+    '<button class="umitem" data-action="' + action + '"' + (disabled ? ' disabled' : '') +
+    ' style="padding:13px 16px;gap:12px;align-items:flex-start' + (disabled ? ';opacity:.45;cursor:not-allowed' : '') + '">' +
+    '<span class="acc-ic" style="background:' + bg + ';color:' + color + ';width:32px;height:32px;flex:0 0 auto">' + ico(iconPath, 'i-sm') + '</span>' +
+    '<span style="min-width:0"><span style="display:block;font-size:13.5px;font-weight:600;color:var(--ink)">' + title + '</span>' +
+    '<span style="display:block;font-size:11.5px;color:var(--ink-4);line-height:1.45;margin-top:1px">' + desc + '</span></span>' +
+    '<span style="margin-left:auto;color:var(--ink-4);align-self:center">' + ico(IC.fwd, 'i-sm') + '</span></button>';
+  return '<div class="modal-back" data-action="modalback"><div class="modal-card" role="dialog" aria-modal="true" style="max-width:440px;padding:0;overflow:hidden" data-stop="1">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:22px 22px 4px"><div><h3>Share this project</h3>' +
+    '<div class="hint" style="margin-top:4px">Pick who you are bringing in. Each audience gets its own door and sees only what it should.</div></div>' +
+    '<button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
+    '<div style="padding:10px 6px 12px">' +
+    row(IC.users, 'var(--sky)', 'var(--brand)', 'A teammate', 'Full workspace access with an account. Managers edit; Viewers read and reply.', 'shr-team') +
+    row(IC.user, '#f1ebfd', 'var(--purple)', 'A partner', 'Client-side manager of SMEs. Signs in, sees published briefs of granted projects only.', 'shr-partner') +
+    row(IC.send, '#e6f7fb', 'var(--teal)', 'An SME reviewer', latest ? 'Pick which sections of v' + esc(latest.label) + ' they see, then copy the link. No account needed.' : 'Generate a version first.', 'shr-brief', !latest) +
+    row(IC.link, '#e6f7fb', 'var(--teal)', 'An app tester', latest ? 'Copies the testing link for v' + esc(latest.label) + '. Bug reports land in your Inbox.' : 'Generate a version first.', 'shr-pilot', !latest) +
+    row(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'A question for an SME', 'Compose an input request and send its link. Answers thread back to the Inbox.', 'shr-request') +
+    '</div></div></div>';
 }
 
 function profileModal(APP) {
@@ -128,9 +192,11 @@ export function paletteItems(APP) {
   const items = [];
   (APP.projects || []).forEach((p) => items.push({ label: p.name, hint: 'Open project', ico: IC.doc, action: 'open', id: p.id }));
   if (APP.view === 'workspace') {
-    ['document', 'summary', 'changes', 'versions', 'inbox', 'feedback', 'discovery', 'notes', 'people', 'links', 'activity']
+    ['document', 'summary', 'changes', 'versions', 'inbox', 'feedback', 'discovery', 'notes', 'people', 'access', 'activity']
       .forEach((t) => items.push({ label: 'Go to ' + t, hint: 'Tab', ico: IC.fwd, action: 'tab', id: t }));
     if (APP.role === 'manager') items.push({ label: 'Generate a version', hint: 'Baseline', ico: IC.layers, action: 'genopen' });
+    if (APP.role === 'manager') items.push({ label: 'Share this project', hint: 'Access', ico: IC.send, action: 'shareopen' });
+    items.push({ label: 'Presentation mode', hint: 'Document', ico: IC.expand, action: 'present' });
     items.push({ label: 'Export Word document', hint: 'Export', ico: IC.word, action: 'word' });
     items.push({ label: 'Print / save as PDF', hint: 'Export', ico: IC.print, action: 'print' });
   }
@@ -168,10 +234,13 @@ function orgModal(APP) {
           ['manager', 'viewer'].map((r) => '<option' + (m.role === r ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
           '<button class="icobtn" data-action="mremove" data-id="' + escA(m.user_id) + '" title="Remove">' + ico(IC.close, 'i-sm') + '</button>') +
       '</div>').join('');
-    const inv = (o.invites || []).map((i) =>
-      '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px">' +
-      '<span style="flex:1;color:var(--ink-2)">' + esc(i.email) + '</span><span class="pill">' + esc(i.role) + ' · invited</span>' +
-      '<button class="icobtn" data-action="invrevoke" data-id="' + escA(i.email) + '">' + ico(IC.close, 'i-sm') + '</button></div>').join('');
+    const inv = (o.invites || []).map((i) => {
+      const invLink = location.origin + '/signup/?ws=' + encodeURIComponent(APP.org || '') + '&email=' + encodeURIComponent(i.email);
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px">' +
+        '<span style="flex:1;min-width:0;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis">' + esc(i.email) + '</span><span class="pill">' + esc(i.role) + ' · invited</span>' +
+        '<button class="btn btn-sec btn-sm" data-action="copylink" data-link="' + escA(invLink) + '" title="Copy an invite link to send them yourself">' + ico(IC.copy, 'i-sm') + 'Link</button>' +
+        '<button class="icobtn" data-action="invrevoke" data-id="' + escA(i.email) + '">' + ico(IC.close, 'i-sm') + '</button></div>';
+    }).join('');
     body = '<div class="fldlabel">Invite a teammate</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="invEmail" type="email" placeholder="name@company.com" style="flex:1;min-width:180px">' +
       '<select class="input" id="invRole" style="width:auto"><option value="manager">Manager — edits documents</option><option value="viewer">Viewer — read + comment</option></select>' +
@@ -232,7 +301,8 @@ export function viewProjects(APP) {
   return shell(
     '<div class="topbar"><div style="display:flex;align-items:center;gap:11px">' + brandmark() +
     '<div><div style="font-weight:660;letter-spacing:-.02em;font-size:15px">ReqPub</div><div class="eyebrow" style="font-size:9.5px;letter-spacing:.18em;margin-top:1px">Discovery to Requirements</div></div>' +
-    (APP.org ? '<div style="width:1px;height:26px;background:var(--line-2);margin:0 3px"></div><button class="acctchip" data-action="orgopen"><span class="acctdot">' + esc((APP.org || 'W').charAt(0).toUpperCase()) + '</span>' + esc(APP.org) + '</button>' : '') +
+    (APP.org ? '<div style="width:1px;height:26px;background:var(--line-2);margin:0 3px"></div><button class="acctchip" data-action="wsmenu" title="Switch workspace"><span class="acctdot">' + esc((APP.org || 'W').charAt(0).toUpperCase()) + '</span>' + esc(APP.org) +
+      '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.55"><polyline points="6 9 12 15 18 9"/></svg></button>' : '') +
     '</div><div style="display:flex;align-items:center;gap:8px">' + saveChip(APP) + userMenu(APP) + '</div></div>' +
     '<div style="flex:1;overflow-y:auto"><div class="wrap">' +
     '<div class="rise" style="margin-bottom:40px"><h1 style="font-size:38px;line-height:1.08;letter-spacing:-.03em;font-weight:660;margin:0 0 12px">Discovery to Requirements.</h1>' +
@@ -284,7 +354,7 @@ export function viewWorkspace(APP) {
       '<div class="pane-doc' + (APP.docShow ? ' show' : '') + '" id="docPane">' + doc + '</div></div>' +
       '<button class="fab" data-action="toggledoc">' + ico(APP.docShow ? IC.edit : IC.doc) + '</button>';
 
-  return shell(header + body, APP);
+  return shell(header + body, APP) + (APP.present ? presentOverlay(APP, a) : '');
 }
 
 /* ---- worksheet (left pane) ---- */
@@ -401,8 +471,32 @@ export function currentDocMd(APP, a) {
   return { md: assemble(sections, a), label: label, status: 'draft', working: true };
 }
 
+/* The document tab body, exported so main.js can live-patch the pane while
+   someone types in the worksheet without re-rendering (and unfocusing) it. */
+export function documentTabHTML(APP, a) {
+  const d = currentDocMd(APP, a);
+  if (d.loading) return '<div class="empty"><div style="font-size:13px">Loading version…</div></div>';
+  return d.md
+    ? lastChangeBanner(APP) + '<div class="page"><div class="doc-anim">' + mdToHtml(d.md) + '</div></div>'
+    : '<div class="empty">' + ico(IC.doc) + '<div style="font-size:14.5px;color:var(--ink-2);font-weight:560;margin-bottom:4px">The requirements document builds here as you answer</div><div style="font-size:13px;max-width:240px">Start with Overview on the left.</div></div>';
+}
+
+/* Full-screen presentation of the rendered document only. */
+export function presentOverlay(APP, a) {
+  const d = currentDocMd(APP, a);
+  const label = d.label ? 'v' + d.label + (d.working ? ' · working draft' : '') : 'Working draft';
+  return '<div class="present-back" role="dialog" aria-modal="true" aria-label="Presentation mode">' +
+    '<div class="present-bar"><div style="display:flex;align-items:center;gap:10px;min-width:0">' + brandmark(24) +
+    '<span style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.ctrl_product || (APP.project && APP.project.name) || 'Untitled') + '</span>' +
+    '<span class="pill"><span class="mono">' + esc(label) + '</span></span></div>' +
+    '<div style="display:flex;gap:6px;align-items:center">' +
+    '<button class="icobtn" data-action="print" title="Save as PDF">' + ico(IC.print) + '</button>' +
+    '<button class="icobtn" data-action="presentclose" title="Exit presentation (Esc)">' + ico(IC.close) + '</button></div></div>' +
+    '<div class="present-scroll" id="presentScroll"><div class="page">' + (d.md ? mdToHtml(d.md) : '<div class="empty"><div style="font-size:13px">Nothing to present yet.</div></div>') + '</div></div></div>';
+}
+
 function renderDoc(APP, a, ac, total) {
-  const tabs = ['inbox', 'document', 'summary', 'changes', 'versions', 'feedback', 'discovery', 'notes', 'people', 'links', 'activity'];
+  const tabs = ['inbox', 'document', 'summary', 'changes', 'versions', 'feedback', 'discovery', 'notes', 'people', 'access', 'activity'];
   const unread = unreadCount(APP);
   const tabBtns = tabs.map((t) => {
     const badge = (t === 'inbox' && unread)
@@ -413,20 +507,20 @@ function renderDoc(APP, a, ac, total) {
 
   const verOptions = '<option value="">Working draft</option>' + APP.versions.slice().reverse().map((v) =>
     '<option value="' + v.seq + '"' + (APP.viewSeq === v.seq ? ' selected' : '') + '>v' + esc(v.label) + '</option>').join('');
-  const docActions = (APP.docTab === 'document' || APP.docTab === 'summary' || APP.docTab === 'changes')
-    ? (APP.versions.length ? '<select class="input" data-action="versionsel" style="height:34px;padding:0 8px;width:auto;font-family:var(--mono);font-size:12px">' + verOptions + '</select>' : '') +
-      '<button class="icobtn" data-action="copymd" title="Copy Markdown">' + ico(IC.copy) + '</button>' +
-      '<button class="icobtn" data-action="word" title="Download for Word (.doc)">' + ico(IC.word) + '</button>' +
-      '<button class="icobtn" data-action="print" title="Save as PDF (print)">' + ico(IC.print) + '</button>' +
-      '<button class="icobtn" data-action="downloadmd" title="Download Markdown (.md)">' + ico(IC.dl) + '</button>'
-    : '';
+  const docActions =
+    (APP.role === 'manager' ? '<button class="icobtn" data-action="shareopen" title="Share this project…">' + ico(IC.send) + '</button>' : '') +
+    '<button class="icobtn" data-action="present" title="Presentation mode — show only the document">' + ico(IC.expand) + '</button>' +
+    ((APP.docTab === 'document' || APP.docTab === 'summary' || APP.docTab === 'changes')
+      ? (APP.versions.length ? '<select class="input" data-action="versionsel" style="height:34px;padding:0 8px;width:auto;font-family:var(--mono);font-size:12px">' + verOptions + '</select>' : '') +
+        '<button class="icobtn" data-action="copymd" title="Copy Markdown">' + ico(IC.copy) + '</button>' +
+        '<button class="icobtn" data-action="word" title="Download for Word (.doc)">' + ico(IC.word) + '</button>' +
+        '<button class="icobtn" data-action="print" title="Save as PDF (print)">' + ico(IC.print) + '</button>' +
+        '<button class="icobtn" data-action="downloadmd" title="Download Markdown (.md)">' + ico(IC.dl) + '</button>'
+      : '');
 
   let content;
   if (APP.docTab === 'document') {
-    const d = currentDocMd(APP, a);
-    content = d.loading ? '<div class="empty"><div style="font-size:13px">Loading version…</div></div>'
-      : d.md ? (lastChangeBanner(APP) + '<div class="page"><div class="doc-anim">' + mdToHtml(d.md) + '</div></div>')
-      : '<div class="empty">' + ico(IC.doc) + '<div style="font-size:14.5px;color:var(--ink-2);font-weight:560;margin-bottom:4px">The requirements document builds here as you answer</div><div style="font-size:13px;max-width:240px">Start with Overview on the left.</div></div>';
+    content = documentTabHTML(APP, a);
   } else if (APP.docTab === 'summary') {
     const d = currentDocMd(APP, a);
     const ans = APP.viewSeq != null && APP.snapshots[APP.viewSeq] ? (APP.snapshots[APP.viewSeq].snapshot.answers || {}) : a;

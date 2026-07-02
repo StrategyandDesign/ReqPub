@@ -169,6 +169,23 @@ try {
   r = await one(`select save_field('p1','ov_vision','"hijack"'::jsonb, 0) j`);
   check('partner still cannot touch the document', r.j.ok === false, r.j);
 
+  console.log('\n— partner profile —');
+  r = await one(`select partner_update_profile('Pat Q. Partner', 'Director of Research', 'Canfield Group') j`);
+  check('partner saves own profile', r.j === true);
+  const prof = await one(`select name, title, company from partners where user_id = '${PARTNER_USER}'`);
+  check('profile fields persisted', prof.name === 'Pat Q. Partner' && prof.title === 'Director of Research' && prof.company === 'Canfield Group', prof);
+  await run(`select partner_post('p1', 'Note under my updated name')`);
+  const pn2 = await one(`select author_name from comms where body = 'Note under my updated name'`);
+  check('new notes carry the updated profile name', pn2.author_name === 'Pat Q. Partner', pn2.author_name);
+  r = await one(`select v2_context() j`);
+  check('context exposes profile to the portal', r.j.partner.company === 'Canfield Group' && r.j.partner.email === 'partner@client.com', r.j.partner);
+  await asUser(MANAGER);
+  r = await one(`select partner_update_profile('Mallory', '', '') j`);
+  check('non-partners cannot touch partner profiles', r.j === false);
+  const prof2 = await one(`select name from partners where user_id = '${PARTNER_USER}'`);
+  check('profile unchanged after that attempt', prof2.name === 'Pat Q. Partner');
+  await asUser(PARTNER_USER);
+
   console.log('\n— side effects —');
   const bcast = await one(`select count(*) n from realtime.messages where topic = 'proj:p1'`);
   check('broadcast triggers emitted project events', +bcast.n > 0, bcast.n);
