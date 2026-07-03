@@ -125,6 +125,8 @@ create table if not exists projects (
 -- Additive for projects created before this column existed.
 alter table projects add column if not exists brand_logo text not null default '';
 alter table projects add column if not exists brand_label text not null default '';
+-- Monotonic counter for partner-note references (PN-1, PN-2, …); never reused.
+alter table projects add column if not exists partner_note_seq int not null default 0;
 -- Cap the stored logo (a downscaled data URL is ~10-60 KB; this bounds abuse).
 do $$
 begin
@@ -295,6 +297,9 @@ create table if not exists comms (
 create index if not exists comms_proj on comms(project_id, created_at desc);
 create index if not exists comms_org on comms(org_id, created_at desc);   -- dashboard rollups
 create index if not exists comms_req on comms(request_id) where request_id is not null;
+-- Human-friendly per-project reference for partner notes (PN-1, PN-2, …) so each
+-- is uniquely trackable in the inbox and in conversation.
+alter table comms add column if not exists ref text;
 alter table comms enable row level security;
 
 drop policy if exists comms_member_read on comms;
@@ -1231,7 +1236,7 @@ grant execute on function partner_present_token(text) to authenticated;
 create or replace function partner_thread_v2(p_project text)
 returns jsonb language sql security definer stable set search_path = public as $$
   select coalesce(jsonb_agg(jsonb_build_object(
-    'id', c.id, 'title', c.title, 'body', c.body, 'status', c.status, 'at', c.created_at,
+    'id', c.id, 'ref', c.ref, 'title', c.title, 'body', c.body, 'status', c.status, 'at', c.created_at,
     'messages', coalesce((
       select jsonb_agg(jsonb_build_object('from', m.author_kind, 'name', m.author_name,
                                           'body', m.body, 'at', m.created_at) order by m.created_at)
@@ -1250,18 +1255,28 @@ grant execute on function partner_thread_v2(text) to authenticated;
 
 create or replace function partner_post(p_project text, p_body text)
 returns boolean language plpgsql security definer set search_path = public as $$
-declare v_pid uuid; v_org uuid; v_name text; v_id uuid;
+declare v_pid uuid; v_org uuid; v_name text; v_id uuid; v_n int; v_title text; v_ref text;
 begin
   select p.id, p.org_id, coalesce(nullif(trim(p.name), ''), 'Partner')
     into v_pid, v_org, v_name
   from partners p join partner_access pa on pa.partner_id = p.id
   where p.user_id = auth.uid() and pa.project_id = p_project limit 1;
   if v_pid is null or coalesce(trim(p_body), '') = '' or length(p_body) > 20000 then return false; end if;
-  insert into comms(org_id, project_id, origin, partner_id, author_name, title, body)
-  values (v_org, p_project, 'partner', v_pid, v_name, 'Partner note', p_body)
+  -- A self-describing headline from the note's first line, so no two notes read
+  -- the same "Partner note" in the inbox.
+  v_title := left(regexp_replace(split_part(btrim(p_body), E'\n', 1), '\s+', ' ', 'g'), 72);
+  if length(v_title) < length(regexp_replace(btrim(p_body), '\s+', ' ', 'g')) then v_title := v_title || '…'; end if;
+  if v_title = '' then v_title := 'Partner note'; end if;
+  -- A stable per-project reference so every partner note is trackable: PN-1, PN-2…
+  -- A monotonic counter means references are never reused, even after a delete;
+  -- the row update also serializes concurrent posts.
+  update projects set partner_note_seq = partner_note_seq + 1 where id = p_project returning partner_note_seq into v_n;
+  v_ref := 'PN-' || v_n;
+  insert into comms(org_id, project_id, origin, partner_id, author_name, title, body, ref)
+  values (v_org, p_project, 'partner', v_pid, v_name, v_title, p_body, v_ref)
   returning id into v_id;
   perform log_activity(v_org, p_project, 'comm.received', 'comm', v_id::text,
-    'Partner note from ' || v_name, '{}'::jsonb);
+    v_ref || ' from ' || v_name, jsonb_build_object('ref', v_ref));
   return true;
 end; $$;
 grant execute on function partner_post(text, text) to authenticated;

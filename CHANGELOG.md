@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.11.0 — trackable partner notes; cleaner sign-in copy
+
+- Every partner note now gets a stable per-project reference (PN-1, PN-2, …) and
+  a self-describing headline taken from its first line, so two notes never read
+  the same "Partner note" in the inbox. The reference shows as a small monospace
+  chip beside the note; the team can cite "PN-4" in conversation, and the partner
+  sees the same reference on their own thread.
+- References come from a monotonic per-project counter, so a number is never
+  reused even if a note is later deleted — a given PN-N always means one note.
+  Existing partner notes are backfilled with references and headlines.
+- Sign-in copy: dropped the dash and the "same door" line for a plain
+  "One sign-in for your team workspace and your partner portal."
+- Apply supabase/fix-partner-notes.sql (idempotent; adds the reference column +
+  counter, updates partner_post/partner_thread_v2, backfills), then re-upload the
+  folder. New backend test covers reference allocation, monotonicity across a
+  deletion, headline snippets, and backfill (10 checks). Full suite: 186.
+
+
 ## 2.10.2 — partners and SMEs see their own uploaded files
 
 - A partner (and a seated SME) now sees the files they uploaded on their own

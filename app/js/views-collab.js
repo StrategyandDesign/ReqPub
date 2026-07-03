@@ -70,7 +70,7 @@ function commCard(APP, it) {
   const head = '<div data-action="commtoggle" data-id="' + escA(it.id) + '" style="cursor:pointer;padding:13px 15px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px">' +
     '<div style="display:flex;gap:10px;min-width:0;align-items:flex-start">' +
     (unr ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--brand);flex:0 0 auto;margin-top:6px"></span>' : '<span style="width:7px;flex:0 0 auto"></span>') +
-    '<div style="min-width:0"><div style="font-weight:' + (unr ? '650' : '560') + ';font-size:14px;line-height:1.35' + (open ? '' : ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap') + '">' + esc(it.title || '(untitled)') + '</div>' +
+    '<div style="min-width:0"><div style="font-weight:' + (unr ? '650' : '560') + ';font-size:14px;line-height:1.35' + (open ? '' : ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap') + '">' + (it.ref ? '<span style="font-family:var(--mono);font-size:10px;color:var(--ink-4);border:1px solid var(--line);border-radius:5px;padding:1px 5px;margin-right:6px;vertical-align:1.5px">' + esc(it.ref) + '</span>' : '') + esc(it.title || '(untitled)') + '</div>' +
     '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">' + esc(it.author_name || 'Anonymous') + ' · ' + esc(relTime(it.created_at)) + (it.version_seq ? ' · ' + verLabel(APP, it.version_seq) : '') + '</div></div></div>' +
     '<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto">' + badges + '</div></div>';
   let body = '';

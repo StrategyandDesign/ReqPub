@@ -141,7 +141,7 @@ exception when undefined_object then null; end $$;
 create or replace function partner_thread_v2(p_project text)
 returns jsonb language sql security definer stable set search_path = public as $$
   select coalesce(jsonb_agg(jsonb_build_object(
-    'id', c.id, 'title', c.title, 'body', c.body, 'status', c.status, 'at', c.created_at,
+    'id', c.id, 'ref', c.ref, 'title', c.title, 'body', c.body, 'status', c.status, 'at', c.created_at,
     'messages', coalesce((
       select jsonb_agg(jsonb_build_object('from', m.author_kind, 'name', m.author_name,
                                           'body', m.body, 'at', m.created_at) order by m.created_at)
