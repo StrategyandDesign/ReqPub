@@ -1,18 +1,18 @@
-# Attachments — files from partners and SMEs
+# Attachments: files from partners and SMEs
 
-Partners and seated SMEs (and the team) can attach documents — PDFs, Word/Excel/
-PowerPoint, text/CSV/Markdown, images, and zips — to a conversation. Files are
+Partners and seated SMEs (and the team) can attach documents (PDFs, Word/Excel/
+PowerPoint, text/CSV/Markdown, images, and zips) to a conversation. Files are
 **virus-scanned on the way in**, stored in a **private** bucket, and reachable
 only through short-lived signed links. Every upload is written to the audit log.
 
 Who can upload, by design:
 
-- **The team** — from any thread in the Inbox.
-- **Partners** — on any of their note threads in the portal.
-- **Seated SMEs** — from their durable workspace link (the personal link the team
+- **The team**: from any thread in the Inbox.
+- **Partners**: on any of their note threads in the portal.
+- **Seated SMEs**: from their durable workspace link (the personal link the team
   creates under Access → SME workspaces).
 
-Anonymous one-off review/brief links **cannot** upload — every uploader is a known
+Anonymous one-off review/brief links **cannot** upload. Every uploader is a known
 party (team member, partner account, or a seated SME with a name and email), which
 keeps the security story clean. Limits: **25 MB** per file, an allow-list of common
 document/image types, and 40 files/hour per PRD.
@@ -23,7 +23,7 @@ either. Uploads appear live for the team.
 
 ---
 
-## Setup — three steps (once)
+## Setup: three steps (once)
 
 ### 1. Database
 
@@ -57,15 +57,15 @@ Deploy the edge function in **`supabase/functions/attachment-upload/`**.
 
 The function scans every file before storing it. Configure it with a secret:
 
-- `SCAN_URL` — an HTTP virus-scanning endpoint. Point it at a **private** scanner
+- `SCAN_URL`: an HTTP virus-scanning endpoint. Point it at a **private** scanner
   so client files never leave your control. A self-hosted ClamAV REST service is
   the usual choice (e.g. a `clamav-rest` container in front of `clamd`). Do **not**
-  use a public scanner that retains uploads — these are confidential client files.
-- `SCAN_FIELD` — the multipart field name your scanner expects (default `FILES`,
+  use a public scanner that retains uploads; these are confidential client files.
+- `SCAN_FIELD`: the multipart field name your scanner expects (default `FILES`,
   which matches common ClamAV REST images).
-- `SCAN_API_KEY` — optional; sent as `Authorization: Bearer <key>`.
-- `SCAN_TIMEOUT_MS` — optional; default 20000.
-- `SCAN_FAIL_CLOSED` — optional; `true` rejects uploads when the scanner is
+- `SCAN_API_KEY`: optional; sent as `Authorization: Bearer <key>`.
+- `SCAN_TIMEOUT_MS`: optional; default 20000.
+- `SCAN_FAIL_CLOSED`: optional; `true` rejects uploads when the scanner is
   unreachable. Default is fail-open: the file is stored but flagged, so an outage
   never blocks work.
 
@@ -91,7 +91,7 @@ or a ClamAV-style `{ "Status": "OK"|"FOUND" }`, or falls back to matching
 - **Edge function**: type + size check, identity/authorization, virus scan, then
   upload + register. It's the only writer to the bucket.
 - **Database (`attachment_add`)**: re-checks type, size, that the thread belongs to
-  the project, refuses `infected`, rate-limits, and writes the audit entry — so even
+  the project, refuses `infected`, rate-limits, and writes the audit entry, so even
   a bug in the function can't persist an unsafe or cross-tenant row.
 - **RLS**: the team reads only its own org's attachments; the bucket signs only its
   own org's paths; managers delete.

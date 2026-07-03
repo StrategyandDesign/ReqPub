@@ -37,8 +37,8 @@ Full detail lives in `docs/ARCHITECTURE.md` §3. The essentials:
 
 Before external review the code passed two independent adversarial audits (SQL/RLS
 and frontend/XSS) run against the actual code. Findings and fixes are recorded in
-`docs/AUDIT.md`; the hardening fixes ship with regression tests in the 73-check
-backend suite.
+`docs/AUDIT.md`; the hardening fixes ship with regression tests in the backend
+suite (148 checks).
 
 ## Accepted residual risks
 

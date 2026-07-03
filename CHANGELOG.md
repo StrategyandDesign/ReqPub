@@ -1,6 +1,19 @@
 # Changelog
 
-## 2.12.1 — "product or project" naming
+## 2.12.2 · repository and documentation accuracy pass
+
+Pre-review housekeeping ahead of external audit. No product code changed.
+- Removed a committed embedded-Postgres data directory (tests/backend-e2e/.pgdata)
+  that GitHub's web upload had picked up despite being gitignored.
+- Corrected the README repository map and every test count to match the current
+  tree and suites (38 unit + 148 backend = 186 checks). docs/ARCHITECTURE.md now
+  includes the attachments and SME-workspace tables and the full backend suite;
+  AUDIT.md and SECURITY.md counts aligned.
+- Tightened the technical prose in README, ARCHITECTURE, DEPLOY, ATTACHMENTS,
+  AUDIT, and SECURITY for a restrained engineering voice (em-dashes removed).
+
+
+## 2.12.1 · "product or project" naming
 
 - The naming field is now "Product or project name" (with matching helper), and
   the dashboard placeholder, the "name it first" prompt, and the document title
@@ -14,7 +27,7 @@
   only. Frontend only — re-upload the folder.
 
 
-## 2.12.0 — consolidated the document panel navigation (11 tabs → 4)
+## 2.12.0 · consolidated the document panel navigation (11 tabs → 4)
 
 Reworked the right-panel information architecture from eleven equally-weighted
 tabs (wrapping to two rows) into four job-based sections in a single row, with a
@@ -34,7 +47,7 @@ state), so saved deep-links and existing actions all still land correctly.
 Frontend only — no SQL, no edge-function change. Re-upload the folder.
 
 
-## 2.11.0 — trackable partner notes; cleaner sign-in copy
+## 2.11.0 · trackable partner notes; cleaner sign-in copy
 
 - Every partner note now gets a stable per-project reference (PN-1, PN-2, …) and
   a self-describing headline taken from its first line, so two notes never read
@@ -52,7 +65,7 @@ Frontend only — no SQL, no edge-function change. Re-upload the folder.
   deletion, headline snippets, and backfill (10 checks). Full suite: 186.
 
 
-## 2.10.2 — partners and SMEs see their own uploaded files
+## 2.10.2 · partners and SMEs see their own uploaded files
 
 - A partner (and a seated SME) now sees the files they uploaded on their own
   thread, and they persist across reloads and return visits — not just a
@@ -66,7 +79,7 @@ Frontend only — no SQL, no edge-function change. Re-upload the folder.
   uploader's own files (18 checks); full suite 176.
 
 
-## 2.10.1 — attachments post cleanly with no scanner configured
+## 2.10.1 · attachments post cleanly with no scanner configured
 
 - With no virus scanner wired, uploads now post as ordinary files: the toast
   reads "Uploaded", and there is no "not yet scanned" flag on the chip or in the
@@ -78,7 +91,7 @@ Frontend only — no SQL, no edge-function change. Re-upload the folder.
 - Frontend only; no SQL and no edge-function redeploy. Re-upload the folder.
 
 
-## 2.10.0 — file attachments (with virus scanning)
+## 2.10.0 · file attachments (with virus scanning)
 
 Partners, seated SMEs, and the team can now attach documents to a conversation —
 PDFs, Office files, text/CSV/Markdown, images, zips. Files are virus-scanned on
@@ -109,7 +122,7 @@ backend test proves the guards, authorization resolvers, RLS, and rate limit
 against a real Postgres (16 checks). Full suite: 174.
 
 
-## 2.9.1 — wider subtitles; landing black band aligned
+## 2.9.1 · wider subtitles; landing black band aligned
 
 - Team dashboard and partner-portal subtitles were capped narrow (520/560px) and
   wrapped early; widened to 760px so the intro line runs further across.
@@ -120,7 +133,7 @@ against a real Postgres (16 checks). Full suite: 174.
   copy spans further across the band.
 
 
-## 2.9.0 — durable SME workspaces (one link, one continuous thread)
+## 2.9.0 · durable SME workspaces (one link, one continuous thread)
 
 Fixes the SME continuity problem: previously every SME interaction minted a new
 link and a new thread, so one expert's exchanges scattered across many links and
@@ -146,7 +159,7 @@ only review-ready PRDs with real names (2.8.2–2.8.3), the brand-logo overlay
 (2.8.1), and one-click Approve on the dashboard card (2.8.0 line).
 
 
-## 2.8.4 — fix replies doubling in the conversation log
+## 2.8.4 · fix replies doubling in the conversation log
 
 - Fix: a team reply in the inbox appeared twice (identical, both "just now").
   Cause was a realtime race — the websocket echo of the inserted message often
@@ -158,7 +171,7 @@ only review-ready PRDs with real names (2.8.2–2.8.3), the brand-logo overlay
   repeated echoes, and distinct messages that happen to share text (5 checks).
 
 
-## 2.8.3 — partners see only review-ready PRDs; friendlier portal copy
+## 2.8.3 · partners see only review-ready PRDs; friendlier portal copy
 
 - Partners now see a PRD only once the team has published a brief for it.
   Assignments still being drafted no longer appear in the portal (this also
@@ -172,7 +185,7 @@ only review-ready PRDs with real names (2.8.2–2.8.3), the brand-logo overlay
   now asserted hidden (12 checks); full suite still green.
 
 
-## 2.8.2 — partner portal shows real PRD names
+## 2.8.2 · partner portal shows real PRD names
 
 - Fix: in the partner portal, a PRD assigned to a partner before its brief was
   published showed the project's internal id (e.g. "pmr1muwemsaciw") as the card
@@ -187,7 +200,7 @@ only review-ready PRDs with real names (2.8.2–2.8.3), the brand-logo overlay
   unpublished PRD (proves the title is the name, never the id): 13 checks.
 
 
-## 2.8.1 — brand-logo overlay fix + one-click Approve
+## 2.8.1 · brand-logo overlay fix + one-click Approve
 
 Brand logo now reaches every external viewer, whenever it is uploaded.
 - Fix: a collaborator logo added to a PRD *after* its brief was shared did not
@@ -215,7 +228,7 @@ One-click Approve on the dashboard card.
   baseline; the card badge mirrors the newest version's status.
 
 
-## 2.8.0 — stress-test PRDs for Collection Ventures
+## 2.8.0 · stress-test PRDs for Collection Ventures
 
 - Added supabase/seed-prds.sql (generated and validated) that seeds two fully
   filled PRDs into the Collection Ventures workspace as drafts for the nine-
@@ -238,7 +251,7 @@ One-click Approve on the dashboard card.
   removed, clean rebuild, documents assemble, permanent FR ids, idempotent.
 
 
-## 2.7.1 — landing page copy refresh (invitation-only positioning)
+## 2.7.1 · landing page copy refresh (invitation-only positioning)
 
 - Rewrote the landing page to the v2 copy: "The requirements record your
   client approves." Baseline / Gate / Export framing, the judgment line,
@@ -253,7 +266,7 @@ One-click Approve on the dashboard card.
 - Frontend-only; no test or schema impact.
 
 
-## 2.7.0 — read-only presentation link (share the PRD, view-only)
+## 2.7.0 · read-only presentation link (share the PRD, view-only)
 
 - Any role can now share the branded PRD as a fixed, read-only link
   (#present/…). It renders the published, section-scoped brief with the
@@ -275,7 +288,7 @@ One-click Approve on the dashboard card.
   Backend suite now 79 checks.
 
 
-## 2.6.0 — PRD brand logo and a designed, co-branded PDF
+## 2.6.0 · PRD brand logo and a designed, co-branded PDF
 
 - The internal team can assign a collaborator's logo to a PRD (Access tab →
   Brand on the shared PRD). Managers upload a PNG/JPG/SVG/WebP; it is
@@ -297,7 +310,7 @@ One-click Approve on the dashboard card.
   brand render check. Backend suite now 76 checks.
 
 
-## 2.5.0 — pre-review security & correctness hardening
+## 2.5.0 · pre-review security & correctness hardening
 
 Ran two independent adversarial audits (SQL/RLS and frontend/XSS) against the
 actual code and fixed every real finding. Full write-up in docs/AUDIT.md.
@@ -325,7 +338,7 @@ actual code and fixed every real finding. Full write-up in docs/AUDIT.md.
   gained six hardening checks. Unit and render suites unchanged and green.
 
 
-## 2.4.1 — auth page audit: password reset fixed, legal footers added
+## 2.4.1 · auth page audit: password reset fixed, legal footers added
 
 - Fixed Forgot password end to end. Two defects: the signed-in auto-redirect
   fired during recovery (the reset link establishes a temporary session, so
@@ -343,7 +356,7 @@ actual code and fixed every real finding. Full write-up in docs/AUDIT.md.
   the create button; login notes agreement below the form.
 
 
-## 2.4.0 — section-scoped sharing, workspace switcher, invite links
+## 2.4.0 · section-scoped sharing, workspace switcher, invite links
 
 Sharing control
 
@@ -376,7 +389,7 @@ Delight
   inbox replies, team notes, partner notes and replies, SME thread replies.
 
 
-## 2.3.0 — partner profile and portal refinements
+## 2.3.0 · partner profile and portal refinements
 
 - Partners now have a real profile: full name, title, and organization,
   editable from a new account menu in the portal. The name flows through to
@@ -396,7 +409,7 @@ Delight
   notes, context exposure, and rejection of non-partner profile edits.
 
 
-## 2.2.0 — live document follow, presentation mode, Access hub
+## 2.2.0 · live document follow, presentation mode, Access hub
 
 - The document pane now follows your typing: edits appear in the rendered
   document as you write, the pane scrolls to the section you are editing, and
@@ -415,7 +428,7 @@ Delight
 - Frontend-only release: no database changes; redeploying the site is enough.
 
 
-## 2.1.1 — production hotfix
+## 2.1.1 · production hotfix
 
 - Fixed all SME/anonymous submissions failing on Supabase ("Could not send"):
   the token generator called gen_random_bytes, which Supabase installs in the
@@ -428,7 +441,7 @@ Delight
   limit reached, message too long) instead of a generic connection message.
 
 
-## 2.1.0 — hardening release
+## 2.1.0 · hardening release
 
 Security
 
@@ -466,7 +479,7 @@ Project hygiene
 - Accessibility: dialogs carry `role="dialog"` and `aria-modal`; the command
   palette input is labeled.
 
-## 2.0.0 — relational rebuild
+## 2.0.0 · relational rebuild
 
 - Ground-up rebuild from the v1 key-value architecture: relational schema,
   rev-checked field saves, insert-based rows with permanent requirement IDs,

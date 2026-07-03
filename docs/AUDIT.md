@@ -1,10 +1,14 @@
 # Pre-review security & correctness audit (v2.5.0)
 
 Before external review, the codebase was put through two independent adversarial
-audits — one on the SQL schema, RLS, and migration; one on the frontend for XSS,
-data leakage, and correctness — conducted against the actual code, not its
+audits (one on the SQL schema, RLS, and migration; one on the frontend for XSS,
+data leakage, and correctness), conducted against the actual code, not its
 comments. This document records what was found, what was fixed, and what is a
 deliberately accepted residual. Every fix ships with a regression test.
+
+> This records the audit as of v2.5.0. The suite has since grown to 186 checks
+> (38 via `npm test`, 148 via `npm run test:backend`); the figures in this file
+> are the v2.5.0 baseline.
 
 ## Method
 
@@ -33,8 +37,8 @@ fixed.
 **Realtime broadcast trust (integrity).** Sending on a project channel was
 allowed for any org member, so a read-only viewer could broadcast fabricated
 "live edits" onto teammates' screens (the database was never affected, but the
-display is trusted). Project-channel send is now restricted to managers — the
-only role that can edit — so a forged broadcast grants its sender nothing they
+display is trusted). Project-channel send is now restricted to managers (the
+only role that can edit), so a forged broadcast grants its sender nothing they
 couldn't already do authentically, and viewers/partners/SMEs receive only. The
 client also now ignores malformed broadcast payloads instead of applying them.
 
@@ -82,12 +86,12 @@ subscribe queries.
 
 ## Accepted residuals (documented, not defects)
 
-- `style-src 'unsafe-inline'` remains in the CSP; script injection — the vector
-  that matters — is fully closed (`script-src 'self' + cdn.jsdelivr.net`, no
+- `style-src 'unsafe-inline'` remains in the CSP; script injection, the vector
+  that matters, is fully closed (`script-src 'self' + cdn.jsdelivr.net`, no
   `unsafe-inline`, no `unsafe-eval`).
 - The public Supabase anon key ships in `config.js` by design; all protection
   rests on RLS and the rev-checked RPCs, which is where reviewer attention is
-  best spent and which the 73-check backend suite exercises directly.
+  best spent and which the backend suite exercises directly.
 - A manager can self-approve a version. Managers are trusted writers; the
   provenance trigger guarantees the sign-off is *attributed truthfully*, which
   is the property that matters for the audit trail.
@@ -98,6 +102,6 @@ subscribe queries.
 ## Reproduce
 
 ```
-npm test            # 32 unit tests
-npm run test:backend    # 73 checks incl. the adversarial hardening set
+npm test                # 38 unit checks
+npm run test:backend    # 148 checks incl. the adversarial hardening set
 ```
