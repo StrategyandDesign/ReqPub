@@ -231,7 +231,7 @@ export function renderPartnerHome(APP) {
     const st = partnerCardState(APP, p);
     return '<button class="pcard" data-action="popen" data-id="' + escA(p.project_id) + '">' +
       '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0">' +
-      '<div style="font-weight:600;font-size:15.5px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(st.pay.product || p.project_id) + '</div>' +
+      '<div style="font-weight:600;font-size:15.5px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(st.pay.product || p.name || p.project_id) + '</div>' +
       '<div style="font-size:12px;color:var(--ink-3);margin-top:3px">' + (st.label ? 'Published v' + esc(st.label) : 'No published brief yet') + '</div></div>' +
       '<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">' +
       (st.waiting ? '<span class="pill pill-brand">' + st.waiting + ' repl' + (st.waiting === 1 ? 'y' : 'ies') + '</span>' : '') +
@@ -242,7 +242,7 @@ export function renderPartnerHome(APP) {
   return partnerChrome(APP,
     '<div style="flex:1;overflow-y:auto"><div class="wrap" style="max-width:820px">' +
     '<div class="rise" style="margin-bottom:26px"><h1 style="font-size:30px;letter-spacing:-.025em;font-weight:660;margin:0 0 8px">' + esc(greet()) + ', ' + esc(first) + '.</h1>' +
-    '<p style="color:var(--ink-3);font-size:14.5px;line-height:1.6;margin:0;max-width:560px">Your role: review each PRD with your subject-matter experts, gather their concerns and requests, and relay them to the build team below. Every note opens a thread the team answers directly.</p></div>' +
+    '<p style="color:var(--ink-3);font-size:14.5px;line-height:1.6;margin:0;max-width:560px">The PRDs assigned to you for review. Any note you send opens a thread with the team.</p></div>' +
     nameNudge +
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">' + cards + '</div>' +
     '</div></div>');
@@ -269,7 +269,7 @@ export function renderPartnerProject(APP) {
     '<div style="flex:1;overflow-y:auto"><div class="wrap" style="max-width:760px">' +
     '<button class="btn btn-ghost btn-sm" data-action="phome" style="margin-bottom:14px">' + ico(IC.arrow, 'i-sm') + 'All assignments</button>' +
     brandBanner(pay) +
-    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px"><h1 style="font-size:26px;letter-spacing:-.02em;font-weight:660;margin:0">' + esc(pay.product || pid) + '</h1>' +
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px"><h1 style="font-size:26px;letter-spacing:-.02em;font-weight:660;margin:0">' + esc(pay.product || p.name || pid) + '</h1>' +
     (pay.label ? '<span class="pill pill-solid"><span class="mono">v' + esc(pay.label) + '</span></span>' : '') +
     (md ? '<div style="flex:1"></div>' +
       '<button class="btn btn-ghost btn-sm" data-action="ppresent" data-id="' + escA(pid) + '" title="Copy a read-only link to share">' + ico(IC.link, 'i-sm') + 'Share view</button>' +

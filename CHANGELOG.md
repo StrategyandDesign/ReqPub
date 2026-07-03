@@ -1,5 +1,62 @@
 # Changelog
 
+## 2.8.3 — partners see only review-ready PRDs; friendlier portal copy
+
+- Partners now see a PRD only once the team has published a brief for it.
+  Assignments still being drafted no longer appear in the portal (this also
+  removes the internal-id cards entirely, rather than just relabeling them).
+  partner_projects_v2 filters to projects that have a live brief share.
+- Rewrote the partner home intro. It no longer explains the partner's own job
+  back to them; it just says what the page is: "The PRDs assigned to you for
+  review. Any note you send opens a thread with the team."
+- fix-partner-portal.sql updated to the same filter — run that one file in
+  Supabase to apply. Backend test updated: an assigned-but-unpublished PRD is
+  now asserted hidden (12 checks); full suite still green.
+
+
+## 2.8.2 — partner portal shows real PRD names
+
+- Fix: in the partner portal, a PRD assigned to a partner before its brief was
+  published showed the project's internal id (e.g. "pmr1muwemsaciw") as the card
+  title. partner_projects_v2 now returns the project's actual name, and the
+  portal uses it as the title fallback, so every assignment reads properly
+  whether or not a brief has been published yet ("No published brief yet" still
+  shows underneath until the team publishes one).
+- Rolled the brand-logo overlay (2.8.1) and this name fix into a single
+  supabase/fix-partner-portal.sql — run that one file in the SQL editor; it is
+  idempotent and supersedes the earlier fix-brand-overlay.sql.
+- Backend test now covers the name in the partner payload and an assigned-but-
+  unpublished PRD (proves the title is the name, never the id): 13 checks.
+
+
+## 2.8.1 — brand-logo overlay fix + one-click Approve
+
+Brand logo now reaches every external viewer, whenever it is uploaded.
+- Fix: a collaborator logo added to a PRD *after* its brief was shared did not
+  appear on the partner's view (nor on SME brief / presentation links shared
+  earlier), because external viewers read a version snapshot taken at share time
+  and the logo is a current property of the project.
+- The two server read paths (partner_projects_v2 and get_share) now overlay the
+  project's live brand_logo/brand_label onto the payload at read time, so the
+  current logo shows the moment it is saved — no re-publishing, no re-sharing.
+  The stored snapshot is never mutated (read-time only). If no logo is set the
+  overlay yields an empty string, never a broken image.
+- Apply with supabase/fix-brand-overlay.sql (a small, standalone, re-runnable
+  snippet) or by re-running the full schema.sql. New backend test (10 checks)
+  proves the overlay against a real Postgres, including the exact "share first,
+  upload logo later" sequence and the untouched-snapshot guarantee.
+
+One-click Approve on the dashboard card.
+- A manager can now clear "Draft" straight from the project card: an Approve
+  button walks the latest version Draft → In review → Approved in a single
+  action, so nobody has to open Version history to publish. Draft cards carry a
+  one-line hint noting it sends for review, then approves.
+- If named approvers are still pending, the card explains that and points to the
+  Version history panel to decide them — the approval gate is still honored.
+- Unchanged by design: saving a new version always creates a fresh Draft
+  baseline; the card badge mirrors the newest version's status.
+
+
 ## 2.8.0 — stress-test PRDs for Collection Ventures
 
 - Added supabase/seed-prds.sql (generated and validated) that seeds two fully

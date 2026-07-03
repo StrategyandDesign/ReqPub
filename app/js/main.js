@@ -299,7 +299,7 @@ async function refreshDashboardStats() {
     stats[p.id] = projectStatsOf(byProj[p.id] || [], reads);
     stats[p.id].latest = null;
   });
-  const vr = await sbLite('versions', 'project_id,seq,label,status', APP.orgId, false);
+  const vr = await sbLite('versions', 'id,project_id,seq,label,status', APP.orgId, false);
   vr.forEach((v) => {
     const s = stats[v.project_id];
     if (s && (!s.latest || v.seq > s.latest.seq)) s.latest = v;
@@ -1029,6 +1029,31 @@ async function handleAction(a, id, t, e) {
     case 'peoplejump': APP.docTab = 'inbox'; APP.inboxFilter = { src: 'all', status: 'all', q: t.dataset.q }; render(); break;
 
     /* versions & approvals */
+    case 'cardapprove': {
+      // One-click Approve from the dashboard card. Drives the latest version all
+      // the way to Approved, stepping through In review as needed, so a manager
+      // never has to open Version history just to clear "Draft".
+      e.stopPropagation();
+      const s = APP.projectStats && APP.projectStats[id];
+      const v = s && s.latest;
+      if (!v || !v.id) { toast('Generate a version first, then approve it'); break; }
+      const path = ({ draft: ['in_review', 'approved'], changes_requested: ['in_review', 'approved'], in_review: ['approved'] })[v.status] || [];
+      if (!path.length) break;
+      for (const next of path) {
+        const rr = await repo.setVersionStatus(v.id, next);
+        const out = rr && rr.data;
+        if (!(out && out.ok)) {
+          toast(out && out.error === 'approvals_pending'
+            ? 'Named approvers are still pending — open the PRD’s Version history to decide them'
+            : 'Could not approve this version');
+          break;
+        }
+        v.status = next;
+      }
+      if (v.status === 'approved') toast('Approved — v' + v.label + ' is now the approved baseline');
+      scheduleRender('stats');
+      break;
+    }
     case 'vstatus': {
       const r = await repo.setVersionStatus(id, t.dataset.val);
       const out = r.data;

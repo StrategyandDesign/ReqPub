@@ -290,13 +290,26 @@ export function viewProjects(APP) {
     const latest = s.latest;
     const cb = (s.unread ? '<span class="pill pill-brand">' + s.unread + ' new</span>' : '') +
       (s.open ? '<span class="pill">' + s.open + ' open</span>' : '');
+    // One-click Approve straight from the card: a manager can clear "Draft"
+    // without opening Version history. It walks Draft → In review → Approved in
+    // a single action (see cardapprove). Hidden once the latest is approved.
+    const canApprove = APP.role === 'manager' && latest && latest.status !== 'approved';
+    const approveCtl = canApprove
+      ? '<span style="flex-basis:100%;height:2px"></span>' +
+        '<span data-action="cardapprove" data-id="' + escA(p.id) + '" title="Send for review, then approve — in one click" ' +
+        'style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:580;color:var(--good);border:1px solid var(--good);border-radius:999px;padding:3px 11px;cursor:pointer;background:transparent">' +
+        ico(IC.check, 'i-sm') + 'Approve v' + esc(latest.label) + '</span>' +
+        (latest.status === 'draft'
+          ? '<span style="font-size:10.5px;color:var(--ink-4);flex-basis:100%;margin-top:1px">Sends for review, then approves.</span>'
+          : '')
+      : '';
     return '<button class="pcard rise" style="animation-delay:' + (i * 40) + 'ms" data-action="open" data-id="' + escA(p.id) + '">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">' +
       '<div style="min-width:0"><div style="font-weight:600;letter-spacing:-.01em;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.name) + '</div>' +
       '<div style="font-size:12px;color:var(--ink-3);margin-top:3px">Updated ' + esc(relTime(p.updated_at)) + '</div></div>' +
       (APP.role === 'manager' ? '<span class="icobtn" data-action="del" data-id="' + escA(p.id) + '" title="Archive">' + ico(IC.trash, 'i-sm') + '</span>' : '') + '</div>' +
       '<div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">' +
-      (latest ? '<span class="pill"><span class="mono">v' + esc(latest.label) + '</span></span><span class="stchip ' + esc(latest.status) + '">' + esc(STATUS_LABEL[latest.status]) + '</span>' : '<span class="pill" style="color:var(--ink-3)">Draft, no version</span>') + cb + '</div>' +
+      (latest ? '<span class="pill"><span class="mono">v' + esc(latest.label) + '</span></span><span class="stchip ' + esc(latest.status) + '">' + esc(STATUS_LABEL[latest.status]) + '</span>' : '<span class="pill" style="color:var(--ink-3)">Draft, no version</span>') + cb + approveCtl + '</div>' +
       '</button>';
   }).join('') : onboardBlock(APP);
 

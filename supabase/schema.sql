@@ -964,15 +964,43 @@ end; $$;
 grant execute on function partner_update_profile(text, text, text) to authenticated;
 create or replace function partner_projects_v2()
 returns jsonb language sql security definer stable set search_path = public as $$
+  -- Every PRD assigned to the signed-in partner. `name` is the project's own
+  -- name, so an assignment with no published brief yet still shows a real title
+  -- instead of its internal id. The brief payload is a version snapshot, but the
+  -- collaborator logo/label is a *current* property of the project, so overlay
+  -- the live brand at read time (jsonb || overwrites the two keys) — a logo added
+  -- after the brief was shared reaches the partner with no re-publish.
   select coalesce(jsonb_agg(jsonb_build_object(
     'project_id', pa.project_id,
-    'payload', (select s.payload from shares s
+    'name', pr.name,
+    'payload', (select s.payload || jsonb_build_object('logo', pr.brand_logo, 'brandLabel', pr.brand_label)
+                 from shares s
                  where s.project_id = pa.project_id and s.kind = 'brief' and s.revoked = false
                  order by s.version_seq desc limit 1))), '[]'::jsonb)
-  from partner_access pa join partners p on p.id = pa.partner_id
-  where p.user_id = auth.uid();
+  from partner_access pa
+  join partners p on p.id = pa.partner_id
+  join projects pr on pr.id = pa.project_id
+  where p.user_id = auth.uid()
+    -- Only surface PRDs the team has actually published a brief for: a partner
+    -- should see things ready to review, not assignments still being drafted.
+    and exists (select 1 from shares s2
+                where s2.project_id = pa.project_id and s2.kind = 'brief' and s2.revoked = false);
 $$;
 grant execute on function partner_projects_v2() to authenticated;
+
+-- Same live-brand overlay for the accountless SME brief and the read-only
+-- presentation link (both served by get_share). Redefines the v1 function so an
+-- uploaded logo shows on every external surface the moment it is saved, even for
+-- links shared before the logo existed. Falls back to the stored payload's own
+-- brand when a share has no backing project row (defensive; all shares do).
+create or replace function get_share(p_token text)
+returns jsonb language sql security definer set search_path = public as $$
+  select case when p.id is null then s.payload
+              else s.payload || jsonb_build_object('logo', p.brand_logo, 'brandLabel', p.brand_label) end
+  from shares s left join projects p on p.id = s.project_id
+  where s.token = p_token and s.revoked = false limit 1;
+$$;
+grant execute on function get_share(text) to anon, authenticated;
 
 -- The public read-only presentation token for an assigned project: the latest
 -- non-revoked brief share the team has already published. Returns nothing if
