@@ -243,6 +243,7 @@ export const repo = {
 
   /* ---- partner portal ---- */
   partnerProjects() { return rpc('partner_projects_v2'); },
+  partnerPresentToken(pid) { return rpc('partner_present_token', { p_project: pid }); },
   partnerThread(pid) { return rpc('partner_thread_v2', { p_project: pid }); },
   partnerPost(pid, body) { return rpc('partner_post', { p_project: pid, p_body: body }); },
   partnerReply(commId, body) { return rpc('partner_reply', { p_comm: commId, p_body: body }); },

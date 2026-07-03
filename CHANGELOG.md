@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.7.1 — landing page copy refresh (invitation-only positioning)
+
+- Rewrote the landing page to the v2 copy: "The requirements record your
+  client approves." Baseline / Gate / Export framing, the judgment line,
+  client-review and change sections, three-audience block, a security section
+  that states only what is live with an explicit "on the roadmap" note for
+  e-signature and SOC 2 (published when they ship, not before), flat
+  per-project pricing, and an invitation-only final CTA.
+- All contact routes to team@reqpub.com (CTA button, body copy, footer).
+- Neutral fictional example (Northwind Field Services); no competitor
+  comparison; plain declarative style, zero em-dash tics; "client" language
+  kept by design. Footer address: Bentonville, AR.
+- Frontend-only; no test or schema impact.
+
+
+## 2.7.0 — read-only presentation link (share the PRD, view-only)
+
+- Any role can now share the branded PRD as a fixed, read-only link
+  (#present/…). It renders the published, section-scoped brief with the
+  assigned logo as a clean, account-free page — no review form, no threads,
+  just the record and a Print / PDF button. It reuses the brief's own token,
+  so it exposes nothing the brief link does not and is revoked alongside it.
+- Where it lives, per role:
+  · Manager — Share modal ("Anyone, read-only"), the Access hub, and a
+    "Copy read-only link" button inside Presentation mode.
+  · Viewer — the Access hub row (works whenever a brief is published).
+  · SME — a "Share view" button on the brief page they already hold.
+  · Partner — a "Share view" button on their portal project; a new
+    partner_present_token RPC hands them the public token for their assigned
+    project (surfacing an existing token only, creating nothing).
+- The presentation page is immutable: it points at a specific published
+  version, so what a recipient opens is exactly what was shared.
+- Tests: three backend checks (assigned partner gets the token, non-assigned
+  gets nothing, anon can open the payload) and a seven-point render check.
+  Backend suite now 79 checks.
+
+
 ## 2.6.0 — PRD brand logo and a designed, co-branded PDF
 
 - The internal team can assign a collaborator's logo to a PRD (Access tab →

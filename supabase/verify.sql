@@ -71,6 +71,11 @@ select 'project brand columns present' as check,
        (select count(*) from information_schema.columns
         where table_name = 'projects' and column_name in ('brand_logo', 'brand_label')) = 2 as pass;
 
+-- v2.7
+select 'partner present-token RPC exists' as check,
+       exists(select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+              where n.nspname = 'public' and p.proname = 'partner_present_token') as pass;
+
 select 'activity is append-only (no write policies)' as check,
        count(*) = 0 as pass
 from pg_policies where schemaname = 'public' and tablename = 'activity'

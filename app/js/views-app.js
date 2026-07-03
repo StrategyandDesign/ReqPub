@@ -138,6 +138,8 @@ function shareModal(APP) {
     row(IC.send, '#e6f7fb', 'var(--teal)', 'An SME reviewer', latest ? 'Pick which sections of v' + esc(latest.label) + ' they see, then copy the link. No account needed.' : 'Generate a version first.', 'shr-brief', !latest) +
     row(IC.link, '#e6f7fb', 'var(--teal)', 'An app tester', latest ? 'Copies the testing link for v' + esc(latest.label) + '. Bug reports land in your Inbox.' : 'Generate a version first.', 'shr-pilot', !latest) +
     row(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'A question for an SME', 'Compose an input request and send its link. Answers thread back to the Inbox.', 'shr-request') +
+    '<div class="umsep" style="margin:4px 0"></div>' +
+    row(IC.eye, 'var(--bg-3)', 'var(--ink)', 'Anyone, read-only', latest ? 'Copies a fixed, branded, view-only link of v' + esc(latest.label) + '. No account, no review — just the record.' : 'Generate a version first.', 'copypresent', !latest) +
     '</div></div></div>';
 }
 
@@ -490,6 +492,7 @@ export function presentOverlay(APP, a) {
     '<span style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.ctrl_product || (APP.project && APP.project.name) || 'Untitled') + '</span>' +
     '<span class="pill"><span class="mono">' + esc(label) + '</span></span></div>' +
     '<div style="display:flex;gap:6px;align-items:center">' +
+    '<button class="btn btn-sec btn-sm" data-action="copypresent" title="Copy a read-only link to exactly this view">' + ico(IC.link, 'i-sm') + 'Copy read-only link</button>' +
     '<button class="icobtn" data-action="print" title="Save as PDF">' + ico(IC.print) + '</button>' +
     '<button class="icobtn" data-action="presentclose" title="Exit presentation (Esc)">' + ico(IC.close) + '</button></div></div>' +
     '<div class="present-scroll" id="presentScroll"><div class="page">' + (d.md ? mdToHtml(d.md) : '<div class="empty"><div style="font-size:13px">Nothing to present yet.</div></div>') + '</div></div></div>';

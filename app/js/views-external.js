@@ -63,7 +63,9 @@ export function renderBriefView(APP) {
   const f = APP.shareForm || {};
   const header = brandBanner(p) + '<div style="margin-bottom:22px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap">' +
     '<span class="pill pill-solid"><span class="mono">v' + esc(p.label || '?') + '</span></span><span class="eyebrow" style="font-size:9.5px">Review brief</span>' +
-    '<div style="flex:1"></div><button class="btn btn-sec btn-sm" data-action="brandprint" title="Print or save as PDF">' + ico(IC.print, 'i-sm') + 'Print / PDF</button></div>' +
+    '<div style="flex:1"></div>' +
+    '<button class="btn btn-ghost btn-sm" data-action="smepresent" title="Copy a read-only link to share">' + ico(IC.link, 'i-sm') + 'Share view</button>' +
+    '<button class="btn btn-sec btn-sm" data-action="brandprint" title="Print or save as PDF">' + ico(IC.print, 'i-sm') + 'Print / PDF</button></div>' +
     '<h1 style="font-size:27px;letter-spacing:-.02em;font-weight:660;margin:0 0 8px">' + esc(p.product || 'Untitled') + '</h1>' +
     '<div style="color:var(--ink-3);font-size:13.5px;line-height:1.5">' + ((p.answers && p.answers.ctrl_org) ? esc(p.answers.ctrl_org) + '. ' : '') + 'Plain-language summary for review. No requirement detail, schedule, or internal notes.' +
     (Array.isArray(p.sections) && p.sections.length && p.sections.length < 9 ? ' The team shared ' + p.sections.length + ' section' + (p.sections.length === 1 ? '' : 's') + ' of this document.' : '') + '</div></div>';
@@ -269,7 +271,9 @@ export function renderPartnerProject(APP) {
     brandBanner(pay) +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px"><h1 style="font-size:26px;letter-spacing:-.02em;font-weight:660;margin:0">' + esc(pay.product || pid) + '</h1>' +
     (pay.label ? '<span class="pill pill-solid"><span class="mono">v' + esc(pay.label) + '</span></span>' : '') +
-    (md ? '<div style="flex:1"></div><button class="btn btn-sec btn-sm" data-action="brandprint" title="Print or save as PDF">' + ico(IC.print, 'i-sm') + 'Print / PDF</button>' : '') + '</div>' +
+    (md ? '<div style="flex:1"></div>' +
+      '<button class="btn btn-ghost btn-sm" data-action="ppresent" data-id="' + escA(pid) + '" title="Copy a read-only link to share">' + ico(IC.link, 'i-sm') + 'Share view</button>' +
+      '<button class="btn btn-sec btn-sm" data-action="brandprint" title="Print or save as PDF">' + ico(IC.print, 'i-sm') + 'Print / PDF</button>' : '') + '</div>' +
     (md ? '<div class="card" style="padding:26px 30px;margin-bottom:22px">' + mdToHtml(md) + '</div>'
         : '<div class="card" style="padding:26px;margin-bottom:22px;color:var(--ink-3);font-size:13.5px">The team has not published a brief for this PRD yet.</div>') +
     '<div class="card" style="padding:18px;margin-bottom:18px;border:1px solid var(--sky-2);background:var(--sky)">' +
@@ -280,6 +284,32 @@ export function renderPartnerProject(APP) {
     '<div class="eyebrow" style="font-size:9.5px;margin:0 0 10px">Your threads</div>' +
     (notes || '<div class="hint" style="padding:8px 2px">No notes yet. Anything you send appears here with the team&rsquo;s replies.</div>') +
     '</div></div>');
+}
+
+/* ---------------- read-only presentation of a published PRD ----------------
+   A fixed, branded, account-free page. Same section-scoped brief content, shown
+   as a clean document with no review form — the "just look at it" link. */
+export function renderPresentShare(APP) {
+  const s = APP.share;
+  if (!s || !s.payload) return wrap(invalidCard('presentation'), 760);
+  const p = s.payload;
+  const md = bBrief(p.answers || {});
+  const brand = brandBanner(p);
+  const head = brand +
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px">' +
+    '<div style="min-width:0"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px">' +
+    '<span class="pill pill-solid"><span class="mono">v' + esc(p.label || '?') + '</span></span>' +
+    '<span class="eyebrow" style="font-size:9.5px">Requirements · read-only</span></div>' +
+    '<h1 style="font-size:30px;letter-spacing:-.025em;font-weight:660;margin:0">' + esc(p.product || 'Untitled') + '</h1></div>' +
+    '<button class="btn btn-sec btn-sm" data-action="brandprint" title="Print or save as PDF" style="flex:0 0 auto">' + ico(IC.print, 'i-sm') + 'Print / PDF</button>' +
+    '</div>';
+  const body = md.trim()
+    ? '<div class="card" style="padding:30px 34px">' + mdToHtml(md) + '</div>'
+    : '<div class="card" style="padding:34px;color:var(--ink-3);font-size:14px;text-align:center">This presentation has no shared content yet.</div>';
+  const foot = '<div style="text-align:center;margin-top:24px;font-size:11.5px;color:var(--ink-4);display:flex;align-items:center;justify-content:center;gap:6px">' +
+    '<span class="brandmark" style="width:16px;height:16px;border-radius:4px"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>' +
+    'A read-only requirements record, published with ReqPub. This link cannot be edited.</div>';
+  return wrap(head + body + foot, 780);
 }
 
 /* ---------------- signed in, but no workspace ---------------- */

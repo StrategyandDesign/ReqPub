@@ -186,6 +186,24 @@ try {
   check('profile unchanged after that attempt', prof2.name === 'Pat Q. Partner');
   await asUser(PARTNER_USER);
 
+  console.log('\n— read-only presentation link (v2.7) —');
+  // ensure a public brief exists for p1 (share_put as manager)
+  await asUser(MANAGER);
+  await one(`select share_put('p1','brief',2,'{"product":"RecordMade","label":"1.1","answers":{"ov_vision":"V"}}'::jsonb) t`);
+  await asUser(PARTNER_USER);
+  let r2 = await one(`select partner_present_token('p1') j`);
+  check('assigned partner gets the public present token (latest brief)', r2.j.ok === true && typeof r2.j.token === 'string' && Number.isInteger(r2.j.seq), r2.j);
+  // rival partner (none) — a partner not assigned to p1 gets nothing
+  await asUser(RIVAL);
+  r2 = await one(`select partner_present_token('p1') j`);
+  check('non-assigned user gets no present token', !r2.j || r2.j.ok === false, r2.j);
+  // the present token is just the brief token → anon can read it via get_share
+  await asUser(PARTNER_USER);
+  const ptok = (await one(`select partner_present_token('p1') j`)).j.token;
+  await asUser('');
+  const pv = await one(`select get_share('${ptok}') p`);
+  check('anon can open the presentation payload read-only', pv.p && pv.p.product === 'RecordMade', pv.p && pv.p.product);
+
   console.log('\n— PRD brand logo (v2.6) —');
   await asUser(MANAGER);
   await run(`update projects set brand_logo = 'data:image/png;base64,iVBORw0KAAAA', brand_label = 'Northwind Field Services' where id = 'p1'`);

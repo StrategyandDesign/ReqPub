@@ -415,6 +415,10 @@ function renderAccess(APP) {
     '<div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Access</h2>' +
     '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Everyone outside this window reaches the project through what is below. Grants and revocations take effect immediately.</div></div>' +
     (isMgr ? '<button class="btn btn-primary btn-sm" data-action="shareopen" style="flex:0 0 auto">' + ico(IC.send, 'i-sm') + 'Share…</button>' : '') + '</div>' +
+    section(IC.eye, 'var(--bg-3)', 'var(--ink)', 'Read-only presentation link', 'A fixed, branded, view-only page of the latest published version. No account and no review form — the link to send when someone just needs to see the record.',
+      '<div class="acc-row" style="border-top:none"><span style="flex:1;font-size:12.5px;color:var(--ink-4)">' +
+      (latest ? 'Points at v' + esc(latest.label) + '. Anyone with the link can view; nobody can edit.' : 'Generate a version first.') + '</span>' +
+      '<button class="btn btn-sec btn-sm" data-action="copypresent"' + (latest ? '' : ' disabled') + '>' + ico(IC.link, 'i-sm') + 'Copy link</button></div>') +
     section(IC.doc, 'var(--bg-3)', 'var(--ink)', 'Brand on the shared PRD', 'Assign the collaborator’s logo to this PRD. It appears when a partner or SME views the brief, and on the printed and Word exports.', brandBody) +
     section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
     section(IC.user, '#f1ebfd', 'var(--purple)', 'Partners', 'Manage SMEs on the client side. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +

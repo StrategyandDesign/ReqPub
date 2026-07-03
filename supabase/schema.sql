@@ -974,6 +974,23 @@ returns jsonb language sql security definer stable set search_path = public as $
 $$;
 grant execute on function partner_projects_v2() to authenticated;
 
+-- The public read-only presentation token for an assigned project: the latest
+-- non-revoked brief share the team has already published. Returns nothing if
+-- no public brief exists. Creates nothing; only surfaces an existing token so
+-- the partner can share the same read-only PRD the team made public.
+create or replace function partner_present_token(p_project text)
+returns jsonb language sql security definer stable set search_path = public as $$
+  select case when s.token is null then jsonb_build_object('ok', false)
+              else jsonb_build_object('ok', true, 'token', s.token, 'seq', s.version_seq) end
+  from (select 1) one
+  left join shares s on s.project_id = p_project and s.kind = 'brief' and s.revoked = false
+       and exists (select 1 from partner_access pa join partners p on p.id = pa.partner_id
+                   where pa.project_id = p_project and p.user_id = auth.uid())
+  order by s.version_seq desc
+  limit 1;
+$$;
+grant execute on function partner_present_token(text) to authenticated;
+
 create or replace function partner_thread_v2(p_project text)
 returns jsonb language sql security definer stable set search_path = public as $$
   select coalesce(jsonb_agg(jsonb_build_object(

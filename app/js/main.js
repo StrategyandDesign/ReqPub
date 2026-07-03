@@ -3,13 +3,13 @@
    Views are pure string builders; this file owns every state change.
    ============================================================================ */
 
-import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce } from './core.js';
+import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl } from './core.js';
 import { assembleAnswers, buildSections, suggestFit, changeNote, qById, mdToHtml, defaultBriefSections } from './domain.js';
 import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
-import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg } from './views-external.js';
+import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary } from './exports.js';
 
 /* ---------------- state ---------------- */
@@ -63,6 +63,7 @@ function renderUnsafe() {
     case 'brief': html = renderBriefView(APP); break;
     case 'fbshare': html = renderFeedbackForm(APP); break;
     case 'note': html = renderNoteIntake(APP); break;
+    case 'present': html = renderPresentShare(APP); break;
     case 'partner': html = renderPartnerHome(APP); break;
     case 'partnerview': html = renderPartnerProject(APP); break;
     case 'noorg': html = renderNoOrg(APP); break;
@@ -179,7 +180,7 @@ function patchSaveChips() {
 /* ---------------- routing ---------------- */
 function parseHash() {
   const h = (location.hash || '').replace(/^#/, '');
-  let m = h.match(/^(brief|fb)\/([^/]+)\/(\d+)\/([^/]+)$/);
+  let m = h.match(/^(brief|fb|present)\/([^/]+)\/(\d+)\/([^/]+)$/);
   if (m) return { mode: m[1], pid: m[2], seq: +m[3], token: m[4] };
   m = h.match(/^note\/([^/]+)\/([^/]+)$/);              // v2: #note/pid/token
   if (m) return { mode: 'note', pid: m[1], token: m[2] };
@@ -190,14 +191,23 @@ function parseHash() {
 
 async function routeShare(r) {
   APP.view = 'loading'; render();
-  if (!online()) { APP.share = null; APP.view = r.mode === 'note' ? 'note' : r.mode === 'fb' ? 'fbshare' : 'brief'; render(); return; }
+  const fallback = r.mode === 'note' ? 'note' : r.mode === 'fb' ? 'fbshare' : r.mode === 'present' ? 'present' : 'brief';
+  if (!online()) { APP.share = null; APP.view = fallback; render(); return; }
   APP.shareKind = r.mode;
   APP.shareToken = r.token;
+  APP.shareRoute = r;
   APP.shareForm = {};
   if (r.mode === 'note') {
     const res = await repo.requestView(r.token);
     APP.request = (res.data && res.data.ok) ? res.data : null;
     APP.view = 'note';
+  } else if (r.mode === 'present') {
+    // Pure read-only presentation: load the brief payload, show no form.
+    const res = await repo.getShare(r.token);
+    APP.share = res.data ? { payload: res.data } : null;
+    APP.view = 'present';
+    render();
+    return;
   } else {
     const res = await repo.getShare(r.token);
     APP.share = res.data ? { payload: res.data } : null;
@@ -501,6 +511,20 @@ async function ensureShareLink(kind) {
   return location.origin + location.pathname + '#' + (kind === 'brief' ? 'brief' : 'fb') + '/' + APP.pid + '/' + latest.seq + '/' + share.token;
 }
 
+/* The read-only presentation URL for this project's latest published brief.
+   Managers publish one if none exists; viewers use whatever is already public. */
+async function ensurePresentLink() {
+  const latest = APP.versions.length ? APP.versions[APP.versions.length - 1] : null;
+  if (!latest) return null;
+  let share = (APP.shares || []).find((s) => s.kind === 'brief' && s.version_seq === latest.seq && !s.revoked);
+  if (!share && APP.role === 'manager') {
+    await ensureShareLink('brief');
+    share = (APP.shares || []).find((s) => s.kind === 'brief' && s.version_seq === latest.seq && !s.revoked);
+  }
+  if (!share) return null;
+  return presentUrl(APP.pid, latest.seq, share.token);
+}
+
 /* ---------------- event delegation ---------------- */
 function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
 
@@ -730,7 +754,30 @@ async function handleAction(a, id, t, e) {
       break;
     }
 
-    /* print from an SME / partner page — uses the branded published payload */
+    /* read-only presentation link — copy handlers per role */
+    case 'copypresent': {   // manager or viewer, from the app
+      const link = await ensurePresentLink();
+      if (!link) { toast(APP.role === 'manager' ? 'Generate a version first' : 'No public link yet — ask a manager to share this PRD'); break; }
+      if (await copyText(link)) toast('Read-only link copied — anyone with it can view, not edit');
+      break;
+    }
+    case 'smepresent': {   // SME, from their brief page — reuse their own token
+      const rt = APP.shareRoute;
+      if (!rt || !rt.pid) { toast('Link unavailable'); break; }
+      const link = presentUrl(rt.pid, rt.seq, rt.token);
+      if (await copyText(link)) toast('Read-only link copied — share it with anyone');
+      break;
+    }
+    case 'ppresent': {   // partner, from the portal
+      const r = await repo.partnerPresentToken(t.dataset.id);
+      const out = r.data;
+      if (!out || !out.ok) { toast('No shareable link yet — the team has not published a brief'); break; }
+      const link = presentUrl(t.dataset.id, out.seq, out.token);
+      if (await copyText(link)) toast('Read-only link copied — share it with anyone');
+      break;
+    }
+
+    /* print from an SME / partner / presentation page — uses the branded payload */
     case 'brandprint': {
       const pay = (APP.share && APP.share.payload) ||
         (APP.partnerProjects || []).find((x) => x.project_id === APP.partnerPid)?.payload;

@@ -1,6 +1,6 @@
 {
   "name": "reqpub",
-  "version": "2.6.0",
+  "version": "2.7.1",
   "private": true,
   "type": "module",
   "description": "ReqPub \u2014 discovery to versioned, approved, testable requirements. Static frontend (GitHub Pages) + Supabase backend.",
