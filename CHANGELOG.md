@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.9.1 — wider subtitles; landing black band aligned
+
+- Team dashboard and partner-portal subtitles were capped narrow (520/560px) and
+  wrapped early; widened to 760px so the intro line runs further across.
+- Landing page: the black "Projects don't fail at the build" band was the only
+  single-column statement section left-aligned while the others (judgment, the
+  section headers, pricing, CTA) are centered — so it read as out of step. It is
+  now centered to match, and its headline/paragraph widths were increased so the
+  copy spans further across the band.
+
+
 ## 2.9.0 — durable SME workspaces (one link, one continuous thread)
 
 Fixes the SME continuity problem: previously every SME interaction minted a new

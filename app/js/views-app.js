@@ -321,7 +321,7 @@ export function viewProjects(APP) {
     '</div><div style="display:flex;align-items:center;gap:8px">' + saveChip(APP) + userMenu(APP) + '</div></div>' +
     '<div style="flex:1;overflow-y:auto"><div class="wrap">' +
     '<div class="rise" style="margin-bottom:40px"><h1 style="font-size:38px;line-height:1.08;letter-spacing:-.03em;font-weight:660;margin:0 0 12px">Discovery to Requirements.</h1>' +
-    '<p style="color:var(--ink-3);max-width:520px;font-size:15.5px;line-height:1.6;margin:0">One shared workspace from workshop input to a versioned, approved, testable requirements document.</p></div>' +
+    '<p style="color:var(--ink-3);max-width:760px;font-size:15.5px;line-height:1.6;margin:0">One shared workspace from workshop input to a versioned, approved, testable requirements document.</p></div>' +
     (APP.role === 'manager'
       ? '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms"><div style="display:flex;gap:10px;flex-wrap:wrap">' +
         '<input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product to specify">' +

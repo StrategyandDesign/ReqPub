@@ -242,7 +242,7 @@ export function renderPartnerHome(APP) {
   return partnerChrome(APP,
     '<div style="flex:1;overflow-y:auto"><div class="wrap" style="max-width:820px">' +
     '<div class="rise" style="margin-bottom:26px"><h1 style="font-size:30px;letter-spacing:-.025em;font-weight:660;margin:0 0 8px">' + esc(greet()) + ', ' + esc(first) + '.</h1>' +
-    '<p style="color:var(--ink-3);font-size:14.5px;line-height:1.6;margin:0;max-width:560px">The PRDs assigned to you for review. Any note you send opens a thread with the team.</p></div>' +
+    '<p style="color:var(--ink-3);font-size:14.5px;line-height:1.6;margin:0;max-width:760px">The PRDs assigned to you for review. Any note you send opens a thread with the team.</p></div>' +
     nameNudge +
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">' + cards + '</div>' +
     '</div></div>');
