@@ -800,7 +800,7 @@ async function handleAction(a, id, t, e) {
         (APP.partnerProjects || []).find((x) => x.project_id === APP.partnerPid)?.payload;
       if (!pay) { toast('Nothing to print yet'); break; }
       const { bBrief } = await import('./domain.js');
-      printDoc(bBrief(pay.answers || {}), {
+      printDoc(bBrief(pay.answers || {}, pay.sections), {
         product: pay.product || 'Requirements', label: pay.label || '', status: 'approved',
         org: '', approvals: [], logo: pay.logo || '', brandLabel: pay.brandLabel || ''
       });

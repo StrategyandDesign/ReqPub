@@ -108,8 +108,8 @@ function briefPicker(APP) {
   const chips = BRIEF_SECTIONS.map((s) =>
     '<button class="chip' + (picked.includes(s.key) ? ' on' : '') + '" data-action="briefpicktoggle" data-val="' + s.key + '" style="height:36px;font-size:13px">' + esc(s.label) + '</button>').join('');
   return '<div class="modal-back" data-action="modalback"><div class="modal-card" role="dialog" aria-modal="true" data-stop="1">' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>What should reviewers see?</h3><button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
-    '<div class="hint" style="margin-top:4px">The link shares only the sections you pick' + (latest ? ' from v' + esc(latest.label) : '') + '. Unselected content is left out of the share entirely, not hidden. Fit criteria, schedules, and internal notes are never included.</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>What do partners and SMEs see?</h3><button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
+    '<div class="hint" style="margin-top:4px">These are the sections' + (latest ? ' of v' + esc(latest.label) : '') + ' that every external party sees: partners in their portal, SMEs in their workspace, and anyone with a review link. Unselected content is left out of the share entirely, not hidden. Fit criteria, schedules, and internal notes are never included.</div>' +
     '<div class="fldlabel">Sections</div><div class="choice">' + chips + '</div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:18px">' +
     '<span class="hint">' + picked.length + ' of ' + BRIEF_SECTIONS.length + ' selected</span>' +

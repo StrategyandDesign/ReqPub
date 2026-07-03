@@ -40,7 +40,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 ├── tests/
 │   ├── domain.test.mjs                  13 document / diff / brief tests
 │   ├── sync.test.mjs                    12 multi-writer concurrency simulations
-│   ├── share.test.mjs                   8 section-scoped share-payload tests
+│   ├── share.test.mjs                   10 section-scoped share-payload tests
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
 │   └── backend-e2e/                     148 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
@@ -62,7 +62,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 38 domain + concurrency + dedupe checks (node only)
+npm test                        # 40 domain + concurrency + dedupe checks (node only)
 npm i && npm run test:backend   # 148 checks on an embedded Postgres
 ```
 

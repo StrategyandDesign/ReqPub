@@ -322,57 +322,83 @@ export function assemble(sections, a) {
 /* ---- Brief sections: what a shared review brief can contain ----
    The team picks which of these an SME or partner sees. Filtering happens
    when the payload is BUILT, so unshared content never leaves the server. */
+// The single registry for shareable sections. `key` is the stable id, `label`
+// is what the team picks, `def` is whether it is shared by default, and `fields`
+// are the worksheet answers that back it. Adding an entry here makes a new
+// section (a) appear in the team's share selector, and (b) travel in the share
+// payload when selected, with no other change. To also DISPLAY it, add a matching
+// block in bBrief gated on its key; until then it is shareable but not rendered.
 export const BRIEF_SECTIONS = [
-  { key: 'building', label: 'What we are building', def: true },
-  { key: 'goals', label: 'Goals', def: true },
-  { key: 'who', label: 'Who it is for', def: true },
-  { key: 'solution', label: 'The solution', def: true },
-  { key: 'includes', label: 'What it includes', def: false },
-  { key: 'pieces', label: 'Components', def: false },
-  { key: 'willdo', label: 'What it will do', def: true },
-  { key: 'success', label: 'Success metrics', def: false },
-  { key: 'oos', label: 'Not in scope', def: true }
+  { key: 'building', label: 'What we are building', def: true, fields: ['ov_purpose', 'ov_vision', 'ov_problem', 'ov_market'] },
+  { key: 'goals', label: 'Goals', def: true, fields: ['ov_goals'] },
+  { key: 'who', label: 'Who it is for', def: true, fields: ['seg', 'persona', 'context'] },
+  { key: 'solution', label: 'The solution', def: true, fields: ['sol_solution'] },
+  { key: 'includes', label: 'What it includes', def: false, fields: ['sol_in'] },
+  { key: 'pieces', label: 'Components', def: false, fields: ['components'] },
+  { key: 'willdo', label: 'What it will do', def: true, fields: ['fr'] },
+  { key: 'success', label: 'Success metrics', def: false, fields: ['metrics'] },
+  { key: 'oos', label: 'Not in scope', def: true, fields: ['sol_out'] }
 ];
 export const defaultBriefSections = () => BRIEF_SECTIONS.filter((s) => s.def).map((s) => s.key);
 
-/* ---- The plain-language review brief (SME-facing) ---- */
-export function bBrief(a) {
+/* The plain-language review brief that partners and SMEs see. When `sections`
+   is given (the list the team published), each block renders only if its key is
+   in it, so what the team selects is exactly what the external party sees. With
+   no list it falls back to rendering whatever data is present (legacy callers). */
+export function bBrief(a, sections) {
+  const inc = (k) => !Array.isArray(sections) || sections.includes(k);
   const P = [];
-  const wb = [];
-  if (a.ov_vision) wb.push(a.ov_vision);
-  if (a.ov_problem) wb.push('**The problem.** ' + a.ov_problem);
-  if (a.ov_market) wb.push('**The opportunity.** ' + a.ov_market);
-  if (wb.length) P.push('## What we are building\n\n' + wb.join('\n\n'));
-  const goals = (a.ov_goals || []).filter(Boolean);
-  if (goals.length) P.push('## Goals\n\n' + goals.map((x) => '- ' + x).join('\n'));
-  const who = [];
-  const personas = rowsFilled(a.persona);
-  if (personas.length) who.push(personas.map((r) => '- **' + (r.persona || '') + '**' + (r.needs ? ': ' + r.needs : '')).join('\n'));
-  const segs = rowsFilled(a.seg);
-  if (segs.length) who.push('**Segments.** ' + segs.map((r) => (r.segment || '') + (r.desc ? ' (' + r.desc + ')' : '')).join('; '));
-  if (a.context) who.push('**Where it is used.** ' + a.context);
-  if (who.length) P.push('## Who it is for\n\n' + who.join('\n\n'));
-  if (a.sol_solution) P.push('## The solution\n\n' + a.sol_solution);
-  const inscope = (a.sol_in || []).filter(Boolean);
-  if (inscope.length) P.push('## What it includes\n\n' + inscope.map((x) => '- ' + x).join('\n'));
-  const comps = rowsFilled(a.components);
-  if (comps.length) P.push('## The pieces\n\n' + comps.map((r) => '- **' + (r.name || '') + '**' + (r.desc ? ': ' + r.desc : '')).join('\n'));
-  const fr = rowsFilled(a.fr);
-  if (fr.length) {
-    const byc = {}, order = [];
-    fr.forEach((r) => {
-      const c = (r.comp && r.comp.trim()) ? r.comp : 'General';
-      if (!byc[c]) { byc[c] = []; order.push(c); }
-      if (r.stmt && r.stmt.trim()) byc[c].push(r.stmt.trim());
-    });
-    const multi = order.length > 1 || (order.length === 1 && order[0] !== 'General');
-    const blocks = order.filter((c) => byc[c].length).map((c) => (multi ? '**' + c + '**\n\n' : '') + byc[c].map((s) => '- ' + s).join('\n'));
-    if (blocks.length) P.push('## What it will do\n\n' + blocks.join('\n\n'));
+  if (inc('building')) {
+    const wb = [];
+    if (a.ov_vision) wb.push(a.ov_vision);
+    if (a.ov_problem) wb.push('**The problem.** ' + a.ov_problem);
+    if (a.ov_market) wb.push('**The opportunity.** ' + a.ov_market);
+    if (wb.length) P.push('## What we are building\n\n' + wb.join('\n\n'));
   }
-  const mets = rowsFilled(a.metrics);
-  if (mets.length) P.push('## What success looks like\n\n' + mets.map((r) => '- **' + (r.metric || '') + '**' + (r.target ? ': ' + r.target : '') + (r.method ? ' (measured by ' + r.method + ')' : '')).join('\n'));
-  const oos = (a.sol_out || []).filter(Boolean);
-  if (oos.length) P.push('## Not in scope\n\n' + oos.map((x) => '- ' + x).join('\n'));
+  if (inc('goals')) {
+    const goals = (a.ov_goals || []).filter(Boolean);
+    if (goals.length) P.push('## Goals\n\n' + goals.map((x) => '- ' + x).join('\n'));
+  }
+  if (inc('who')) {
+    const who = [];
+    const personas = rowsFilled(a.persona);
+    if (personas.length) who.push(personas.map((r) => '- **' + (r.persona || '') + '**' + (r.needs ? ': ' + r.needs : '')).join('\n'));
+    const segs = rowsFilled(a.seg);
+    if (segs.length) who.push('**Segments.** ' + segs.map((r) => (r.segment || '') + (r.desc ? ' (' + r.desc + ')' : '')).join('; '));
+    if (a.context) who.push('**Where it is used.** ' + a.context);
+    if (who.length) P.push('## Who it is for\n\n' + who.join('\n\n'));
+  }
+  if (inc('solution') && a.sol_solution) P.push('## The solution\n\n' + a.sol_solution);
+  if (inc('includes')) {
+    const inscope = (a.sol_in || []).filter(Boolean);
+    if (inscope.length) P.push('## What it includes\n\n' + inscope.map((x) => '- ' + x).join('\n'));
+  }
+  if (inc('pieces')) {
+    const comps = rowsFilled(a.components);
+    if (comps.length) P.push('## The pieces\n\n' + comps.map((r) => '- **' + (r.name || '') + '**' + (r.desc ? ': ' + r.desc : '')).join('\n'));
+  }
+  if (inc('willdo')) {
+    const fr = rowsFilled(a.fr);
+    if (fr.length) {
+      const byc = {}, order = [];
+      fr.forEach((r) => {
+        const c = (r.comp && r.comp.trim()) ? r.comp : 'General';
+        if (!byc[c]) { byc[c] = []; order.push(c); }
+        if (r.stmt && r.stmt.trim()) byc[c].push(r.stmt.trim());
+      });
+      const multi = order.length > 1 || (order.length === 1 && order[0] !== 'General');
+      const blocks = order.filter((c) => byc[c].length).map((c) => (multi ? '**' + c + '**\n\n' : '') + byc[c].map((s) => '- ' + s).join('\n'));
+      if (blocks.length) P.push('## What it will do\n\n' + blocks.join('\n\n'));
+    }
+  }
+  if (inc('success')) {
+    const mets = rowsFilled(a.metrics);
+    if (mets.length) P.push('## What success looks like\n\n' + mets.map((r) => '- **' + (r.metric || '') + '**' + (r.target ? ': ' + r.target : '') + (r.method ? ' (measured by ' + r.method + ')' : '')).join('\n'));
+  }
+  if (inc('oos')) {
+    const oos = (a.sol_out || []).filter(Boolean);
+    if (oos.length) P.push('## Not in scope\n\n' + oos.map((x) => '- ' + x).join('\n'));
+  }
   return P.join('\n\n');
 }
 

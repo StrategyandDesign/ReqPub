@@ -5,6 +5,7 @@
    exponential backoff (durable()). Racy structures (fields, rows, versions)
    go through the server-side RPCs so concurrency checks cannot be bypassed.
    ============================================================================ */
+import { BRIEF_SECTIONS } from './domain.js';
 
 const HAS_DOM = typeof window !== 'undefined';
 const CFG = (HAS_DOM && window.SB_CFG) || { url: '', anon: '' };
@@ -322,26 +323,21 @@ export function buildSharePayload(project, answers, versionLabel, seq, kind, bui
   }
   const secs = Array.isArray(sectionKeys) && sectionKeys.length
     ? sectionKeys
-    : ['building', 'goals', 'who', 'solution', 'includes', 'pieces', 'willdo', 'success', 'oos'];
-  const has = (k) => secs.includes(k);
+    : BRIEF_SECTIONS.map((s) => s.key);
   const ca = { ctrl_org: answers.ctrl_org, ctrl_product: answers.ctrl_product };
-  if (has('building')) {
-    ca.ov_purpose = answers.ov_purpose; ca.ov_vision = answers.ov_vision;
-    ca.ov_problem = answers.ov_problem; ca.ov_market = answers.ov_market;
+  // Registry-driven: copy the backing fields of each selected section. A section
+  // added to BRIEF_SECTIONS is therefore shareable with no change to this file.
+  for (const s of BRIEF_SECTIONS) {
+    if (!secs.includes(s.key)) continue;
+    for (const f of (s.fields || [])) if (answers[f] !== undefined) ca[f] = answers[f];
   }
-  if (has('goals')) ca.ov_goals = answers.ov_goals;
-  if (has('who')) { ca.seg = answers.seg; ca.persona = answers.persona; ca.context = answers.context; }
-  if (has('solution')) ca.sol_solution = answers.sol_solution;
-  if (has('includes')) ca.sol_in = answers.sol_in;
-  if (has('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name, desc: c.desc }));
-  if (has('willdo')) {
+  // Shaping for the two structured sections: components carry name + description;
+  // requirement grouping needs component names even when components is not shared.
+  if (secs.includes('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name, desc: c.desc }));
+  if (secs.includes('willdo')) {
     ca.fr = (answers.fr || []).map((x) => ({ stmt: x.stmt || '', comp: x.comp || '' }));
-    // Requirement grouping needs component names even when the components
-    // section itself is not shared. Names only, no descriptions.
-    if (!has('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name }));
+    if (!secs.includes('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name }));
   }
-  if (has('success')) ca.metrics = answers.metrics;
-  if (has('oos')) ca.sol_out = answers.sol_out;
   // The assigned collaborator logo travels with the brief so accountless SMEs
   // and partners see it on the PRD (they cannot read the projects table).
   return {

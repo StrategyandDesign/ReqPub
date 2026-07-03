@@ -59,7 +59,7 @@ export function renderBriefView(APP) {
   const s = APP.share;
   if (!s || !s.payload) return wrap(invalidCard('brief'), 680);
   const p = s.payload;
-  const md = bBrief(p.answers || {});
+  const md = bBrief(p.answers || {}, p.sections);
   const f = APP.shareForm || {};
   const header = brandBanner(p) + '<div style="margin-bottom:22px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap">' +
     '<span class="pill pill-solid"><span class="mono">v' + esc(p.label || '?') + '</span></span><span class="eyebrow" style="font-size:9.5px">Review brief</span>' +
@@ -253,7 +253,7 @@ export function renderPartnerProject(APP) {
   const p = (APP.partnerProjects || []).find((x) => x.project_id === pid) || {};
   const pay = p.payload || {};
   const thread = (APP.partnerThreads && APP.partnerThreads[pid]) || [];
-  const md = pay.answers ? bBrief(pay.answers) : '';
+  const md = pay.answers ? bBrief(pay.answers, pay.sections) : '';
   const notes = thread.map((t) => {
     const msgs = (t.messages || []).map((m) =>
       '<div style="padding:8px 0;border-top:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-4);margin-bottom:2px"><strong style="color:var(--ink-2)">' + esc(m.name || (m.from === 'team' ? 'Team' : 'You')) + '</strong> · ' + esc(relTime(m.at)) + '</div>' +
@@ -295,7 +295,7 @@ export function renderPresentShare(APP) {
   const s = APP.share;
   if (!s || !s.payload) return wrap(invalidCard('presentation'), 760);
   const p = s.payload;
-  const md = bBrief(p.answers || {});
+  const md = bBrief(p.answers || {}, p.sections);
   const brand = brandBanner(p);
   const head = brand +
     '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px">' +
@@ -322,7 +322,7 @@ export function renderSmeWorkspace(APP) {
   const t = APP.smeThread;
   if (!t || !t.ok) return wrap(invalidCard('workspace'), 760);
   const brief = t.brief || {};
-  const md = brief.answers ? bBrief(brief.answers) : '';
+  const md = brief.answers ? bBrief(brief.answers, brief.sections) : '';
   const msgs = (t.messages || []).map((m) =>
     '<div style="padding:10px 0;border-top:1px solid var(--line)">' +
     '<div style="font-size:11px;color:var(--ink-4);margin-bottom:3px;font-weight:600">' +

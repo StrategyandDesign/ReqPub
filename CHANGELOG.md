@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.13.0 · team controls which sections partners and SMEs see
+
+- The section selector now clearly governs every external view. When the team
+  publishes a brief, the chosen sections are exactly what partners see in the
+  portal, what SMEs see in their workspace, and what any review link shows. The
+  picker now says so ("What do partners and SMEs see?").
+- Alignment is explicit and enforced: the renderer honors the published section
+  list, so display always equals selection. Previously the payload filtered the
+  data and the renderer showed whatever was present; now it also gates by section.
+- Sections are driven by one registry. Each section declares its backing fields,
+  so adding a new one is a single edit: it appears in the selector and travels in
+  the share payload when selected, with no change to the payload builder. It stays
+  hidden from readers until a matching render block is added, which is the
+  "shareable now, displayable later" behavior requested.
+- Unshared content stays absent from the payload itself, not merely hidden, so the
+  picker remains a real boundary; fit criteria and internal fields are never
+  included. Two tests added (selection/display alignment; new-section shareable
+  but hidden). Suite now 188 (40 + 148). Frontend only, no SQL.
+
+
 ## 2.12.2 · repository and documentation accuracy pass
 
 Pre-review housekeeping ahead of external audit. No product code changed.

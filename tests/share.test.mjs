@@ -94,4 +94,34 @@ test('assigned brand logo travels with the brief payload for accountless viewers
   assert.equal(plain.brandLabel, '');
 });
 
+test('bBrief renders exactly the published sections even when more data is present', () => {
+  // Full answers, but the team published only Goals. Partners/SMEs must see Goals
+  // and nothing else, regardless of what other data the answers object holds.
+  const md = bBrief(answers, ['goals']);
+  assert.ok(md.includes('## Goals') && md.includes('G1'));
+  assert.ok(!md.includes('THE VISION'));         // building not selected
+  assert.ok(!md.includes('Records a session'));  // willdo not selected
+  assert.ok(!md.includes('## Not in scope'));    // oos not selected
+});
+
+test('a new registry section is shareable with no change to data.js, and stays hidden until bBrief renders it', () => {
+  const before = BRIEF_SECTIONS.length;
+  answers.roadmap = ['Q1 launch', 'Q2 scale'];
+  BRIEF_SECTIONS.push({ key: 'roadmap', label: 'Roadmap', def: false, fields: ['roadmap'] });
+  try {
+    // Selecting the new section carries its field in the payload (available to share)…
+    const p = buildSharePayload(project, answers, '1.0', 1, 'brief', '', ['roadmap']);
+    assert.deepEqual(p.answers.roadmap, ['Q1 launch', 'Q2 scale']);
+    assert.ok(p.sections.includes('roadmap'));
+    // …but bBrief has no block for it yet, so it is not displayed.
+    assert.ok(!bBrief(p.answers, p.sections).includes('Q1 launch'));
+    // Not selecting it omits the field entirely.
+    const p2 = buildSharePayload(project, answers, '1.0', 1, 'brief', '', ['goals']);
+    assert.equal(p2.answers.roadmap, undefined);
+  } finally {
+    BRIEF_SECTIONS.length = before;   // restore the shared registry
+    delete answers.roadmap;
+  }
+});
+
 console.log('\nshare.test: ' + n + '/' + n + ' passed');
