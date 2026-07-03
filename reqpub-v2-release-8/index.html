@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ReqPub · The requirements record your client approves</title>
+<meta name="description" content="Versioned baselines, named approvals, exports that carry their own history. ReqPub turns discovery into a requirements record that defends itself." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='7' fill='%232563FF'/%3E%3Cpolyline points='14 11 19 16 14 21' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<meta property="og:title" content="ReqPub · The requirements record your client approves" />
+<meta property="og:description" content="Versioned baselines, named approvals, exports that carry their own history. A requirements record that defends itself." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0a0a0a; --ink-2:#1e1e1e; --ink-3:#334155; --ink-4:#475569;
+    --line:#e5e7eb; --line-2:#d1d5db; --bg:#ffffff; --bg-2:#fafafb; --bg-3:#f5f6f8;
+    --brand:#2563FF; --brand-600:#1d4ed8; --brand-700:#1e40af; --sky:#e6f0ff; --sky-2:#dbe7ff;
+    --good:#0f7a4f; --good-bg:#e7f6ee; --amber:#a35b09; --amber-bg:#fdf3e5;
+    --purple:#7c3aed; --teal:#0891b2;
+    --radius:14px; --radius-sm:10px; --radius-lg:22px;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 18px 44px rgba(15,23,42,.06);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.05);
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3{letter-spacing:-.025em;margin:0}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--brand);font-weight:600}
+
+  .mark{width:30px;height:30px;flex:0 0 auto}
+  .mark rect,.mark polyline{stroke:var(--ink)}
+  .lockup{display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:20px;letter-spacing:-.035em}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 22px;border-radius:12px;font-weight:600;font-size:15px;letter-spacing:-.01em;transition:transform .15s var(--ease),background .15s var(--ease),box-shadow .15s var(--ease),border-color .15s var(--ease);cursor:pointer;border:1px solid transparent;white-space:nowrap}
+  .btn svg{width:17px;height:17px}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-primary:hover{background:var(--brand-600);transform:translateY(-1px);box-shadow:0 10px 24px rgba(37,99,255,.32)}
+  .btn-secondary{background:#fff;color:var(--brand);border-color:var(--line-2)}
+  .btn-secondary:hover{border-color:var(--brand);background:var(--sky)}
+  .btn-sm{height:40px;padding:0 16px;font-size:14px}
+
+  header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdrop-filter:saturate(160%) blur(12px);border-bottom:1px solid var(--line)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+  .nav-links{display:flex;align-items:center;gap:30px}
+  .nav-links a{font-size:14.5px;color:var(--ink-3);font-weight:500;transition:color .15s}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-cta{display:flex;align-items:center;gap:14px}
+  @media(max-width:820px){.nav-links{display:none}}
+
+  .hero{padding:88px 0 60px;position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(900px 420px at 80% -8%,var(--sky) 0%,rgba(230,240,255,0) 62%);pointer-events:none}
+  .hero-grid{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1.05fr);gap:54px;align-items:center;position:relative}
+  .hero h1{font-size:56px;line-height:1.04;font-weight:680}
+  .hero .lead{font-size:19px;color:var(--ink-3);margin:22px 0 30px;max-width:520px}
+  .hero-cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .hero-note{margin-top:18px;font-size:13.5px;color:var(--ink-2);display:flex;align-items:center;gap:8px}
+  .hero-note .dot{width:7px;height:7px;border-radius:50%;background:#16a34a;flex:0 0 auto}
+  @media(max-width:880px){.hero-grid{grid-template-columns:1fr;gap:36px}.hero h1{font-size:40px}.hero{padding:56px 0 40px}}
+
+  /* record card mock */
+  .stchip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 11px;border-radius:999px;font-size:11px;font-weight:640;letter-spacing:.02em}
+  .stchip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .stchip.appr{background:var(--good-bg);color:var(--good)}
+  .stchip.rev{background:var(--amber-bg);color:var(--amber)}
+  .record{border:1px solid var(--line);border-radius:var(--radius-lg);background:#fff;box-shadow:var(--shadow);overflow:hidden}
+  .record-top{display:flex;align-items:center;gap:9px;padding:16px 18px;border-bottom:1px solid var(--line);background:var(--bg-2)}
+  .record-top .word{font-weight:680;letter-spacing:-.02em;font-size:14px}
+  .record-body{padding:22px}
+  .rb-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-4)}
+  .rb-title{font-size:22px;font-weight:680;letter-spacing:-.02em;margin:6px 0 12px}
+  .rb-rail{display:flex;gap:22px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:14px}
+  .rb-k{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin-bottom:2px}
+  .rb-v{font-size:12.5px;font-weight:600}
+  .rb-appr{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px}
+  .rb-appr:first-of-type{border-top:none}
+  .rb-check{width:18px;height:18px;border-radius:50%;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--good-bg);color:var(--good)}
+  .rb-appr .who{flex:1;color:var(--ink-2)}
+  .rb-appr .st{font-size:10.5px;font-weight:640;color:var(--good)}
+
+  .trust{padding:30px 0 8px}
+  .trust p{text-align:center;font-size:12.5px;color:var(--ink-3);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase}
+
+  section.block{padding:76px 0}
+  .sec-head{max-width:720px;margin:0 auto 46px;text-align:center}
+  .sec-head h2{font-size:34px;line-height:1.12;font-weight:680}
+  .sec-head p{font-size:17px;color:var(--ink-3);margin-top:14px}
+
+  .problem{background:var(--ink);color:#fff;text-align:center}
+  .problem h2{font-size:32px;line-height:1.14;font-weight:680;max-width:920px;margin:0 auto}
+  .problem p{font-size:17px;color:#c9d2e4;margin:18px auto 0;max-width:820px;line-height:1.65}
+
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:820px){.steps{grid-template-columns:1fr}}
+  .step{position:relative;padding:26px;background:#fff;border:1px solid var(--line);border-radius:var(--radius)}
+  .step-ic{width:40px;height:40px;border-radius:11px;background:var(--sky);color:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:15px}
+  .step-ic svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .step h3{font-size:18px;font-weight:640;margin-bottom:7px}
+  .step p{font-size:14.5px;color:var(--ink-3);margin:0;line-height:1.6}
+
+  .judgment{padding:72px 0;text-align:center;background:var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .judgment h2{font-size:40px;line-height:1.1;font-weight:680;max-width:820px;margin:0 auto}
+  .judgment p{font-size:18px;color:var(--ink-3);margin:20px auto 0;max-width:600px}
+
+  .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center}
+  @media(max-width:880px){.split{grid-template-columns:1fr;gap:32px}}
+  .split h2{font-size:30px;line-height:1.14;font-weight:680}
+  .split p{font-size:16.5px;color:var(--ink-3);margin-top:16px;line-height:1.65}
+
+  /* review mock */
+  .bubble{max-width:90%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 14px;font-size:13px;color:var(--ink-3);box-shadow:var(--shadow-sm);margin-bottom:10px}
+  .bubble.me{align-self:flex-end;background:var(--sky);border-color:var(--sky-2);color:var(--brand-700);margin-left:auto}
+  .bubble b{color:var(--ink-2);font-weight:640}
+  .bubble .sig{display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:var(--good);font-weight:640}
+
+  /* diff mock */
+  .diffcard{border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:20px;box-shadow:var(--shadow)}
+  .diff-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
+  .diff-row:first-of-type{border-top:none}
+  .diff-tag{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;flex:0 0 auto}
+  .diff-tag.add{background:var(--good-bg);color:var(--good)} .diff-tag.mod{background:var(--amber-bg);color:var(--amber)} .diff-tag.cut{background:#fdecea;color:#b42318}
+  .diff-id{font-family:var(--mono);font-size:11.5px;color:var(--brand);font-weight:600}
+  .diff-by{margin-left:auto;font-size:11px;color:var(--ink-4)}
+
+  .aud{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:880px){.aud{grid-template-columns:1fr}}
+  .aud-card{border:1px solid var(--line);border-radius:var(--radius);padding:26px;background:#fff;transition:transform .18s var(--ease),box-shadow .18s var(--ease)}
+  .aud-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+  .aud-tag{display:inline-flex;height:22px;align-items:center;padding:0 10px;border-radius:999px;font-size:10.5px;font-weight:640;letter-spacing:.03em;margin-bottom:12px}
+  .aud-card h3{font-size:17px;font-weight:640;margin-bottom:8px}
+  .aud-card p{font-size:14.5px;color:var(--ink-3);margin:0;line-height:1.6}
+
+  .sec{background:var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .sec-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:44px;align-items:start}
+  @media(max-width:880px){.sec-grid{grid-template-columns:1fr;gap:28px}}
+  .sec-claims{display:flex;flex-direction:column;gap:14px}
+  .claim{display:flex;gap:12px;align-items:flex-start}
+  .claim-ic{width:30px;height:30px;border-radius:8px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .claim-ic svg{width:16px;height:16px;stroke:var(--brand);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .claim p{font-size:14.5px;color:var(--ink-2);margin:0;line-height:1.55}
+  .roadmap{border:1px dashed var(--line-2);border-radius:var(--radius);padding:20px;background:#fff}
+  .roadmap .eyebrow{color:var(--ink-4)}
+  .roadmap p{font-size:14px;color:var(--ink-3);margin:10px 0 0;line-height:1.6}
+
+  .price-card{max-width:620px;margin:0 auto;text-align:center;border:1px solid var(--line);border-radius:var(--radius-lg);padding:44px;background:#fff;box-shadow:var(--shadow)}
+  .price-card .big{font-size:30px;font-weight:680;letter-spacing:-.02em;margin:6px 0 14px}
+  .price-card p{font-size:16px;color:var(--ink-3);margin:0 auto;max-width:420px}
+  .price-tags{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+  .price-tag{font-size:13.5px;font-weight:560;color:var(--ink-2);border:1px solid var(--line-2);border-radius:999px;padding:8px 16px}
+
+  .cta{padding:0 0 84px}
+  .cta-card{background:var(--ink);color:#fff;border-radius:var(--radius-lg);padding:64px 48px;text-align:center;position:relative;overflow:hidden}
+  .cta-card::before{content:"";position:absolute;inset:0;background:radial-gradient(700px 320px at 50% 120%,rgba(37,99,255,.55) 0%,rgba(37,99,255,0) 60%)}
+  .cta-card>*{position:relative}
+  .cta-card h2{font-size:38px;font-weight:680;line-height:1.08}
+  .cta-card p{font-size:16.5px;color:#e7eefc;margin:16px auto 10px;max-width:560px;line-height:1.6}
+  .cta-card a.mailto{color:#fff;font-weight:640;text-decoration:underline;text-underline-offset:3px}
+  .cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+  .cta-card .btn-secondary{background:transparent;color:#fff;border-color:rgba(255,255,255,.28)}
+  .cta-card .btn-secondary:hover{background:rgba(255,255,255,.08);border-color:#fff}
+
+  footer{border-top:1px solid var(--line);padding:36px 0}
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  .foot .muted{font-size:13px;color:var(--ink-3)}
+  .foot-links{display:flex;gap:22px;flex-wrap:wrap}
+  .foot-links a{font-size:13.5px;color:var(--ink-3)}
+  .foot-links a:hover{color:var(--ink)}
+
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="lockup" href="#top" aria-label="ReqPub home">
+      <svg class="mark" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="3.5" width="33" height="33" rx="9" fill="none" stroke-width="3"/><polyline points="17 13 24 20 17 27" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ReqPub
+    </a>
+    <nav class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#audiences">Who it serves</a>
+      <a href="#security">Security</a>
+      <a href="#pricing">Pricing</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn-sm" href="/login/" style="display:inline-flex;align-items:center;font-weight:560;color:var(--ink-2)">Sign in</a>
+      <a class="btn btn-primary btn-sm" href="#intro">Request an introduction</a>
+    </div>
+  </div>
+</header>
+
+<a id="top"></a>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Requirements Publications</span>
+      <h1 style="margin-top:14px">The requirements record your client approves.</h1>
+      <p class="lead">ReqPub takes a project from discovery to an approved, testable baseline. Every version numbered. Every approval named. Every export carries its own history. When someone asks what was agreed, you open the record.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#intro">Request an introduction
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </a>
+      </div>
+      <div class="hero-note"><span class="dot"></span> Built for teams whose work gets reviewed, contested, and approved.</div>
+    </div>
+
+    <div class="record" aria-hidden="true">
+      <div class="record-top">
+        <span class="mark" style="width:22px;height:22px"><svg viewBox="0 0 40 40" width="22" height="22"><rect x="3.5" y="3.5" width="33" height="33" rx="9" fill="#2563FF"/><polyline points="17 13 24 20 17 27" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="word">RecordMade</span>
+        <span class="stchip appr" style="margin-left:auto">Approved</span>
+      </div>
+      <div class="record-body">
+        <div class="rb-eyebrow">Requirements Baseline</div>
+        <div class="rb-title">Northwind Field Services</div>
+        <div class="rb-rail">
+          <div><div class="rb-k">Version</div><div class="rb-v">v2.0</div></div>
+          <div><div class="rb-k">Status</div><div class="rb-v">Approved</div></div>
+          <div><div class="rb-k">Requirements</div><div class="rb-v">47 · 12 Must</div></div>
+        </div>
+        <div class="rb-appr"><span class="rb-check">&#10003;</span><span class="who"><b>Product</b> · J. Okafor</span><span class="st">Approved</span></div>
+        <div class="rb-appr"><span class="rb-check">&#10003;</span><span class="who"><b>Engineering</b> · L. Two Bulls</span><span class="st">Approved</span></div>
+        <div class="rb-appr"><span class="rb-check">&#10003;</span><span class="who"><b>Client sponsor</b> · M. Reyes</span><span class="st">Approved</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap trust">
+  <p>Discovery · Approved baseline · A record that answers with you</p>
+</div>
+
+<section class="block problem">
+  <div class="wrap">
+    <h2>Projects don't fail at the build. They fail at "that's not what we agreed."</h2>
+    <p>Requirements live in decks, documents, and email threads. Six weeks in, the scope conversation starts. Reconstructing who approved what, when, and what changed since the client last saw it burns senior hours and goodwill. The build team inherits ambiguity. The budget inherits rework.</p>
+  </div>
+</section>
+
+<section class="block" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">How it works</span>
+      <h2 style="margin-top:12px">Baseline it. Gate it. Export the record.</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-ic"><svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+        <h3>Baseline</h3>
+        <p>Server-numbered versions with permanent requirement IDs. "What changed since v1.2" is one click, answered requirement by requirement, not from memory.</p>
+      </div>
+      <div class="step">
+        <div class="step-ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <h3>Gate</h3>
+        <p>Nothing reads Approved while a sign-off is pending. The system enforces the gate, so the status line means what it says.</p>
+      </div>
+      <div class="step">
+        <div class="step-ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></div>
+        <h3>Export</h3>
+        <p>Every export carries version, status, approval history, and revision record on the cover. The document arrives with its own receipts.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="judgment">
+  <div class="wrap">
+    <h2>The platform enforces the structure. Your team supplies the judgment.</h2>
+    <p>ReqPub doesn't write requirements and doesn't replace the people who do. It converts their judgment into a record that holds up.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">Client review</span>
+      <h2 style="margin-top:12px">Approval from a link. No rollout, no seats, no IT ticket.</h2>
+      <p>The people who approve the work are the busiest people on it. Reviewers open a link, comment in thread, and approve on the record. No accounts, no new software. Their name and timestamp travel with the requirement from that day forward.</p>
+    </div>
+    <div style="display:flex;flex-direction:column" aria-hidden="true">
+      <div class="bubble"><b>M. Reyes (Client sponsor):</b> The safeguarding flow needs clinical sign-off before launch.</div>
+      <div class="bubble me"><b>Team:</b> Added as FR-021 with a clinical review gate. Does the wording hold?</div>
+      <div class="bubble"><b>M. Reyes:</b> Wording holds. Approved.<span class="sig">&#10003; Approved · 14 May, 4:12pm</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" style="padding-top:0">
+  <div class="wrap split">
+    <div class="diffcard" aria-hidden="true">
+      <div class="rb-eyebrow" style="margin-bottom:12px">Changes since v1.2</div>
+      <div class="diff-row"><span class="diff-tag add">ADD</span><span class="diff-id">FR-021</span><span style="color:var(--ink-3)">Clinical review gate</span><span class="diff-by">J. Okafor</span></div>
+      <div class="diff-row"><span class="diff-tag mod">MOD</span><span class="diff-id">FR-014</span><span style="color:var(--ink-3)">Offline capture window</span><span class="diff-by">L. Two Bulls</span></div>
+      <div class="diff-row"><span class="diff-tag cut">CUT</span><span class="diff-id">FR-009</span><span style="color:var(--ink-3)">Legacy import</span><span class="diff-by">M. Reyes</span></div>
+    </div>
+    <div>
+      <span class="eyebrow">Change</span>
+      <h2 style="margin-top:12px">Change you can defend.</h2>
+      <p>Scope moves. That's the job. What matters is whether the record moved with it. Every addition, edit, and cut is diffed between baselines and tied to a named approval. The next scope conversation starts from the approved record, not the email archive.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="audiences" style="background:var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Who it serves</span>
+      <h2 style="margin-top:12px">Three sides of every serious project</h2>
+    </div>
+    <div class="aud">
+      <div class="aud-card">
+        <span class="aud-tag" style="background:var(--sky);color:var(--brand)">The team leading the work</span>
+        <h3>You answer for the outcome.</h3>
+        <p>ReqPub gives you a record that answers with you: numbered baselines, named approvals, and a change history you can open in front of anyone.</p>
+      </div>
+      <div class="aud-card">
+        <span class="aud-tag" style="background:#e6f7fb;color:var(--teal)">The experts asked to weigh in</span>
+        <h3>Say it once, on the record, from a link.</h3>
+        <p>Your input stops getting lost between versions. Open a link, weigh in, and your name travels with the requirement from that day forward.</p>
+      </div>
+      <div class="aud-card">
+        <span class="aud-tag" style="background:#f1ebfd;color:var(--purple)">The builders downstream</span>
+        <h3>Build against the baseline.</h3>
+        <p>Approved, testable requirements with fit criteria and permanent IDs. Build against the record, not an interpretation of a deck.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block sec" id="security">
+  <div class="wrap">
+    <div class="sec-head" style="margin-bottom:38px">
+      <span class="eyebrow">Security</span>
+      <h2 style="margin-top:12px">Built for teams that answer to procurement.</h2>
+    </div>
+    <div class="sec-grid">
+      <div class="sec-claims">
+        <div class="claim"><span class="claim-ic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><p>Isolated project data and role-based access, enforced in the database on every read and write.</p></div>
+        <div class="claim"><span class="claim-ic"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span><p>An append-only audit log that records every edit, comment, and approval with a name and a timestamp.</p></div>
+        <div class="claim"><span class="claim-ic"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span><p>Export everything, any time. Your record is yours.</p></div>
+      </div>
+      <div class="roadmap">
+        <span class="eyebrow">On the roadmap</span>
+        <p>E-signature execution with cryptographic sealing, and SOC 2 Type II certification. We publish what's live, not what's planned, so you'll see these here when they ship.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="pricing">
+  <div class="wrap">
+    <div class="sec-head" style="margin-bottom:30px">
+      <span class="eyebrow">Pricing</span>
+      <h2 style="margin-top:12px">One flat price per project.</h2>
+    </div>
+    <div class="price-card">
+      <div class="big">Per project, not per seat.</div>
+      <p>Unlimited seats. Unlimited reviewers. No percentage fees, no per-seat math. Pricing is shared during your introduction.</p>
+      <div class="price-tags">
+        <span class="price-tag">Unlimited seats</span>
+        <span class="price-tag">Unlimited reviewers</span>
+        <span class="price-tag">No per-seat math</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta" id="intro">
+  <div class="wrap">
+    <div class="cta-card">
+      <h2>Available by introduction.</h2>
+      <p>ReqPub is rolling out through the teams already using it. If someone told you about us, they can bring you in. Email them and ask for the introduction, and they'll connect you with our team directly.</p>
+      <p>No referral yet? Write us at <a class="mailto" href="mailto:team@reqpub.com">team@reqpub.com</a> and tell us about the project you're running. We'll take it from there.</p>
+      <div class="cta-btns">
+        <a class="btn btn-primary" href="mailto:team@reqpub.com?subject=ReqPub%20introduction">Email team@reqpub.com</a>
+        <a class="btn btn-secondary" href="/login/">Sign in</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <a class="lockup" href="#top" style="font-size:17px">
+      <svg class="mark" viewBox="0 0 40 40" style="width:24px;height:24px" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="3.5" width="33" height="33" rx="9" fill="none" stroke-width="3"/><polyline points="17 13 24 20 17 27" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ReqPub
+    </a>
+    <div class="foot-links">
+      <a href="/terms.html">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/cookies.html">Cookies</a>
+      <a href="/acceptable-use.html">Acceptable use</a>
+      <a href="/do-not-share.html">Confidentiality</a>
+      <a href="mailto:team@reqpub.com">team@reqpub.com</a>
+    </div>
+    <span class="muted">ReqPub · Requirements Publications · Bentonville, AR</span>
+  </div>
+</footer>
+
+</body>
+</html>
