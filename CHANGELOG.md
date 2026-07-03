@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.8.0 — stress-test PRDs for Collection Ventures
+
+- Added supabase/seed-prds.sql (generated and validated) that seeds two fully
+  filled PRDs into the Collection Ventures workspace as drafts for the nine-
+  person team to stress-test:
+  · Removes the BotYield PRD.
+  · Clean-rebuilds "Fathering Excellence Profile" from the Fathers.com Platform
+    Authority Document (vision, users, phased solution, 15 functional
+    requirements, NFRs, AI-evaluation criteria for Voice and the knowledge
+    agent, data/privacy, interfaces, the build team, and a glossary).
+  · Creates "ReqPub Platform" — the platform described as its own PRD: what has
+    shipped (relational core, live collaboration, approvals and audit, sharing
+    and brand) and the next phase (SOC 2 Type II, e-signature with cryptographic
+    sealing) as Should requirements.
+- Both PRDs seed as filled drafts with no version yet, so the team generates
+  v1.0, approves, and shares as part of the exercise. The seed is idempotent
+  and targets the workspace named exactly "Collection Ventures."
+- Generator (tools/) validates every field against the real question bank and
+  assembles each PRD through the document builders before emitting SQL. New
+  backend test (13 checks) proves the seed against a real Postgres: BotYield
+  removed, clean rebuild, documents assemble, permanent FR ids, idempotent.
+
+
 ## 2.7.1 — landing page copy refresh (invitation-only positioning)
 
 - Rewrote the landing page to the v2 copy: "The requirements record your
