@@ -620,7 +620,7 @@ async function handleAction(a, id, t, e) {
     /* dashboard */
     case 'new': {
       const name = val('newName').trim();
-      if (!name) { toast('Name the product first'); break; }
+      if (!name) { toast('Name the product or project first'); break; }
       const idNew = uid();
       const r = await repo.createProject(APP.orgId, idNew, name);
       if (r.error) { toast('Could not create project'); break; }

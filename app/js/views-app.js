@@ -326,7 +326,7 @@ export function viewProjects(APP) {
     '<p style="color:var(--ink-3);max-width:760px;font-size:15.5px;line-height:1.6;margin:0">One shared workspace from workshop input to a versioned, approved, testable requirements document.</p></div>' +
     (APP.role === 'manager'
       ? '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms"><div style="display:flex;gap:10px;flex-wrap:wrap">' +
-        '<input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product to specify">' +
+        '<input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product or project to specify">' +
         '<button class="btn btn-primary" style="height:46px" data-action="new">' + ico(IC.plus) + 'New project</button></div></div>'
       : '') +
     banner +

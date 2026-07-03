@@ -34,8 +34,8 @@ SECTIONS.forEach((s) => { if (s.num != null) SECNUM2KEY[s.num] = s.key; });
 
 /* ---- Question bank ---- */
 export const Q = [
-  { id: 'ctrl_product', sec: 'control', type: 'short', prompt: 'Product name', help: 'The name this requirements document specifies.', ph: 'e.g. RecordMade', req: true },
-  { id: 'ctrl_org', sec: 'control', type: 'short', prompt: 'Venture or organization', help: 'Who owns the product.', ph: 'e.g. Collection Ventures' },
+  { id: 'ctrl_product', sec: 'control', type: 'short', prompt: 'Product or project name', help: 'The name of the product or project this document specifies.', ph: 'e.g. RecordMade', req: true },
+  { id: 'ctrl_org', sec: 'control', type: 'short', prompt: 'Venture or organization', help: 'Who owns the product or project.', ph: 'e.g. Collection Ventures' },
   { id: 'ctrl_owner', sec: 'control', type: 'short', prompt: 'Document owner', help: 'Person accountable for this document.', ph: 'Name' },
   { id: 'ctrl_status', sec: 'control', type: 'choice', prompt: 'Status', options: ['Draft', 'In Review', 'Approved'], help: 'Lifecycle state of this baseline.' },
   { id: 'ctrl_approvers', sec: 'control', type: 'rows', prompt: 'Approvals', help: 'The roles that sign off this document.', add: 'Add approver', cols: [{ k: 'role', l: 'Role', ph: 'Product / Engineering / Data and Privacy / Sponsor' }, { k: 'name', l: 'Name', ph: 'Name' }] },
@@ -134,7 +134,7 @@ export function suggestFit(stmt) {
 
 /* ---- Section builders (deterministic; identical output to v1) ---- */
 function bControl(a, label) {
-  let out = '# ' + (a.ctrl_product || 'Untitled Product') + '\n';
+  let out = '# ' + (a.ctrl_product || 'Untitled') + '\n';
   const mp = [];
   if (a.ctrl_org) mp.push(a.ctrl_org);
   mp.push('Version ' + (label || 'Draft'));

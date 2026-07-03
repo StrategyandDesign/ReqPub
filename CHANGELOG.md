@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.12.1 — "product or project" naming
+
+- The naming field is now "Product or project name" (with matching helper), and
+  the dashboard placeholder, the "name it first" prompt, and the document title
+  fallback all say "product or project" too — so a PRD can describe a project or
+  an initiative, not only a shippable product. This also resolves an existing
+  mismatch (the dashboard button already said "New project").
+- Scope note: standard requirements-doc section vocabulary (e.g. "Product
+  vision") is left as-is — recognized terms that read fine for a project — and
+  the marketing site keeps its brand voice. Both are easy to broaden on request.
+- Nothing changes internally (every record is already a "project"); this is copy
+  only. Frontend only — re-upload the folder.
+
+
 ## 2.12.0 — consolidated the document panel navigation (11 tabs → 4)
 
 Reworked the right-panel information architecture from eleven equally-weighted
