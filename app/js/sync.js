@@ -353,6 +353,14 @@ export function createSync() {
         if (list.length !== before) this.onChange('comms');
         return;
       }
+      case 'attachments': {
+        if (!rec && !old) return;
+        st.attachments = st.attachments || [];
+        if (op === 'DELETE') st.attachments = st.attachments.filter((a) => a.id !== old.id);
+        else pushUnique(st.attachments, rec);
+        this.onChange('comms');
+        return;
+      }
       case 'input_requests': {
         if (!rec && !old) return;
         if (op === 'DELETE') st.requests = st.requests.filter((r) => r.id !== old.id);

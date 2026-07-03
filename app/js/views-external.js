@@ -5,7 +5,7 @@
    tokened two-way thread each submission opens.
    ============================================================================ */
 
-import { esc, escA, ico, IC, brandmark, relTime, initials } from './core.js';
+import { esc, escA, ico, IC, brandmark, relTime, initials, attachChips, attachInput } from './core.js';
 import { mdToHtml, bBrief } from './domain.js';
 
 /* The collaborator logo the internal team assigned to this PRD, co-signed by
@@ -262,8 +262,10 @@ export function renderPartnerProject(APP) {
       '<div style="font-size:11px;color:var(--ink-4);margin-bottom:4px">You · ' + esc(relTime(t.at)) + '</div>' +
       '<div style="font-size:13px;color:var(--ink-2);line-height:1.55;white-space:pre-wrap">' + esc(t.body) + '</div>' +
       (msgs ? '<div style="margin-top:10px">' + msgs + '</div>' : '') +
+      attachChips((APP.localUploads && APP.localUploads[t.id]) || [], {}) +
       '<textarea class="input" data-preplydraft="' + escA(t.id) + '" rows="1" aria-label="Reply" style="font-size:12.5px;resize:vertical;min-height:38px;line-height:1.5;margin-top:9px"></textarea>' +
-      '<div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="btn btn-sec btn-sm" data-action="preply" data-id="' + escA(t.id) + '">Reply</button></div></div>';
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px">' + attachInput({ comm: t.id }) +
+      '<button class="btn btn-sec btn-sm" data-action="preply" data-id="' + escA(t.id) + '">Reply</button></div></div>';
   }).join('');
   return partnerChrome(APP,
     '<div style="flex:1;overflow-y:auto"><div class="wrap" style="max-width:760px">' +
@@ -334,12 +336,14 @@ export function renderSmeWorkspace(APP) {
   const prd = md
     ? '<div class="card" style="padding:26px 30px;margin-bottom:20px">' + mdToHtml(md) + '</div>'
     : '<div class="card" style="padding:24px;margin-bottom:20px;color:var(--ink-3);font-size:13.5px">The team has not published a brief for this PRD yet. Your conversation with them is below — it stays here as the document takes shape.</div>';
+  const myFiles = attachChips((APP.localUploads && APP.localUploads.sme) || [], {});
   const thread = '<div class="card" style="padding:22px">' +
     '<div style="font-size:14px;font-weight:640;margin-bottom:3px">Your conversation with the team</div>' +
-    '<div style="font-size:12px;color:var(--ink-4);margin-bottom:12px">This link is yours — bookmark it. Everything you and the team exchange stays here, across every version. No account needed.</div>' +
-    (msgs || '<div class="hint" style="padding:6px 2px">No messages yet. Start the conversation below.</div>') +
+    '<div style="font-size:12px;color:var(--ink-4);margin-bottom:12px">This link is yours — bookmark it. Everything you and the team exchange stays here, across every version. No account needed. You can attach documents and PDFs too.</div>' +
+    (msgs || '<div class="hint" style="padding:6px 2px">No messages yet. Start the conversation below.</div>') + myFiles +
     '<textarea class="input" id="smeReplyBody" rows="3" placeholder="Write to the team" style="resize:vertical;min-height:64px;line-height:1.55;margin-top:12px"></textarea>' +
-    '<div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn btn-primary btn-sm" data-action="smereply">Send</button></div></div>';
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px">' + attachInput({ token: APP.smeReplyToken }) +
+    '<button class="btn btn-primary btn-sm" data-action="smereply">Send</button></div></div>';
   return wrap(head + prd + thread, 760);
 }
 

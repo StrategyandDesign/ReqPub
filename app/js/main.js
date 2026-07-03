@@ -346,6 +346,7 @@ async function openProject(id) {
   APP.present = false; APP.activeQid = null; lastRevealedSec = null;
   APP.access = { members: [], partners: [] };
   APP.smeSeats = [];
+  APP.attachments = []; APP.localUploads = {};
   APP.bundleLoading = true;
   render();
 
@@ -356,13 +357,14 @@ async function openProject(id) {
     requests: b.requests, discovery: b.discovery, reads: b.reads, bundleLoading: false
   });
   const parentIds = [...b.comms.map((c) => c.id), ...b.requests.map((r) => r.id)];
-  const [msgs, approvals, shares] = await Promise.all([
+  const [msgs, approvals, shares, attachments] = await Promise.all([
     repo.messagesFor(parentIds),
     repo.approvals(b.versions.map((v) => v.id)),
-    repo.sharesFor(id)
+    repo.sharesFor(id),
+    repo.attachmentsFor(id)
   ]);
   if (APP.pid !== id) return;
-  APP.msgs = msgs; APP.approvals = approvals; APP.shares = shares;
+  APP.msgs = msgs; APP.approvals = approvals; APP.shares = shares; APP.attachments = attachments;
   sync.subscribeProject(id, APP.user);
   render();
 }
@@ -918,6 +920,11 @@ async function handleAction(a, id, t, e) {
       render();
       break;
     }
+    case 'dlattach': {
+      const url = await repo.signedUrl(t.dataset.path);
+      if (url) window.open(url, '_blank', 'noopener'); else toast('Could not open that file — try again');
+      break;
+    }
     case 'commstatus': break; // handled on change event
     case 'promdisc': {
       const c = APP.comms.find((x) => x.id === id);
@@ -1192,6 +1199,12 @@ async function handleAction(a, id, t, e) {
 /* change events (selects) */
 document.addEventListener('change', async (e) => {
   const t = e.target;
+  if (t.matches('[data-attach]')) {
+    const file = t.files && t.files[0];
+    t.value = '';
+    if (file) await doUpload(file, { commId: t.dataset.comm || null, replyToken: t.dataset.token || null });
+    return;
+  }
   if (t.matches('[data-action="commstatus"]')) {
     const id = t.dataset.id;
     await repo.setCommStatus(id, t.value);
@@ -1405,6 +1418,35 @@ function downscaleLogo(file) {
     };
     reader.readAsDataURL(file);
   });
+}
+
+/* Upload a file through the scanning edge function. The team refreshes the
+   authoritative attachments list (it can read the table); partners and SMEs,
+   who cannot read it, get an immediate optimistic chip from the response so
+   they see their file was accepted and how it was scanned. */
+async function doUpload(file, target) {
+  if (file.size > 26214400) { toast('That file is over the 25 MB limit'); return; }
+  toast('Uploading ' + file.name + '…');
+  const r = await repo.uploadAttachment(file, target);
+  if (r.error) {
+    const m = r.error.message || '';
+    toast(/flagged by the virus scanner/i.test(m) ? m
+      : /too large|type not allowed|Too many/i.test(m) ? m
+      : 'Upload failed — please try again');
+    return;
+  }
+  const d = r.data || {};
+  toast(d.scan_status === 'clean' ? 'Uploaded — scanned clean'
+    : d.scan_status === 'error' ? 'Uploaded — scanner was unavailable, flagged for the team'
+    : 'Uploaded — flagged as not yet scanned');
+  if (APP.view === 'workspace') {
+    APP.attachments = await repo.attachmentsFor(APP.pid);
+  } else {
+    const key = target.commId || 'sme';
+    (APP.localUploads[key] = APP.localUploads[key] || []).push(
+      { file_name: d.file_name, size_bytes: d.size, scan_status: d.scan_status, storage_path: null });
+  }
+  render();
 }
 
 /* After the brand changes, re-publish live brief shares so external viewers

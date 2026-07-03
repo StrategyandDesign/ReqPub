@@ -240,6 +240,39 @@ export const repo = {
   smeReply(replyToken, body) { return rpc('sme_reply', { p_reply_token: replyToken, p_body: body }); },
   smeSeat(pid, name, email) { return rpc('sme_seat', { p_project: pid, p_name: name, p_email: email }); },
   smeSeats(pid) { return rpc('sme_seats', { p_project: pid }); },
+
+  /* ---- attachments (files from team, partners, seated SMEs) ---- */
+  async attachmentsFor(pid) {
+    const r = await durable(() => sb.from('attachments')
+      .select('id,comm_id,message_id,uploader_kind,uploader_name,file_name,mime,size_bytes,storage_path,scan_status,created_at')
+      .eq('project_id', pid).order('created_at'));
+    return r.data || [];
+  },
+  async signedUrl(path) {
+    try { const r = await sb.storage.from('attachments').createSignedUrl(path, 120); return (r.data && r.data.signedUrl) || null; }
+    catch { return null; }
+  },
+  // Uploads through the scanning edge function. `opts` carries either a
+  // reply_token (accountless SME) or a comm_id (team/partner, with their JWT).
+  async uploadAttachment(file, opts = {}) {
+    if (!sb || !CFG.url) return { error: { message: 'offline' } };
+    const fd = new FormData();
+    fd.append('file', file);
+    if (opts.replyToken) fd.append('reply_token', opts.replyToken);
+    if (opts.commId) fd.append('comm_id', opts.commId);
+    const headers = { apikey: CFG.anon };
+    try {
+      const s = await sb.auth.getSession();
+      const tok = s && s.data && s.data.session && s.data.session.access_token;
+      if (tok) headers.Authorization = 'Bearer ' + tok;
+    } catch { /* accountless SME has no session */ }
+    try {
+      const res = await fetch(CFG.url + '/functions/v1/attachment-upload', { method: 'POST', body: fd, headers });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) return { error: { message: j.error || 'upload failed' }, data: j };
+      return { data: j };
+    } catch (e) { return { error: { message: (e && e.message) || 'network' } }; }
+  },
   requestView(token) { return rpc('request_view', { p_token: token }); },
   requestSubmit(token, name, body) { return rpc('request_submit', { p_token: token, p_name: name, p_body: body }); },
 

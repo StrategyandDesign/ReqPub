@@ -3,8 +3,10 @@
    people, links, versions & approvals, activity.
    ============================================================================ */
 
-import { esc, escA, ico, IC, relTime, fmtDate, initials } from './core.js';
+import { esc, escA, ico, IC, relTime, fmtDate, initials, attachChips, attachInput, fmtBytes } from './core.js';
 import { STATUS_LABEL } from './views-app.js';
+
+const attachmentsForComm = (APP, commId) => (APP.attachments || []).filter((a) => a.comm_id === commId);
 
 const EXTERNAL = { app: 1, brief: 1, sme: 1, partner: 1 };
 const ORIGIN_LABEL = { app: 'App', brief: 'Reviewer', sme: 'SME', partner: 'Partner', team: 'Team', meeting: 'Meeting' };
@@ -48,12 +50,14 @@ function threadHTML(APP, comm, canReply) {
     ' · ' + esc(relTime(m.created_at)) + '</div>' +
     '<div style="font-size:12.5px;color:var(--ink-2);line-height:1.5;white-space:pre-wrap">' + esc(m.body) + '</div></div>').join('');
   const draft = (APP.drafts[comm.id] || '');
+  const files = attachChips(attachmentsForComm(APP, comm.id), { download: true });
   const replyBox = canReply
     ? '<textarea class="input" data-draft="' + escA(comm.id) + '" rows="2" placeholder="Reply to ' + escA(comm.author_name || 'them') + (EXTERNAL[comm.origin] ? ' — they see this at their link' : '') + '" style="font-size:12.5px;resize:vertical;min-height:44px;line-height:1.5;margin-top:8px">' + esc(draft) + '</textarea>' +
-      '<div style="display:flex;justify-content:flex-end;margin-top:7px"><button class="btn btn-primary btn-sm" data-action="reply" data-id="' + escA(comm.id) + '">Send reply</button></div>'
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:7px;gap:8px">' + attachInput({ comm: comm.id }) +
+      '<button class="btn btn-primary btn-sm" data-action="reply" data-id="' + escA(comm.id) + '">Send reply</button></div>'
     : '';
   return '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><div class="eyebrow" style="font-size:9px;margin-bottom:6px">Conversation</div>' +
-    (thread || '<div style="font-size:12px;color:var(--ink-4)">No replies yet.</div>') + replyBox + '</div>';
+    (thread || '<div style="font-size:12px;color:var(--ink-4)">No replies yet.</div>') + files + replyBox + '</div>';
 }
 
 function commCard(APP, it) {
@@ -429,6 +433,17 @@ function renderAccess(APP) {
   const smeBody = (smeRows || '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">' +
     (isMgr ? 'No SME workspaces yet. Add an expert to mint their durable link — one place they return to, with the PRD and one continuous thread, across every version.' : 'No SME workspaces yet.') + '</span></div>') + smeAdd;
 
+  /* Files partners and SMEs have attached (this project) */
+  const files = (APP.attachments || []).slice().reverse();
+  const filesBody = files.length
+    ? files.map((a) =>
+        '<div class="acc-row">' + ico(IC.file, 'i-sm') +
+        '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.file_name) + '</div>' +
+        '<div style="font-size:11px;color:var(--ink-4)">' + esc(a.uploader_name || a.uploader_kind) + ' · ' + fmtBytes(a.size_bytes) + ' · ' + esc(relTime(a.created_at)) +
+        (a.scan_status !== 'clean' ? ' · <span style="color:var(--amber)">' + esc(a.scan_status === 'error' ? 'scan failed' : a.scan_status) + '</span>' : '') + '</div></div>' +
+        '<button class="btn btn-sec btn-sm" data-action="dlattach" data-path="' + escA(a.storage_path) + '">' + ico(IC.download, 'i-sm') + 'Download</button></div>').join('')
+    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">No files yet. Partners and seated SMEs can attach documents to their notes — virus-scanned on the way in, they land here and on the thread.</span></div>';
+
   return '<div class="page" style="max-width:640px">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:16px">' +
     '<div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Access</h2>' +
@@ -442,6 +457,7 @@ function renderAccess(APP) {
     section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
     section(IC.user, '#f1ebfd', 'var(--purple)', 'Partners', 'Manage SMEs on the client side. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
     section(IC.msg, '#e6f7fb', 'var(--teal)', 'SME workspaces', 'A durable personal link per expert: the branded PRD plus one continuous thread that stays put across every version. No account, no lost bookmarks — the same link always reopens their conversation.', smeBody) +
+    section(IC.clip, 'var(--bg-3)', 'var(--ink)', 'Files from reviewers', 'Documents partners and SMEs attach to their notes, virus-scanned on the way in. Download here or from the thread; an ‘unscanned’ flag means the scanner was off or unavailable.', filesBody) +
     section(IC.send, '#e6f7fb', 'var(--teal)', 'Review &amp; testing links', 'No account needed. Each recipient gets a private thread back to your inbox. Anyone with the link can respond, so share deliberately.', guestBody) +
     section(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'Input requests', 'Ask SMEs a specific question before or after the PRD exists. Responses land in the Inbox, linked to the request.', reqBody) +
     (olderBody ? section(IC.hist, 'var(--bg-3)', 'var(--ink-3)', 'Older links still live', 'Links for earlier versions that were never revoked.', olderBody) : '') +

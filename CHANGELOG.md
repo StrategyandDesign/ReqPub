@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.10.0 — file attachments (with virus scanning)
+
+Partners, seated SMEs, and the team can now attach documents to a conversation —
+PDFs, Office files, text/CSV/Markdown, images, zips. Files are virus-scanned on
+the way in, stored privately, and reachable only through short-lived signed links.
+
+- Where they land: on the thread they came in on (Inbox → conversation), plus a
+  per-PRD roll-up under Access → "Files from reviewers". The team downloads from
+  either; new files appear live.
+- Where they're stored: a private Supabase Storage bucket, one metadata row per
+  file in a new attachments table, scoped by the same row-level security as
+  everything else. Not in the database as bytes — signed URLs only.
+- Uploaders: the team (any thread), partners (their note threads), and seated
+  SMEs (their durable workspace link). Anonymous one-off brief links cannot
+  upload — every uploader is a known party. 25 MB cap, type allow-list, 40/hour.
+- Virus scan: an edge function (attachment-upload) type/size-checks and scans
+  each file before storing it. Infected files are rejected and never stored;
+  clean files store plainly; if the scanner isn't configured or is unavailable
+  the file is stored and flagged (amber "unscanned"), so nothing unsafe is ever
+  mistaken for cleared. Point SCAN_URL at a private ClamAV REST service; set
+  SCAN_FAIL_CLOSED=true to block instead of flag on scanner outages.
+- Defense in depth: attachment_add re-validates type, size, thread ownership,
+  rejects infected, rate-limits, and writes every upload to the audit log — so
+  even a bug in the function cannot persist an unsafe or cross-tenant file.
+
+Setup is three steps (fix-attachments.sql, storage-attachments.sql, deploy the
+edge function) plus optional scanner config — see docs/ATTACHMENTS.md. New
+backend test proves the guards, authorization resolvers, RLS, and rate limit
+against a real Postgres (16 checks). Full suite: 174.
+
+
 ## 2.9.1 — wider subtitles; landing black band aligned
 
 - Team dashboard and partner-portal subtitles were capped narrow (520/560px) and

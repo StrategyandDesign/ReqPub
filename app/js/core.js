@@ -16,6 +16,36 @@ export const pushUnique = (list, item, keyOf = (x) => x && x.id) => {
   return list;
 };
 
+/* ---- attachments (files on a conversation) ---- */
+export const ACCEPT_FILES = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.png,.jpg,.jpeg,.gif,.webp,.heic,.zip';
+export const fmtBytes = (n) => {
+  n = +n || 0;
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return Math.round(n / 1024) + ' KB';
+  return (n / 1048576).toFixed(1) + ' MB';
+};
+export function attachInput({ comm, token, label } = {}) {
+  const attrs = (comm ? ' data-comm="' + escA(comm) + '"' : '') + (token ? ' data-token="' + escA(token) + '"' : '');
+  return '<label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px">' +
+    ico(IC.clip, 'i-sm') + (label || 'Attach file') +
+    '<input type="file" data-attach="1"' + attrs + ' accept="' + ACCEPT_FILES + '" style="display:none"></label>';
+}
+const scanFlag = (s) => s === 'clean' ? '' :
+  '<span class="pill" style="height:16px;font-size:9px;padding:0 6px;color:var(--amber);border-color:currentColor;vertical-align:1px">' +
+  (s === 'infected' ? 'blocked' : s === 'error' ? 'scan failed' : 'unscanned') + '</span>';
+export function attachChips(list, opts = {}) {
+  if (!list || !list.length) return '';
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + list.map((a) => {
+    const inner = ico(IC.file, 'i-sm') +
+      '<span style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.file_name) + '</span>' +
+      '<span style="color:var(--ink-4);font-size:10.5px">' + fmtBytes(a.size_bytes) + '</span>' + scanFlag(a.scan_status);
+    const style = 'display:inline-flex;align-items:center;gap:6px;font-size:11.5px;border:1px solid var(--line);border-radius:8px;padding:4px 9px;background:var(--bg);color:var(--ink-2)';
+    return (opts.download && a.storage_path)
+      ? '<button data-action="dlattach" data-path="' + escA(a.storage_path) + '" title="Download" style="cursor:pointer;' + style + '">' + inner + '</button>'
+      : '<span style="' + style + '">' + inner + '</span>';
+  }).join('') + '</div>';
+}
+
 export function fmtDate(iso) {
   try {
     return new Date(iso).toLocaleString(undefined,
@@ -63,6 +93,9 @@ export const IC = {
   dl: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   check: '<polyline points="20 6 9 17 4 12"/>',
+  clip: '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
   print: '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   spark: '<path d="M12 3l1.6 4.8L18 9l-4.4 1.2L12 15l-1.6-4.8L6 9l4.4-1.2z"/>',
   hist: '<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 2"/>',
