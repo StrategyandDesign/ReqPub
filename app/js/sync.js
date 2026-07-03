@@ -14,7 +14,7 @@
    ============================================================================ */
 
 import { sb, repo as liveRepo } from './data.js';
-import { debounce } from './core.js';
+import { debounce, pushUnique } from './core.js';
 
 const FLUSH_MS = 500;          // keystroke coalescing before a field save
 const SELF_KEY = Math.random().toString(36).slice(2);
@@ -348,7 +348,9 @@ export function createSync() {
       case 'messages': {
         if (op !== 'INSERT' || !rec) return;
         const list = st.msgs[rec.parent_id] = st.msgs[rec.parent_id] || [];
-        if (!list.some((m) => m.id === rec.id)) { list.push(rec); this.onChange('comms'); }
+        const before = list.length;
+        pushUnique(list, rec);
+        if (list.length !== before) this.onChange('comms');
         return;
       }
       case 'input_requests': {

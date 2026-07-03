@@ -238,6 +238,8 @@ export const repo = {
   submitShare(token, payload) { return rpc('submit_share_v2', { p_token: token, p_payload: payload }); },
   smeThread(replyToken) { return rpc('sme_thread', { p_reply_token: replyToken }); },
   smeReply(replyToken, body) { return rpc('sme_reply', { p_reply_token: replyToken, p_body: body }); },
+  smeSeat(pid, name, email) { return rpc('sme_seat', { p_project: pid, p_name: name, p_email: email }); },
+  smeSeats(pid) { return rpc('sme_seats', { p_project: pid }); },
   requestView(token) { return rpc('request_view', { p_token: token }); },
   requestSubmit(token, name, body) { return rpc('request_submit', { p_token: token, p_name: name, p_body: body }); },
 

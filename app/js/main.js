@@ -3,13 +3,13 @@
    Views are pure string builders; this file owns every state change.
    ============================================================================ */
 
-import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl } from './core.js';
+import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl, pushUnique } from './core.js';
 import { assembleAnswers, buildSections, suggestFit, changeNote, qById, mdToHtml, defaultBriefSections } from './domain.js';
 import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
-import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare } from './views-external.js';
+import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary } from './exports.js';
 
 /* ---------------- state ---------------- */
@@ -64,6 +64,7 @@ function renderUnsafe() {
     case 'fbshare': html = renderFeedbackForm(APP); break;
     case 'note': html = renderNoteIntake(APP); break;
     case 'present': html = renderPresentShare(APP); break;
+    case 'smeworkspace': html = renderSmeWorkspace(APP); break;
     case 'partner': html = renderPartnerHome(APP); break;
     case 'partnerview': html = renderPartnerProject(APP); break;
     case 'noorg': html = renderNoOrg(APP); break;
@@ -155,11 +156,13 @@ function revealActiveSection(force) {
 
 async function loadAccessData() {
   if (!APP.orgId) return;
-  const [members, partners] = await Promise.all([
+  const [members, partners, seats] = await Promise.all([
     repo.members(APP.orgId),
-    APP.role === 'manager' ? repo.orgPartners(APP.orgId) : Promise.resolve(APP.access.partners || [])
+    APP.role === 'manager' ? repo.orgPartners(APP.orgId) : Promise.resolve(APP.access.partners || []),
+    (APP.role === 'manager' && APP.pid) ? repo.smeSeats(APP.pid) : Promise.resolve({ data: [] })
   ]);
   APP.access = { members, partners };
+  APP.smeSeats = (seats && Array.isArray(seats.data)) ? seats.data : [];
   scheduleRender('access');
 }
 function patchSaveChips() {
@@ -186,6 +189,8 @@ function parseHash() {
   if (m) return { mode: 'note', pid: m[1], token: m[2] };
   m = h.match(/^note\/([^/]+)\/([^/]+)\/([^/]+)$/);     // v1 legacy: #note/pid/rid/token
   if (m) return { mode: 'note', pid: m[1], token: m[3] };
+  m = h.match(/^sme\/([^/]+)$/);                        // durable SME workspace: #sme/replyToken
+  if (m) return { mode: 'sme', token: m[1] };
   return null;
 }
 
@@ -197,7 +202,16 @@ async function routeShare(r) {
   APP.shareToken = r.token;
   APP.shareRoute = r;
   APP.shareForm = {};
-  if (r.mode === 'note') {
+  if (r.mode === 'sme') {
+    // Durable SME workspace: the token IS the persistent reply_token, so the
+    // link resumes the same thread on any device with no localStorage needed.
+    const res = await repo.smeThread(r.token);
+    APP.smeThread = (res.data && res.data.ok) ? res.data : null;
+    APP.smeReplyToken = APP.smeThread ? r.token : null;
+    APP.view = 'smeworkspace';
+    render();
+    return;
+  } else if (r.mode === 'note') {
     const res = await repo.requestView(r.token);
     APP.request = (res.data && res.data.ok) ? res.data : null;
     APP.view = 'note';
@@ -331,6 +345,7 @@ async function openProject(id) {
   APP.approvals = {}; APP.conflicts = {}; APP.openComms = {}; APP.openDisc = {}; APP.openSecs = {};
   APP.present = false; APP.activeQid = null; lastRevealedSec = null;
   APP.access = { members: [], partners: [] };
+  APP.smeSeats = [];
   APP.bundleLoading = true;
   render();
 
@@ -811,6 +826,18 @@ async function handleAction(a, id, t, e) {
       loadAccessData();
       break;
     }
+    case 'smeseat': {
+      const name = val('smeName').trim(), email = val('smeEmail').trim().toLowerCase();
+      if (!email || !email.includes('@')) { toast('Enter a valid email'); break; }
+      const r = await repo.smeSeat(APP.pid, name, email);
+      const out = r.data;
+      if (r.error || !out || !out.ok) { toast('Could not create the SME workspace'); break; }
+      const link = location.origin + location.pathname + '#sme/' + out.reply_token;
+      await loadAccessData();
+      if (await copyText(link)) toast(out.existed ? 'Existing link copied — same workspace as before' : 'SME workspace link copied — send it to ' + (out.name || email));
+      else toast(out.existed ? 'Link ready below (already existed)' : 'SME workspace created — copy the link below');
+      break;
+    }
 
     /* palette */
     case 'palette': openPalette(); break;
@@ -884,7 +911,10 @@ async function handleAction(a, id, t, e) {
       const r = await repo.addMessage(APP.orgId, 'comm', id, body, (APP.ctx && APP.ctx.display_name) || 'Team', APP.user.id);
       if (r.error) { toast('Reply failed — try again'); break; }
       delete APP.drafts[id];
-      (APP.msgs[id] = APP.msgs[id] || []).push(r.data);
+      // Idempotent: the realtime echo of this insert can arrive before this
+      // await resolves. Push only if not already present (same dedup as sync.js)
+      // so the reply cannot appear twice in the thread.
+      pushUnique(APP.msgs[id] = APP.msgs[id] || [], r.data);
       render();
       break;
     }
@@ -1102,8 +1132,13 @@ async function handleAction(a, id, t, e) {
       const body = el ? el.value.trim() : '';
       if (!body || !APP.smeReplyToken) break;
       const r = await repo.smeReply(APP.smeReplyToken, body);
-      if (r.data === true) { await loadSmeThread(); render(); }
-      else toast('Could not send');
+      // Reload straight from the token (works for the durable #sme/ workspace,
+      // which has no localStorage entry, as well as the brief-submission thread).
+      if (r.data === true) {
+        const rr = await repo.smeThread(APP.smeReplyToken);
+        if (rr.data && rr.data.ok) APP.smeThread = rr.data;
+        render();
+      } else toast('Could not send');
       break;
     }
 

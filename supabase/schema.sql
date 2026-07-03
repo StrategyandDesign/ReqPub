@@ -868,17 +868,27 @@ begin
 end; $$;
 grant execute on function submit_share_v2(text, jsonb) to anon, authenticated;
 
--- Accountless SME thread: read your submission + team replies, and reply.
+-- Accountless SME thread reached by a durable personal link. Returns the one
+-- persistent thread for that token PLUS the current branded PRD (latest
+-- published brief, live brand overlaid) so the SME's link is a real workspace:
+-- read-only PRD + one continuous conversation, device-independent and stable
+-- across versions. `brief` is null until the team publishes a brief.
 create or replace function sme_thread(p_reply_token text)
 returns jsonb language sql security definer stable set search_path = public as $$
   select case when c.id is null then jsonb_build_object('ok', false) else jsonb_build_object(
     'ok', true, 'title', c.title, 'body', c.body, 'status', c.status, 'at', c.created_at,
+    'name', c.author_name, 'product', pr.name,
+    'brief', (select s.payload || jsonb_build_object('logo', pr.brand_logo, 'brandLabel', pr.brand_label)
+              from shares s where s.project_id = c.project_id and s.kind = 'brief' and s.revoked = false
+              order by s.version_seq desc limit 1),
     'messages', coalesce((
       select jsonb_agg(jsonb_build_object('from', m.author_kind, 'name', m.author_name,
                                           'body', m.body, 'at', m.created_at) order by m.created_at)
       from messages m where m.parent_kind = 'comm' and m.parent_id = c.id), '[]'::jsonb))
   end
-  from (select 1) one left join comms c on c.reply_token = p_reply_token;
+  from (select 1) one
+  left join comms c on c.reply_token = p_reply_token
+  left join projects pr on pr.id = c.project_id;
 $$;
 grant execute on function sme_thread(text) to anon, authenticated;
 
@@ -901,6 +911,58 @@ begin
   return true;
 end; $$;
 grant execute on function sme_reply(text, text) to anon, authenticated;
+
+-- Durable SME workspace. A manager seats an SME (name + email) on a PRD; this
+-- finds-or-creates ONE persistent thread for that (project, email) and returns
+-- its stable reply_token. Re-seating the same email returns the same token, so
+-- every exchange with that SME on that PRD stays in one place across versions —
+-- the SME's personal link never changes and needs no login. url_token() lives
+-- in extensions; keep it on the search_path.
+create or replace function sme_seat(p_project text, p_name text, p_email text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare v_org uuid; c comms%rowtype; v_email text; v_name text; v_existed boolean;
+begin
+  v_org := project_org(p_project);
+  if v_org is null or not is_org_manager(v_org) then
+    return jsonb_build_object('ok', false, 'error', 'forbidden');
+  end if;
+  v_email := lower(nullif(trim(p_email), ''));
+  if v_email is null then return jsonb_build_object('ok', false, 'error', 'email_required'); end if;
+  v_name := left(coalesce(nullif(trim(p_name), ''), split_part(v_email, '@', 1)), 200);
+  -- Serialize concurrent seating of the same SME so we never mint two threads.
+  perform pg_advisory_xact_lock(hashtextextended('smeseat/' || p_project || '/' || v_email, 11));
+  select * into c from comms
+    where project_id = p_project and origin = 'sme' and lower(author_email) = v_email
+    order by created_at limit 1;
+  v_existed := c.id is not null;
+  if not v_existed then
+    insert into comms(org_id, project_id, origin, author_name, author_email, title, body, reply_token)
+    values (v_org, p_project, 'sme', v_name, v_email, 'SME review workspace', '', url_token())
+    returning * into c;
+    perform log_activity(v_org, p_project, 'sme.seated', 'comm', c.id::text,
+      'Seated SME ' || v_name, jsonb_build_object('email', v_email));
+  elsif v_name <> '' and c.author_name is distinct from v_name then
+    update comms set author_name = v_name where id = c.id returning * into c;
+  end if;
+  return jsonb_build_object('ok', true, 'reply_token', c.reply_token,
+    'name', c.author_name, 'email', c.author_email, 'existed', v_existed);
+end; $$;
+grant execute on function sme_seat(text, text, text) to authenticated;
+
+-- The SME roster for a PRD (managers only): who is seated, their personal link
+-- token, and how many times they have written back. Powers the team-side list.
+create or replace function sme_seats(p_project text)
+returns jsonb language sql security definer stable set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'name', c.author_name, 'email', c.author_email, 'reply_token', c.reply_token, 'at', c.created_at,
+    'replies', (select count(*) from messages m
+                where m.parent_kind = 'comm' and m.parent_id = c.id and m.author_kind = 'sme')
+  ) order by c.created_at), '[]'::jsonb)
+  from comms c
+  where c.project_id = p_project and c.origin = 'sme' and c.reply_token is not null
+    and is_org_manager(c.org_id);
+$$;
+grant execute on function sme_seats(text) to authenticated;
 
 -- Input-request intake (tokened, accountless).
 create or replace function request_view(p_token text)

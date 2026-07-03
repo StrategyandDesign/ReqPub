@@ -410,6 +410,25 @@ function renderAccess(APP) {
     (isMgr && proj.brand_logo ? '<div class="acc-row"><span style="flex:1;font-size:11.5px;color:var(--ink-4)">Shown to partners and SMEs on the shared PRD, and on every printed or Word export.</span><button class="btn btn-ghost btn-sm" data-action="brandpick">Replace</button></div>' : '') +
     (isMgr ? '<input type="file" id="brandFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none">' : '');
 
+  /* SME workspaces — one durable personal link per expert (this project) */
+  const seats = APP.smeSeats || [];
+  const smeRows = seats.map((s) => {
+    const link = base + '#sme/' + s.reply_token;
+    return '<div class="acc-row">' +
+      '<span class="umav" style="background:var(--teal);width:26px;height:26px;font-size:10.5px">' + esc(initials(s.name || s.email)) + '</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(s.name || s.email) + '</div>' +
+      '<div style="font-size:11px;color:var(--ink-4)">' + esc(s.email) + ' · ' + (s.replies || 0) + ' repl' + (s.replies === 1 ? 'y' : 'ies') + '</div></div>' +
+      '<button class="btn btn-sec btn-sm" data-action="copylink" data-link="' + escA(link) + '">' + ico(IC.copy, 'i-sm') + 'Copy link</button>' +
+      '</div>';
+  }).join('');
+  const smeAdd = isMgr
+    ? '<div class="acc-row"><input class="input" id="smeName" placeholder="Name" style="height:34px;font-size:12.5px;flex:1;min-width:90px">' +
+      '<input class="input" id="smeEmail" type="email" placeholder="expert@domain.com" style="height:34px;font-size:12.5px;flex:1.4;min-width:140px">' +
+      '<button class="btn btn-primary btn-sm" data-action="smeseat">Create link</button></div>'
+    : '';
+  const smeBody = (smeRows || '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">' +
+    (isMgr ? 'No SME workspaces yet. Add an expert to mint their durable link — one place they return to, with the PRD and one continuous thread, across every version.' : 'No SME workspaces yet.') + '</span></div>') + smeAdd;
+
   return '<div class="page" style="max-width:640px">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:16px">' +
     '<div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Access</h2>' +
@@ -422,6 +441,7 @@ function renderAccess(APP) {
     section(IC.doc, 'var(--bg-3)', 'var(--ink)', 'Brand on the shared PRD', 'Assign the collaborator’s logo to this PRD. It appears when a partner or SME views the brief, and on the printed and Word exports.', brandBody) +
     section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
     section(IC.user, '#f1ebfd', 'var(--purple)', 'Partners', 'Manage SMEs on the client side. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
+    section(IC.msg, '#e6f7fb', 'var(--teal)', 'SME workspaces', 'A durable personal link per expert: the branded PRD plus one continuous thread that stays put across every version. No account, no lost bookmarks — the same link always reopens their conversation.', smeBody) +
     section(IC.send, '#e6f7fb', 'var(--teal)', 'Review &amp; testing links', 'No account needed. Each recipient gets a private thread back to your inbox. Anyone with the link can respond, so share deliberately.', guestBody) +
     section(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'Input requests', 'Ask SMEs a specific question before or after the PRD exists. Responses land in the Inbox, linked to the request.', reqBody) +
     (olderBody ? section(IC.hist, 'var(--bg-3)', 'var(--ink-3)', 'Older links still live', 'Links for earlier versions that were never revoked.', olderBody) : '') +

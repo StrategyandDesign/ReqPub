@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.9.0 — durable SME workspaces (one link, one continuous thread)
+
+Fixes the SME continuity problem: previously every SME interaction minted a new
+link and a new thread, so one expert's exchanges scattered across many links and
+were lost if a bookmark was, and the team saw fragmented inbox items ("where does
+this land?"). Now each SME has one durable workspace per PRD.
+
+- A manager "seats" an SME (name + email) on a PRD from Access → SME workspaces,
+  and gets a stable personal link to send. Re-seating the same email returns the
+  SAME link — one workspace per (PRD, SME), idempotent.
+- The SME opens that link (no account, any device) and sees their workspace: the
+  branded read-only PRD (always the latest published version, live brand) plus
+  ONE continuous thread with the team. Everything they and the team exchange
+  stays in that one place across every version. The link is the durable key, so
+  it no longer depends on the SME's browser storage.
+- The team sees one thread per SME per PRD, and a roster with reply counts.
+- Backend: sme_seat / sme_seats added, sme_thread extended to carry the branded
+  PRD. Apply supabase/fix-sme-workspace.sql (one idempotent file). New backend
+  test proves idempotent seating, the branded PRD in the thread, a continuous
+  ordered conversation over time, and the roster: 16 checks. Full suite: 158.
+
+Also in this line: replies no longer double in the inbox (2.8.4), partners see
+only review-ready PRDs with real names (2.8.2–2.8.3), the brand-logo overlay
+(2.8.1), and one-click Approve on the dashboard card (2.8.0 line).
+
+
+## 2.8.4 — fix replies doubling in the conversation log
+
+- Fix: a team reply in the inbox appeared twice (identical, both "just now").
+  Cause was a realtime race — the websocket echo of the inserted message often
+  arrives before the HTTP insert response resolves, and the optimistic local
+  add was not deduplicated, so the same message was appended twice.
+- All message adds (optimistic and realtime) now go through one shared
+  pushUnique helper that adds by id only if absent, so a reply lands exactly
+  once no matter which path wins the race. New unit test covers both orderings,
+  repeated echoes, and distinct messages that happen to share text (5 checks).
+
+
 ## 2.8.3 — partners see only review-ready PRDs; friendlier portal copy
 
 - Partners now see a PRD only once the team has published a brief for it.

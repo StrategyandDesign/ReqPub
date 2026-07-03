@@ -312,6 +312,37 @@ export function renderPresentShare(APP) {
   return wrap(head + body + foot, 780);
 }
 
+/* ---------------- durable SME workspace (#sme/replyToken) ----------------
+   The SME's permanent home for one PRD: the branded read-only brief plus a
+   single continuous thread with the team. Reached by a stable personal link,
+   so it resumes on any device with no login and no lost bookmarks. */
+export function renderSmeWorkspace(APP) {
+  const t = APP.smeThread;
+  if (!t || !t.ok) return wrap(invalidCard('workspace'), 760);
+  const brief = t.brief || {};
+  const md = brief.answers ? bBrief(brief.answers) : '';
+  const msgs = (t.messages || []).map((m) =>
+    '<div style="padding:10px 0;border-top:1px solid var(--line)">' +
+    '<div style="font-size:11px;color:var(--ink-4);margin-bottom:3px;font-weight:600">' +
+    esc(m.name || (m.from === 'team' ? 'Team' : 'You')) + (m.from === 'team' ? '' : ' (you)') + ' · ' + esc(relTime(m.at)) + '</div>' +
+    '<div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;white-space:pre-wrap">' + esc(m.body) + '</div></div>').join('');
+  const head = brandBanner(brief) +
+    '<div style="margin-bottom:20px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">' + brandmark(28) +
+    '<span class="eyebrow" style="font-size:9.5px">SME review workspace' + (brief.label ? ' · v' + esc(brief.label) : '') + '</span></div>' +
+    '<h1 style="font-size:27px;letter-spacing:-.02em;font-weight:660;margin:0 0 4px">' + esc(t.product || 'Requirements') + '</h1>' +
+    (t.name ? '<div style="font-size:13px;color:var(--ink-4)">Reviewer: ' + esc(t.name) + '</div>' : '') + '</div>';
+  const prd = md
+    ? '<div class="card" style="padding:26px 30px;margin-bottom:20px">' + mdToHtml(md) + '</div>'
+    : '<div class="card" style="padding:24px;margin-bottom:20px;color:var(--ink-3);font-size:13.5px">The team has not published a brief for this PRD yet. Your conversation with them is below — it stays here as the document takes shape.</div>';
+  const thread = '<div class="card" style="padding:22px">' +
+    '<div style="font-size:14px;font-weight:640;margin-bottom:3px">Your conversation with the team</div>' +
+    '<div style="font-size:12px;color:var(--ink-4);margin-bottom:12px">This link is yours — bookmark it. Everything you and the team exchange stays here, across every version. No account needed.</div>' +
+    (msgs || '<div class="hint" style="padding:6px 2px">No messages yet. Start the conversation below.</div>') +
+    '<textarea class="input" id="smeReplyBody" rows="3" placeholder="Write to the team" style="resize:vertical;min-height:64px;line-height:1.55;margin-top:12px"></textarea>' +
+    '<div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn btn-primary btn-sm" data-action="smereply">Send</button></div></div>';
+  return wrap(head + prd + thread, 760);
+}
+
 /* ---------------- signed in, but no workspace ---------------- */
 export function renderNoOrg(APP) {
   return '<div style="min-height:100vh;background:var(--bg-2);display:flex;align-items:center;justify-content:center;padding:24px"><div style="width:100%;max-width:400px;text-align:center">' +

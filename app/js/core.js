@@ -7,6 +7,15 @@ export const escA = (s) => esc(s).replace(/"/g, '&quot;');
 export const uid = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 export const nowISO = () => new Date().toISOString();
 
+/* Append an item to a list only if its key is not already present, and return
+   the list. Used wherever an optimistic local insert and its realtime echo can
+   both land: the two can arrive in either order (the websocket echo often beats
+   the HTTP response), so every add must be idempotent or the row doubles. */
+export const pushUnique = (list, item, keyOf = (x) => x && x.id) => {
+  if (item && keyOf(item) != null && !list.some((x) => keyOf(x) === keyOf(item))) list.push(item);
+  return list;
+};
+
 export function fmtDate(iso) {
   try {
     return new Date(iso).toLocaleString(undefined,
