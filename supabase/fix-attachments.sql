@@ -133,3 +133,49 @@ do $$ begin
   execute 'grant execute on function attachment_uploader(uuid, uuid) to service_role';
   execute 'grant execute on function attachment_sme_target(text) to service_role';
 exception when undefined_object then null; end $$;
+
+-- ── Persistent upload visibility ──────────────────────────────────────────────
+-- Redefine the partner-thread and SME-thread reads to include each thread's own
+-- files, so a partner or seated SME sees what they uploaded even after a reload
+-- (same scope as the messages they already read — no new exposure).
+create or replace function partner_thread_v2(p_project text)
+returns jsonb language sql security definer stable set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', c.id, 'title', c.title, 'body', c.body, 'status', c.status, 'at', c.created_at,
+    'messages', coalesce((
+      select jsonb_agg(jsonb_build_object('from', m.author_kind, 'name', m.author_name,
+                                          'body', m.body, 'at', m.created_at) order by m.created_at)
+      from messages m where m.parent_kind = 'comm' and m.parent_id = c.id), '[]'::jsonb),
+    'attachments', coalesce((
+      select jsonb_agg(jsonb_build_object('id', a.id, 'file_name', a.file_name, 'size_bytes', a.size_bytes,
+                                          'mime', a.mime, 'scan_status', a.scan_status, 'created_at', a.created_at) order by a.created_at)
+      from attachments a where a.comm_id = c.id), '[]'::jsonb))
+    order by c.created_at), '[]'::jsonb)
+  from comms c
+  where c.project_id = p_project
+    and c.partner_id in (select id from partners where user_id = auth.uid());
+$$;
+grant execute on function partner_thread_v2(text) to authenticated;
+
+create or replace function sme_thread(p_reply_token text)
+returns jsonb language sql security definer stable set search_path = public as $$
+  select case when c.id is null then jsonb_build_object('ok', false) else jsonb_build_object(
+    'ok', true, 'title', c.title, 'body', c.body, 'status', c.status, 'at', c.created_at,
+    'name', c.author_name, 'product', pr.name,
+    'brief', (select s.payload || jsonb_build_object('logo', pr.brand_logo, 'brandLabel', pr.brand_label)
+              from shares s where s.project_id = c.project_id and s.kind = 'brief' and s.revoked = false
+              order by s.version_seq desc limit 1),
+    'messages', coalesce((
+      select jsonb_agg(jsonb_build_object('from', m.author_kind, 'name', m.author_name,
+                                          'body', m.body, 'at', m.created_at) order by m.created_at)
+      from messages m where m.parent_kind = 'comm' and m.parent_id = c.id), '[]'::jsonb),
+    'attachments', coalesce((
+      select jsonb_agg(jsonb_build_object('id', a.id, 'file_name', a.file_name, 'size_bytes', a.size_bytes,
+                                          'mime', a.mime, 'scan_status', a.scan_status, 'created_at', a.created_at) order by a.created_at)
+      from attachments a where a.comm_id = c.id), '[]'::jsonb))
+  end
+  from (select 1) one
+  left join comms c on c.reply_token = p_reply_token
+  left join projects pr on pr.id = c.project_id;
+$$;
+grant execute on function sme_thread(text) to anon, authenticated;

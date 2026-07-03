@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.10.2 — partners and SMEs see their own uploaded files
+
+- A partner (and a seated SME) now sees the files they uploaded on their own
+  thread, and they persist across reloads and return visits — not just a
+  session-only confirmation. partner_thread_v2 and sme_thread now return each
+  thread's attachments, scoped exactly like the messages those parties already
+  read (no new exposure). After an upload the app refreshes that thread, so the
+  file appears immediately and stays.
+- Apply by re-running supabase/fix-attachments.sql (idempotent — it now also
+  redefines those two thread reads), then re-upload the folder. No storage or
+  edge-function change. Backend test now covers both thread reads returning the
+  uploader's own files (18 checks); full suite 176.
+
+
+## 2.10.1 — attachments post cleanly with no scanner configured
+
+- With no virus scanner wired, uploads now post as ordinary files: the toast
+  reads "Uploaded", and there is no "not yet scanned" flag on the chip or in the
+  Files list. The audit record still stores the true scan_status; the UI simply
+  doesn't badge the normal, scanner-off state.
+- Flags are reserved for genuinely notable states: "scan failed" when a scanner
+  is configured but unreachable (and "blocked" for infected, which never stores).
+  Set SCAN_URL later and clean files show "scanned clean" — no other change.
+- Frontend only; no SQL and no edge-function redeploy. Re-upload the folder.
+
+
 ## 2.10.0 — file attachments (with virus scanning)
 
 Partners, seated SMEs, and the team can now attach documents to a conversation —

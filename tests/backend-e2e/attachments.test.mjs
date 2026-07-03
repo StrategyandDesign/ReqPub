@@ -78,6 +78,20 @@ try {
   const smeBad = await one(`select attachment_sme_target('nope') j`);
   check('a bad SME token resolves to nothing', smeBad.j.ok === false, smeBad.j);
 
+  // --- thread reads include the uploader's OWN files, so they persist across reloads ---
+  const smeThread = await one(`select sme_thread('sme-tok-1') j`);
+  const smeFiles = (smeThread.j && smeThread.j.attachments) || [];
+  check('SME thread returns the SME\'s own uploaded files', smeFiles.some((a) => a.file_name === 'spec.pdf'), smeFiles.map((a) => a.file_name));
+  // Partner note thread (on the 'other' project, to keep 'fathering' counts clean).
+  const pComm = await one(`insert into comms(org_id,project_id,origin,partner_id,author_name,title,body)
+    values ('${ORG}','other','partner','${pid}','Vendor Pat','Partner note','see attached') returning id`);
+  await add('other', pComm.id, 'partner', 'Vendor Pat', PARTNER, 'vendor-spec.pdf', PDF, 5000, 'o/other/p/vendor-spec.pdf', 'clean');
+  await asUser(PARTNER);
+  const pThread = await one(`select partner_thread_v2('other') j`);
+  await asUser('');
+  const pFiles = ((pThread.j || [])[0] || {}).attachments || [];
+  check('partner thread returns the partner\'s own uploaded files', pFiles.some((a) => a.file_name === 'vendor-spec.pdf'), pFiles.map((a) => a.file_name));
+
   // --- RLS: team reads its org's files; an outsider sees none ---
   await asUser(MGR); await run('set role authenticated');
   const mineN = await one(`select count(*)::int n from attachments where project_id='fathering'`);

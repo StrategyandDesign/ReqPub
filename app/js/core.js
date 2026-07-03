@@ -30,9 +30,13 @@ export function attachInput({ comm, token, label } = {}) {
     ico(IC.clip, 'i-sm') + (label || 'Attach file') +
     '<input type="file" data-attach="1"' + attrs + ' accept="' + ACCEPT_FILES + '" style="display:none"></label>';
 }
-const scanFlag = (s) => s === 'clean' ? '' :
-  '<span class="pill" style="height:16px;font-size:9px;padding:0 6px;color:var(--amber);border-color:currentColor;vertical-align:1px">' +
-  (s === 'infected' ? 'blocked' : s === 'error' ? 'scan failed' : 'unscanned') + '</span>';
+// Only surface a flag for genuinely notable states. With no scanner configured,
+// files are 'unscanned' and post normally with no flag; 'error' means a scanner
+// was set but failed, which the team should see; 'infected' never reaches here.
+const scanFlag = (s) => (s === 'infected' || s === 'error')
+  ? '<span class="pill" style="height:16px;font-size:9px;padding:0 6px;color:var(--amber);border-color:currentColor;vertical-align:1px">' +
+    (s === 'infected' ? 'blocked' : 'scan failed') + '</span>'
+  : '';
 export function attachChips(list, opts = {}) {
   if (!list || !list.length) return '';
   return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + list.map((a) => {

@@ -440,7 +440,7 @@ function renderAccess(APP) {
         '<div class="acc-row">' + ico(IC.file, 'i-sm') +
         '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.file_name) + '</div>' +
         '<div style="font-size:11px;color:var(--ink-4)">' + esc(a.uploader_name || a.uploader_kind) + ' · ' + fmtBytes(a.size_bytes) + ' · ' + esc(relTime(a.created_at)) +
-        (a.scan_status !== 'clean' ? ' · <span style="color:var(--amber)">' + esc(a.scan_status === 'error' ? 'scan failed' : a.scan_status) + '</span>' : '') + '</div></div>' +
+        (a.scan_status === 'error' ? ' · <span style="color:var(--amber)">scan failed</span>' : '') + '</div></div>' +
         '<button class="btn btn-sec btn-sm" data-action="dlattach" data-path="' + escA(a.storage_path) + '">' + ico(IC.download, 'i-sm') + 'Download</button></div>').join('')
     : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">No files yet. Partners and seated SMEs can attach documents to their notes — virus-scanned on the way in, they land here and on the thread.</span></div>';
 
@@ -457,7 +457,7 @@ function renderAccess(APP) {
     section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
     section(IC.user, '#f1ebfd', 'var(--purple)', 'Partners', 'Manage SMEs on the client side. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
     section(IC.msg, '#e6f7fb', 'var(--teal)', 'SME workspaces', 'A durable personal link per expert: the branded PRD plus one continuous thread that stays put across every version. No account, no lost bookmarks — the same link always reopens their conversation.', smeBody) +
-    section(IC.clip, 'var(--bg-3)', 'var(--ink)', 'Files from reviewers', 'Documents partners and SMEs attach to their notes, virus-scanned on the way in. Download here or from the thread; an ‘unscanned’ flag means the scanner was off or unavailable.', filesBody) +
+    section(IC.clip, 'var(--bg-3)', 'var(--ink)', 'Files from reviewers', 'Documents partners and SMEs attach to their notes. Download here or from the thread. Files are virus-scanned when a scanner is configured; a “scan failed” flag means one was set but unreachable.', filesBody) +
     section(IC.send, '#e6f7fb', 'var(--teal)', 'Review &amp; testing links', 'No account needed. Each recipient gets a private thread back to your inbox. Anyone with the link can respond, so share deliberately.', guestBody) +
     section(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'Input requests', 'Ask SMEs a specific question before or after the PRD exists. Responses land in the Inbox, linked to the request.', reqBody) +
     (olderBody ? section(IC.hist, 'var(--bg-3)', 'var(--ink-3)', 'Older links still live', 'Links for earlier versions that were never revoked.', olderBody) : '') +

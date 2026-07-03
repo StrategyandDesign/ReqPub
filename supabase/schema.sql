@@ -884,7 +884,12 @@ returns jsonb language sql security definer stable set search_path = public as $
     'messages', coalesce((
       select jsonb_agg(jsonb_build_object('from', m.author_kind, 'name', m.author_name,
                                           'body', m.body, 'at', m.created_at) order by m.created_at)
-      from messages m where m.parent_kind = 'comm' and m.parent_id = c.id), '[]'::jsonb))
+      from messages m where m.parent_kind = 'comm' and m.parent_id = c.id), '[]'::jsonb),
+    -- The SME's own uploads on their durable thread, so they persist across visits.
+    'attachments', coalesce((
+      select jsonb_agg(jsonb_build_object('id', a.id, 'file_name', a.file_name, 'size_bytes', a.size_bytes,
+                                          'mime', a.mime, 'scan_status', a.scan_status, 'created_at', a.created_at) order by a.created_at)
+      from attachments a where a.comm_id = c.id), '[]'::jsonb))
   end
   from (select 1) one
   left join comms c on c.reply_token = p_reply_token
@@ -1230,7 +1235,12 @@ returns jsonb language sql security definer stable set search_path = public as $
     'messages', coalesce((
       select jsonb_agg(jsonb_build_object('from', m.author_kind, 'name', m.author_name,
                                           'body', m.body, 'at', m.created_at) order by m.created_at)
-      from messages m where m.parent_kind = 'comm' and m.parent_id = c.id), '[]'::jsonb))
+      from messages m where m.parent_kind = 'comm' and m.parent_id = c.id), '[]'::jsonb),
+    -- The partner's own uploads on this thread, so they persist across reloads.
+    'attachments', coalesce((
+      select jsonb_agg(jsonb_build_object('id', a.id, 'file_name', a.file_name, 'size_bytes', a.size_bytes,
+                                          'mime', a.mime, 'scan_status', a.scan_status, 'created_at', a.created_at) order by a.created_at)
+      from attachments a where a.comm_id = c.id), '[]'::jsonb))
     order by c.created_at), '[]'::jsonb)
   from comms c
   where c.project_id = p_project

@@ -346,7 +346,7 @@ async function openProject(id) {
   APP.present = false; APP.activeQid = null; lastRevealedSec = null;
   APP.access = { members: [], partners: [] };
   APP.smeSeats = [];
-  APP.attachments = []; APP.localUploads = {};
+  APP.attachments = [];
   APP.bundleLoading = true;
   render();
 
@@ -1436,15 +1436,19 @@ async function doUpload(file, target) {
     return;
   }
   const d = r.data || {};
-  toast(d.scan_status === 'clean' ? 'Uploaded — scanned clean'
-    : d.scan_status === 'error' ? 'Uploaded — scanner was unavailable, flagged for the team'
-    : 'Uploaded — flagged as not yet scanned');
+  toast(d.scan_status === 'error' ? 'Uploaded — scanner unavailable, flagged for the team'
+    : d.scan_status === 'clean' ? 'Uploaded — scanned clean'
+    : 'Uploaded ' + (d.file_name || 'file'));
+  // Refresh authoritative data so the file persists across reloads: the team
+  // reads the attachments table; partners and SMEs re-read their thread (which
+  // now carries its own files), each scoped exactly as before.
   if (APP.view === 'workspace') {
     APP.attachments = await repo.attachmentsFor(APP.pid);
+  } else if (APP.view === 'smeworkspace') {
+    const rr = await repo.smeThread(APP.smeReplyToken);
+    if (rr.data && rr.data.ok) APP.smeThread = rr.data;
   } else {
-    const key = target.commId || 'sme';
-    (APP.localUploads[key] = APP.localUploads[key] || []).push(
-      { file_name: d.file_name, size_bytes: d.size, scan_status: d.scan_status, storage_path: null });
+    await loadPartner();
   }
   render();
 }
