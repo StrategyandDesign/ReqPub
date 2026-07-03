@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.12.0 — consolidated the document panel navigation (11 tabs → 4)
+
+Reworked the right-panel information architecture from eleven equally-weighted
+tabs (wrapping to two rows) into four job-based sections in a single row, with a
+segmented sub-nav. Every view is preserved — regrouped, not removed.
+
+- Document — Read · Summary · Changes · Versions (segmented sub-nav).
+- Inbox — Messages · App · Notes (the old Feedback and Notes tabs were just
+  filters the Inbox already had; they now live where they belong).
+- Discovery — kept first-class.
+- Share — Access · People (the old People + Access, unified).
+- Activity — moved to an audit-trail icon in the toolbar (reference, not daily).
+- The Cmd-K command palette still jumps straight to any view; its labels now read
+  as "Section · View" (e.g. "Inbox · App feedback") to match the new structure.
+
+Content routing is unchanged under the hood (every view still keys off the same
+state), so saved deep-links and existing actions all still land correctly.
+Frontend only — no SQL, no edge-function change. Re-upload the folder.
+
+
 ## 2.11.0 — trackable partner notes; cleaner sign-in copy
 
 - Every partner note now gets a stable per-project reference (PN-1, PN-2, …) and

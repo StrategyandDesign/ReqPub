@@ -194,8 +194,10 @@ export function paletteItems(APP) {
   const items = [];
   (APP.projects || []).forEach((p) => items.push({ label: p.name, hint: 'Open project', ico: IC.doc, action: 'open', id: p.id }));
   if (APP.view === 'workspace') {
-    ['document', 'summary', 'changes', 'versions', 'inbox', 'feedback', 'discovery', 'notes', 'people', 'access', 'activity']
-      .forEach((t) => items.push({ label: 'Go to ' + t, hint: 'Tab', ico: IC.fwd, action: 'tab', id: t }));
+    [['document', 'Document · Read'], ['summary', 'Document · Summary'], ['changes', 'Document · Changes'], ['versions', 'Document · Versions'],
+     ['inbox', 'Inbox · Messages'], ['feedback', 'Inbox · App feedback'], ['notes', 'Inbox · Notes'], ['discovery', 'Discovery'],
+     ['access', 'Share · Access'], ['people', 'Share · People'], ['activity', 'Activity']]
+      .forEach(([t, lbl]) => items.push({ label: 'Go to ' + lbl, hint: 'View', ico: IC.fwd, action: 'tab', id: t }));
     if (APP.role === 'manager') items.push({ label: 'Generate a version', hint: 'Baseline', ico: IC.layers, action: 'genopen' });
     if (APP.role === 'manager') items.push({ label: 'Share this project', hint: 'Access', ico: IC.send, action: 'shareopen' });
     items.push({ label: 'Presentation mode', hint: 'Document', ico: IC.expand, action: 'present' });
@@ -512,19 +514,37 @@ export function presentOverlay(APP, a) {
 }
 
 function renderDoc(APP, a, ac, total) {
-  const tabs = ['inbox', 'document', 'summary', 'changes', 'versions', 'feedback', 'discovery', 'notes', 'people', 'access', 'activity'];
+  // Four primary sections + a segmented sub-nav, replacing 11 flat tabs. The
+  // underlying content still keys off APP.docTab, so every view is preserved —
+  // just regrouped by job. Activity moves to a toolbar icon (see docActions).
+  const NAV = [
+    { key: 'document', label: 'Document', subs: [['document', 'Read'], ['summary', 'Summary'], ['changes', 'Changes'], ['versions', 'Versions']] },
+    { key: 'inbox', label: 'Inbox', subs: [['inbox', 'Messages'], ['feedback', 'App'], ['notes', 'Notes']] },
+    { key: 'discovery', label: 'Discovery', subs: [['discovery', 'Discovery']] },
+    { key: 'share', label: 'Share', subs: [['access', 'Access'], ['people', 'People']] }
+  ];
   const unread = unreadCount(APP);
-  const tabBtns = tabs.map((t) => {
-    const badge = (t === 'inbox' && unread)
+  const activeSection = (NAV.find((g) => g.subs.some((s) => s[0] === APP.docTab)) || {}).key;
+  const tabBtns = NAV.map((g) => {
+    const on = g.key === activeSection;
+    const badge = (g.key === 'inbox' && unread)
       ? ' <span style="background:var(--brand);color:#fff;border-radius:999px;padding:0 5px;font-size:10px;font-weight:700;vertical-align:1px">' + unread + '</span>' : '';
-    return '<button class="btn btn-sm" data-action="tab" data-val="' + t + '" style="' +
-      (APP.docTab === t ? 'background:var(--ink);color:var(--bg)' : 'color:var(--ink-3)') + ';text-transform:capitalize">' + t + badge + '</button>';
+    return '<button class="btn btn-sm" data-action="tab" data-val="' + g.subs[0][0] + '" style="' +
+      (on ? 'background:var(--ink);color:var(--bg)' : 'color:var(--ink-3)') + '">' + g.label + badge + '</button>';
   }).join('');
+  const grp = NAV.find((g) => g.key === activeSection);
+  const subNav = (grp && grp.subs.length > 1)
+    ? '<div style="flex-basis:100%;display:flex;padding-top:9px"><div style="display:inline-flex;gap:2px;background:var(--bg-2);border:1px solid var(--line);border-radius:9px;padding:3px">' +
+      grp.subs.map(([k, lbl]) => '<button class="btn btn-sm" data-action="tab" data-val="' + k + '" style="height:28px;padding:0 12px;font-size:12px;border-radius:6px;' +
+        (APP.docTab === k ? 'background:var(--bg);color:var(--ink);box-shadow:var(--shadow-sm)' : 'color:var(--ink-3)') + '">' + esc(lbl) + '</button>').join('') +
+      '</div></div>'
+    : '';
 
   const verOptions = '<option value="">Working draft</option>' + APP.versions.slice().reverse().map((v) =>
     '<option value="' + v.seq + '"' + (APP.viewSeq === v.seq ? ' selected' : '') + '>v' + esc(v.label) + '</option>').join('');
   const docActions =
     (APP.role === 'manager' ? '<button class="icobtn" data-action="shareopen" title="Share this project…">' + ico(IC.send) + '</button>' : '') +
+    '<button class="icobtn" data-action="tab" data-val="activity" title="Activity — the append-only audit trail"' + (APP.docTab === 'activity' ? ' style="background:var(--ink);color:var(--bg)"' : '') + '>' + ico(IC.hist) + '</button>' +
     '<button class="icobtn" data-action="present" title="Presentation mode — show only the document">' + ico(IC.expand) + '</button>' +
     ((APP.docTab === 'document' || APP.docTab === 'summary' || APP.docTab === 'changes')
       ? (APP.versions.length ? '<select class="input" data-action="versionsel" style="height:34px;padding:0 8px;width:auto;font-family:var(--mono);font-size:12px">' + verOptions + '</select>' : '') +
@@ -548,7 +568,7 @@ function renderDoc(APP, a, ac, total) {
     content = renderTab(APP, a);
   }
   return '<div class="doc-tools"><div style="display:flex;gap:4px;flex-wrap:wrap">' + tabBtns + '</div>' +
-    '<div style="display:flex;align-items:center;gap:6px">' + docActions + '</div></div>' +
+    '<div style="display:flex;align-items:center;gap:6px">' + docActions + '</div>' + subNav + '</div>' +
     '<div class="doc-scroll" id="docScroll">' + content + '</div>';
 }
 
