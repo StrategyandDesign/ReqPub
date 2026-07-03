@@ -504,13 +504,19 @@ async function ensureShareLink(kind) {
 /* ---------------- event delegation ---------------- */
 function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
 
-document.addEventListener('click', async (e) => {
+document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-action]');
   if (e.target.closest('[data-stop]') && !t) return;
   if (!t) return;
-  const a = t.dataset.action;
-  const id = t.dataset.id;
+  // Any unexpected data shape (a null field on an externally-authored record,
+  // say) must surface as a toast, never a silently dead button or a broken app.
+  Promise.resolve(handleAction(t.dataset.action, t.dataset.id, t, e)).catch((err) => {
+    console.error('action failed:', t.dataset.action, err);
+    toast('Something went wrong with that action — please try again');
+  });
+});
 
+async function handleAction(a, id, t, e) {
   switch (a) {
     /* chrome */
     case 'usermenu': APP.menuOpen = !APP.menuOpen; render(); break;
@@ -702,6 +708,41 @@ document.addEventListener('click', async (e) => {
     }
     case 'shr-request': case 'accnewreq': closeModals(); APP.docTab = 'notes'; APP.reqDraft = { open: true }; render(); break;
 
+    /* PRD brand logo (manager) */
+    case 'brandpick': { const el = document.getElementById('brandFile'); if (el) el.click(); break; }
+    case 'brandremove': {
+      const r = await repo.setBrand(APP.pid, '', '');
+      if (r.error) { toast('Could not remove the logo'); break; }
+      if (APP.project) { APP.project.brand_logo = ''; APP.project.brand_label = ''; }
+      await republishBrandedBriefs();
+      toast('Logo removed');
+      render();
+      break;
+    }
+    case 'brandlabelsave': {
+      const label = val('brandLabel').trim();
+      const r = await repo.setBrand(APP.pid, (APP.project && APP.project.brand_logo) || '', label);
+      if (r.error) { toast('Could not save'); break; }
+      if (APP.project) APP.project.brand_label = label;
+      await republishBrandedBriefs();
+      toast('Saved');
+      render();
+      break;
+    }
+
+    /* print from an SME / partner page — uses the branded published payload */
+    case 'brandprint': {
+      const pay = (APP.share && APP.share.payload) ||
+        (APP.partnerProjects || []).find((x) => x.project_id === APP.partnerPid)?.payload;
+      if (!pay) { toast('Nothing to print yet'); break; }
+      const { bBrief } = await import('./domain.js');
+      printDoc(bBrief(pay.answers || {}), {
+        product: pay.product || 'Requirements', label: pay.label || '', status: 'approved',
+        org: '', approvals: [], logo: pay.logo || '', brandLabel: pay.brandLabel || ''
+      });
+      break;
+    }
+
     /* access hub: partners on this project */
     case 'accgrant': {
       if (APP.role !== 'manager') break;
@@ -804,9 +845,10 @@ document.addEventListener('click', async (e) => {
     case 'promdisc': {
       const c = APP.comms.find((x) => x.id === id);
       if (!c) break;
+      const cbody = c.body || '';
       await repo.addDiscovery({
-        org_id: APP.orgId, project_id: APP.pid, takeaway: c.title || c.body.slice(0, 120),
-        notes: c.body, who: c.author_name, source: 'Promoted from ' + c.origin, author_name: (APP.ctx && APP.ctx.display_name) || ''
+        org_id: APP.orgId, project_id: APP.pid, takeaway: c.title || cbody.slice(0, 120) || '(no text)',
+        notes: cbody, who: c.author_name, source: 'Promoted from ' + c.origin, author_name: (APP.ctx && APP.ctx.display_name) || ''
       });
       await repo.setCommFields(id, { promoted_to: 'discovery' });
       c.promoted_to = 'discovery';
@@ -817,7 +859,7 @@ document.addEventListener('click', async (e) => {
     case 'promreq': {
       const c = APP.comms.find((x) => x.id === id);
       if (!c) break;
-      const row = await sync.addRow('fr', { stmt: c.body.slice(0, 500), fit: '', pri: 'Should', comp: '' });
+      const row = await sync.addRow('fr', { stmt: (c.body || c.title || '').slice(0, 500), fit: '', pri: 'Should', comp: '' });
       if (row) {
         const rid = 'FR-' + String(row.k).padStart(3, '0');
         await repo.setCommFields(id, { promoted_to: rid });
@@ -1038,7 +1080,7 @@ document.addEventListener('click', async (e) => {
     }
     default:
   }
-});
+}
 
 /* change events (selects) */
 document.addEventListener('change', async (e) => {
@@ -1062,6 +1104,21 @@ document.addEventListener('change', async (e) => {
   } else if (t.matches('[data-action="discexport"]')) {
     await repo.setDiscExport(APP.pid, t.checked);
     if (APP.project) APP.project.disc_export = t.checked;
+  } else if (t.id === 'brandFile') {
+    const file = t.files && t.files[0];
+    t.value = '';
+    if (!file) return;
+    toast('Processing logo…');
+    let logo;
+    try { logo = await downscaleLogo(file); }
+    catch { toast('That image could not be read — try a PNG, JPG, or SVG'); return; }
+    if (!logo) { toast('That image is too large even after resizing — try a simpler logo'); return; }
+    const r = await repo.setBrand(APP.pid, logo, (APP.project && APP.project.brand_label) || '');
+    if (r.error) { toast(/violates|constraint/i.test(r.error.message || '') ? 'That logo is too large' : 'Could not save the logo'); return; }
+    if (APP.project) APP.project.brand_logo = logo;
+    await republishBrandedBriefs();
+    toast('Logo added — it now appears on the shared PRD and exports');
+    render();
   } else if (t.matches('[data-action="buildset"]')) {
     const verId = t.dataset.verid;
     const r = await repo.setBuild(verId, t.value.trim());
@@ -1203,8 +1260,60 @@ function docMeta(d) {
   return {
     product: a.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
     org: a.ctrl_org || '', label: d.label || '', status: v ? v.status : 'draft',
-    approvals: v ? (APP.approvals[v.id] || []) : []
+    approvals: v ? (APP.approvals[v.id] || []) : [],
+    logo: (APP.project && APP.project.brand_logo) || '',
+    brandLabel: (APP.project && APP.project.brand_label) || ''
   };
+}
+
+/* Downscale any uploaded image to a print-safe logo (max 320px, PNG data URL)
+   entirely in the browser — no upload service, no new storage bucket. */
+function downscaleLogo(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type)) { reject(new Error('not an image')); return; }
+    if (file.size > 8 * 1024 * 1024) { reject(new Error('too large')); return; }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      const src = reader.result;
+      // SVGs are already vector and tiny; keep as-is if small enough.
+      if (file.type === 'image/svg+xml') { resolve(String(src).length < 400000 ? src : null); return; }
+      const img = new Image();
+      img.onerror = () => reject(new Error('decode failed'));
+      img.onload = () => {
+        const max = 320;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        let out = c.toDataURL('image/png');
+        if (out.length > 550000) out = c.toDataURL('image/jpeg', 0.85);  // photos: fall back to JPEG
+        resolve(out.length <= 590000 ? out : null);
+      };
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* After the brand changes, re-publish live brief shares so external viewers
+   (SMEs, partners) pick up the new logo without the team re-sharing. */
+async function republishBrandedBriefs() {
+  const live = (APP.shares || []).filter((s) => s.kind === 'brief' && !s.revoked);
+  for (const s of live) {
+    await ensureSnapshot(s.version_seq);
+    const answers = APP.snapshots[s.version_seq] ? (APP.snapshots[s.version_seq].snapshot.answers || {}) : assembleAnswers(APP.fields, APP.rows);
+    const v = APP.versions.find((x) => x.seq === s.version_seq);
+    await repo.sharePut(APP.pid, 'brief', s.version_seq,
+      buildSharePayload(APP.project || {}, answers, v ? v.label : '', s.version_seq, 'brief', v ? v.build : '',
+        Array.isArray(s.sections) && s.sections.length ? s.sections : briefSecsSaved(APP.pid)),
+      s.token);
+  }
+  APP.shares = await repo.sharesFor(APP.pid);
 }
 
 /* hash routing (SME links opened while the app is loaded) */

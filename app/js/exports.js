@@ -1,25 +1,49 @@
 /* ReqPub v2 — exports: Markdown, Word (.doc), print/PDF, executive summary. */
 
-import { esc, download, copyText } from './core.js';
+import { esc, escA, download, copyText } from './core.js';
 import { mdToHtml, execSummaryData } from './domain.js';
 
 const STATUS_LABEL = { draft: 'Draft', in_review: 'In review', approved: 'Approved', changes_requested: 'Changes requested' };
+const ok = (u) => typeof u === 'string' && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(u);
 
+/* A full-page cover: the assigned collaborator logo leads, ReqPub co-signs in
+   the corner, the title and a metadata rail sit on a baseline, and approvals
+   render as a signed-off list. Designed to be the first printed page. */
 function coverHTML(meta) {
-  const line = [meta.org, meta.label ? 'Version ' + meta.label : 'Working draft',
-    STATUS_LABEL[meta.status] || 'Draft', new Date().toLocaleDateString()]
-    .filter(Boolean).join('  ·  ');
-  const approvals = (meta.approvals || []).length
-    ? '<div class="rp-meta">Approvals: ' + meta.approvals.map((a) =>
-        esc((a.approver_role || 'Approver') + (a.approver_name ? ' — ' + a.approver_name : '') +
-        ' (' + (STATUS_LABEL[a.status] || a.status) + ')')).join('; ') + '</div>'
+  const logo = ok(meta.logo)
+    ? '<img class="rp-logo" src="' + escA(meta.logo) + '" alt="' + escA(meta.brandLabel || 'Client') + '">'
     : '';
-  return '<div class="rp-cover">' +
-    '<div class="rp-brand"><div class="brandmark"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div><span class="rp-word">ReqPub</span></div>' +
-    '<div class="rp-title">' + esc(meta.product || 'Untitled') + '</div>' +
-    (meta.org ? '<div class="rp-org">' + esc(meta.org) + '</div>' : '') +
-    '<div class="rp-meta">' + esc(line) + '</div>' + approvals +
-    '</div>';
+  const label = meta.brandLabel ? '<div class="rp-client">' + esc(meta.brandLabel) + '</div>' : '';
+  const statusCls = meta.status || 'draft';
+  const rail = [
+    ['Version', meta.label ? 'v' + meta.label : 'Working draft'],
+    ['Status', STATUS_LABEL[meta.status] || 'Draft'],
+    meta.org ? ['Prepared by', meta.org] : null,
+    ['Date', new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })]
+  ].filter(Boolean).map(([k, v]) =>
+    '<div class="rp-rail-item"><div class="rp-rail-k">' + esc(k) + '</div><div class="rp-rail-v">' + esc(v) + '</div></div>').join('');
+  const approvals = (meta.approvals || []).length
+    ? '<div class="rp-appr"><div class="rp-appr-h">Approvals</div>' + meta.approvals.map((a) => {
+        const decided = a.status === 'approved';
+        return '<div class="rp-appr-row"><span class="rp-appr-mark ' + (decided ? 'yes' : '') + '">' +
+          (decided ? '&#10003;' : '&middot;') + '</span>' +
+          '<span class="rp-appr-role">' + esc(a.approver_role || 'Approver') + (a.approver_name ? ' &mdash; ' + esc(a.approver_name) : '') + '</span>' +
+          '<span class="rp-appr-state ' + esc(a.status) + '">' + esc(STATUS_LABEL[a.status] || a.status) + '</span></div>';
+      }).join('') + '</div>'
+    : '';
+  return '<section class="rp-cover">' +
+    '<div class="rp-cover-top">' +
+      '<div class="rp-lockup">' + (logo || '<div class="rp-nologo"></div>') + label + '</div>' +
+      '<div class="rp-by"><span class="rp-by-t">Published with</span>' +
+        '<span class="rp-by-brand"><span class="rp-mk"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>ReqPub</span></div>' +
+    '</div>' +
+    '<div class="rp-cover-mid">' +
+      '<div class="rp-eyebrow">Requirements Baseline</div>' +
+      '<h1 class="rp-title">' + esc(meta.product || 'Untitled') + '</h1>' +
+      '<span class="rp-status ' + esc(statusCls) + '">' + esc(STATUS_LABEL[meta.status] || 'Draft') + '</span>' +
+    '</div>' +
+    '<div class="rp-cover-foot"><div class="rp-rail">' + rail + '</div>' + approvals + '</div>' +
+  '</section>';
 }
 
 export function fileStem(meta) {
@@ -35,7 +59,21 @@ export function downloadMarkdown(md, meta) {
 
 /* Word opens well-formed HTML saved as .doc; this keeps the export dependency-free. */
 export function downloadWord(md, meta) {
-  const body = coverHTML(meta) + mdToHtml(md);
+  const logo = ok(meta.logo)
+    ? '<p style="margin:0 0 6pt"><img src="' + escA(meta.logo) + '" style="max-height:54pt;max-width:220pt"></p>' : '';
+  const label = meta.brandLabel ? '<div style="font-size:12pt;font-weight:bold;color:#222">' + esc(meta.brandLabel) + '</div>' : '';
+  const rail = [meta.label ? 'Version v' + meta.label : 'Working draft', STATUS_LABEL[meta.status] || 'Draft',
+    meta.org ? 'Prepared by ' + meta.org : null, new Date().toLocaleDateString()]
+    .filter(Boolean).join('  ·  ');
+  const approvals = (meta.approvals || []).length
+    ? '<div style="font-family:Consolas,monospace;font-size:9pt;color:#333;margin-top:8pt">Approvals: ' +
+      meta.approvals.map((a) => esc((a.approver_role || 'Approver') + (a.approver_name ? ' — ' + a.approver_name : '') +
+        ' (' + (STATUS_LABEL[a.status] || a.status) + ')')).join('; ') + '</div>' : '';
+  const cover = '<div class="rp-cover">' + logo + label +
+    '<div style="font-family:Consolas,monospace;font-size:8.5pt;letter-spacing:1.5pt;text-transform:uppercase;color:#2563FF;margin-top:10pt">Requirements Baseline</div>' +
+    '<div class="rp-title">' + esc(meta.product || 'Untitled') + '</div>' +
+    '<div class="rp-meta">' + esc(rail) + '</div>' + approvals +
+    '<div style="font-size:8.5pt;color:#888;margin-top:8pt">Published with ReqPub</div></div>';
   const doc = '<!DOCTYPE html><html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8">' +
     '<title>' + esc(meta.product || 'Requirements') + '</title><style>' +
     'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#111;line-height:1.5;max-width:760px}' +
@@ -45,19 +83,25 @@ export function downloadWord(md, meta) {
     'table{border-collapse:collapse;width:100%;margin:8pt 0;font-size:10pt}' +
     'th,td{border:1pt solid #cfcfcf;padding:4pt 6pt;text-align:left;vertical-align:top}' +
     'th{background:#f1f5ff} .idc{font-family:Consolas,monospace;white-space:nowrap}' +
-    '.rp-cover{border-bottom:2.5pt solid #2563FF;padding-bottom:10pt;margin-bottom:16pt}' +
-    '.rp-word{font-size:13pt;font-weight:bold} .rp-title{font-size:22pt;font-weight:bold;margin:2pt 0}' +
-    '.rp-org{color:#444} .rp-meta{font-family:Consolas,monospace;font-size:9pt;color:#444;margin-top:6pt}' +
-    '.brandmark{display:inline-block;width:22px;height:22px;background:#2563FF;border-radius:5px;vertical-align:middle;margin-right:6px;text-align:center;line-height:26px}' +
-    '</style></head><body>' + body + '</body></html>';
+    '.rp-cover{border-bottom:2.5pt solid #2563FF;padding-bottom:12pt;margin-bottom:18pt}' +
+    '.rp-title{font-size:24pt;font-weight:bold;margin:2pt 0;color:#0a0a0a}' +
+    '.rp-meta{font-family:Consolas,monospace;font-size:9pt;color:#444;margin-top:8pt}' +
+    '</style></head><body>' + cover + mdToHtml(md) + '</body></html>';
   download(fileStem(meta) + '.doc', 'application/msword', doc);
 }
 
 export function printDoc(md, meta) {
   const area = document.getElementById('printArea');
   if (!area) return;
-  area.innerHTML = '<div class="page">' + coverHTML(meta) + '<div class="md-wrap">' + mdToHtml(md) + '</div></div>';
-  window.print();
+  const running = '<div class="rp-runhead"><span>' + esc(meta.product || 'Requirements') + '</span>' +
+    '<span>' + esc((meta.label ? 'v' + meta.label + '  ·  ' : '') + (STATUS_LABEL[meta.status] || 'Draft')) + '</span></div>';
+  area.innerHTML = running + coverHTML(meta) +
+    '<div class="rp-body"><div class="md">' + mdToHtml(md).replace(/^<div class="md">|<\/div>$/g, '') + '</div></div>';
+  // Give an embedded logo a beat to decode before the print dialog captures it.
+  const go = () => window.print();
+  const img = area.querySelector('.rp-logo');
+  if (img && !img.complete) { img.onload = go; img.onerror = go; setTimeout(go, 400); }
+  else go();
 }
 
 /* ---- Executive summary ---- */

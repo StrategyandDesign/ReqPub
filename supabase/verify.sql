@@ -43,6 +43,34 @@ from pg_trigger where tgname in ('messages_team_author','comms_team_author') and
 select 'body-size constraints present' as check, count(*) = 2 as pass
 from pg_constraint where conname in ('comms_body_cap','messages_body_cap');
 
+-- v2.5 hardening
+select 'version label format guard present' as check,
+       exists(select 1 from pg_constraint where conname = 'versions_label_fmt') as pass;
+
+select 'approval-provenance trigger wired' as check,
+       exists(select 1 from pg_trigger where tgname = 'va_provenance' and not tgisinternal) as pass;
+
+select 'activity has org FK' as check,
+       exists(select 1 from pg_constraint where conrelid = 'activity'::regclass and contype = 'f') as pass;
+
+select 'realtime send is manager-only on projects' as check,
+       (select pg_get_expr(polwithcheck, polrelid) from pg_policy where polname = 'rt_send')
+         like '%is_project_manager%' as pass;
+
+select 'audit-only tables have write revoked from authenticated' as check,
+       not has_table_privilege('authenticated', 'activity', 'INSERT')
+       and not has_table_privilege('authenticated', 'project_fields', 'UPDATE')
+       and not has_table_privilege('authenticated', 'field_rows', 'UPDATE') as pass;
+
+select 'partner FK indexes present' as check,
+       (select count(*) from pg_indexes
+        where indexname in ('partners_user', 'partner_access_project')) = 2 as pass;
+
+-- v2.6
+select 'project brand columns present' as check,
+       (select count(*) from information_schema.columns
+        where table_name = 'projects' and column_name in ('brand_logo', 'brand_label')) = 2 as pass;
+
 select 'activity is append-only (no write policies)' as check,
        count(*) = 0 as pass
 from pg_policies where schemaname = 'public' and tablename = 'activity'

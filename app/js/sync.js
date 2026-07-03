@@ -324,11 +324,12 @@ export function createSync() {
         return;
       }
       case 'version_approvals': {
-        if (!rec && !old) return;
         const row = rec || old;
+        if (!row || !row.id) return;                    // ignore malformed broadcasts
         const list = st.approvals[row.version_id] = st.approvals[row.version_id] || [];
         const i = list.findIndex((a) => a.id === row.id);
         if (op === 'DELETE') { if (i >= 0) list.splice(i, 1); }
+        else if (!rec || !rec.id) return;               // update/insert needs a real record
         else if (i < 0) list.push(rec); else list[i] = rec;
         this.onChange('versions');
         return;

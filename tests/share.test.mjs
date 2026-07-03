@@ -83,4 +83,15 @@ test('pilot payloads are unaffected by brief scoping', () => {
   assert.ok(!JSON.stringify(p).includes('THE VISION'));
 });
 
+test('assigned brand logo travels with the brief payload for accountless viewers', () => {
+  const branded = { name: 'RecordMade', brand_logo: 'data:image/png;base64,AAAA', brand_label: 'Northwind Field Services' };
+  const p = buildSharePayload(branded, answers, '1.0', 1, 'brief', '', ['building']);
+  assert.equal(p.logo, 'data:image/png;base64,AAAA');
+  assert.equal(p.brandLabel, 'Northwind Field Services');
+  // No logo assigned → empty strings, never undefined (stable payload shape).
+  const plain = buildSharePayload(project, answers, '1.0', 1, 'brief', '', ['building']);
+  assert.equal(plain.logo, '');
+  assert.equal(plain.brandLabel, '');
+});
+
 console.log('\nshare.test: ' + n + '/' + n + ' passed');

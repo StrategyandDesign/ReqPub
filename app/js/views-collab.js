@@ -395,11 +395,27 @@ function renderAccess(APP) {
       (isMgr ? '<button class="btn btn-ghost btn-sm" data-action="sharerevoke" data-token="' + escA(s.token) + '">Revoke</button>' : '') + '</div>';
   }).join('') : '';
 
+  /* 0 — brand on the shared PRD (what partners/SMEs see, and what prints) */
+  const proj = APP.project || {};
+  const brandPreview = proj.brand_logo
+    ? '<div class="acc-row" style="border-top:none;align-items:center">' +
+      '<img src="' + escA(proj.brand_logo) + '" alt="brand" style="max-height:44px;max-width:180px;object-fit:contain;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fff">' +
+      '<div style="flex:1;min-width:0"><input class="input" id="brandLabel" value="' + escA(proj.brand_label || '') + '" placeholder="Collaborator name (optional)" style="height:34px;font-size:12.5px"' + (isMgr ? '' : ' readonly') + '></div>' +
+      (isMgr ? '<button class="btn btn-sec btn-sm" data-action="brandlabelsave">Save name</button><button class="btn btn-ghost btn-sm" data-action="brandremove">Remove</button>' : '') +
+      '</div>'
+    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">' +
+      (isMgr ? 'No logo yet. Add the collaborator’s logo; it appears on the brief they see and on the printed PDF.' : 'No collaborator logo set.') + '</span>' +
+      (isMgr ? '<div style="flex:1"></div><button class="btn btn-sec btn-sm" data-action="brandpick">' + ico(IC.plus, 'i-sm') + 'Upload logo</button>' : '') + '</div>';
+  const brandBody = brandPreview +
+    (isMgr && proj.brand_logo ? '<div class="acc-row"><span style="flex:1;font-size:11.5px;color:var(--ink-4)">Shown to partners and SMEs on the shared PRD, and on every printed or Word export.</span><button class="btn btn-ghost btn-sm" data-action="brandpick">Replace</button></div>' : '') +
+    (isMgr ? '<input type="file" id="brandFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none">' : '');
+
   return '<div class="page" style="max-width:640px">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:16px">' +
     '<div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Access</h2>' +
     '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Everyone outside this window reaches the project through what is below. Grants and revocations take effect immediately.</div></div>' +
     (isMgr ? '<button class="btn btn-primary btn-sm" data-action="shareopen" style="flex:0 0 auto">' + ico(IC.send, 'i-sm') + 'Share…</button>' : '') + '</div>' +
+    section(IC.doc, 'var(--bg-3)', 'var(--ink)', 'Brand on the shared PRD', 'Assign the collaborator’s logo to this PRD. It appears when a partner or SME views the brief, and on the printed and Word exports.', brandBody) +
     section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
     section(IC.user, '#f1ebfd', 'var(--purple)', 'Partners', 'Manage SMEs on the client side. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
     section(IC.send, '#e6f7fb', 'var(--teal)', 'Review &amp; testing links', 'No account needed. Each recipient gets a private thread back to your inbox. Anyone with the link can respond, so share deliberately.', guestBody) +

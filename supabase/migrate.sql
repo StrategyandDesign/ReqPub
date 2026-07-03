@@ -326,9 +326,13 @@ where coalesce(rp.value->>'text', '') <> ''
 -- 8) Submissions that never made it into kv (received while no manager was
 --    online) → comms
 -- ----------------------------------------------------------------------------
+-- The project is taken from the SHARE the submission was made against
+-- (s.project_id), never from the submission's own payload->>'project_id':
+-- that field was written by an unauthenticated v1 client and could name a
+-- different project. Trusting it risked landing feedback on the wrong thread.
 insert into comms (legacy_id, org_id, project_id, origin, version_seq, author_name, author_email,
                    title, body, steps, fb_type, severity, verdict, status, created_at)
-select sub.id::text, s.org_id, sub.payload->>'project_id',
+select sub.id::text, s.org_id, s.project_id,
        case sub.kind when 'brief' then 'brief' when 'pilot' then 'app' else 'sme' end,
        nullif(sub.payload->'record'->>'seq', '')::integer,
        coalesce(sub.payload->'record'->>'name', coalesce(sub.payload->'record'->>'by', '')),
@@ -344,8 +348,8 @@ select sub.id::text, s.org_id, sub.payload->>'project_id',
        coalesce(nullif(sub.payload->'record'->>'at', '')::timestamptz, sub.created_at)
 from submissions sub
 join shares s on s.token = sub.token
-join projects p on p.id = sub.payload->>'project_id' and p.org_id = s.org_id
-where s.org_id is not null and coalesce(sub.payload->>'project_id', '') <> ''
+join projects p on p.id = s.project_id and p.org_id = s.org_id
+where s.org_id is not null and coalesce(s.project_id, '') <> ''
 on conflict (legacy_id) do nothing;
 
 -- ----------------------------------------------------------------------------

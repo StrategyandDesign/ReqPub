@@ -33,6 +33,13 @@ Full detail lives in `docs/ARCHITECTURE.md` §3. The essentials:
 - The frontend ships a CSP with no inline scripts, escapes every interpolation
   through a single helper, and holds no secret beyond the public anon key.
 
+## Independent audit
+
+Before external review the code passed two independent adversarial audits (SQL/RLS
+and frontend/XSS) run against the actual code. Findings and fixes are recorded in
+`docs/AUDIT.md`; the hardening fixes ship with regression tests in the 73-check
+backend suite.
+
 ## Accepted residual risks
 
 Documented deliberately rather than hidden:

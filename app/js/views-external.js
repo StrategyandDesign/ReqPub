@@ -8,6 +8,19 @@
 import { esc, escA, ico, IC, brandmark, relTime, initials } from './core.js';
 import { mdToHtml, bBrief } from './domain.js';
 
+/* The collaborator logo the internal team assigned to this PRD, co-signed by
+   ReqPub. Rendered above the brief the SME/partner sees. */
+const okLogo = (u) => typeof u === 'string' && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(u);
+function brandBanner(payload) {
+  if (!payload || !okLogo(payload.logo)) return '';
+  return '<div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 0 18px;margin-bottom:20px;border-bottom:1px solid var(--line)">' +
+    '<div style="display:flex;align-items:center;gap:12px;min-width:0">' +
+    '<img src="' + escA(payload.logo) + '" alt="' + escA(payload.brandLabel || 'Client') + '" style="max-height:52px;max-width:200px;object-fit:contain">' +
+    (payload.brandLabel ? '<span style="font-size:15px;font-weight:620;color:var(--ink);letter-spacing:-.01em">' + esc(payload.brandLabel) + '</span>' : '') + '</div>' +
+    '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-4);flex:0 0 auto">' +
+    '<span class="brandmark" style="width:18px;height:18px;border-radius:5px"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>ReqPub</span></div>';
+}
+
 const wrap = (inner, max) =>
   '<div style="min-height:100vh;background:var(--bg-2);padding:46px 20px"><div style="width:100%;max-width:' + (max || 600) + 'px;margin:0 auto">' + inner + '</div></div>' +
   '<div id="toast-slot" aria-live="polite" aria-atomic="true"></div>';
@@ -48,8 +61,9 @@ export function renderBriefView(APP) {
   const p = s.payload;
   const md = bBrief(p.answers || {});
   const f = APP.shareForm || {};
-  const header = '<div style="margin-bottom:22px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap">' +
-    '<span class="pill pill-solid"><span class="mono">v' + esc(p.label || '?') + '</span></span><span class="eyebrow" style="font-size:9.5px">Review brief</span></div>' +
+  const header = brandBanner(p) + '<div style="margin-bottom:22px"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap">' +
+    '<span class="pill pill-solid"><span class="mono">v' + esc(p.label || '?') + '</span></span><span class="eyebrow" style="font-size:9.5px">Review brief</span>' +
+    '<div style="flex:1"></div><button class="btn btn-sec btn-sm" data-action="brandprint" title="Print or save as PDF">' + ico(IC.print, 'i-sm') + 'Print / PDF</button></div>' +
     '<h1 style="font-size:27px;letter-spacing:-.02em;font-weight:660;margin:0 0 8px">' + esc(p.product || 'Untitled') + '</h1>' +
     '<div style="color:var(--ink-3);font-size:13.5px;line-height:1.5">' + ((p.answers && p.answers.ctrl_org) ? esc(p.answers.ctrl_org) + '. ' : '') + 'Plain-language summary for review. No requirement detail, schedule, or internal notes.' +
     (Array.isArray(p.sections) && p.sections.length && p.sections.length < 9 ? ' The team shared ' + p.sections.length + ' section' + (p.sections.length === 1 ? '' : 's') + ' of this document.' : '') + '</div></div>';
@@ -252,8 +266,10 @@ export function renderPartnerProject(APP) {
   return partnerChrome(APP,
     '<div style="flex:1;overflow-y:auto"><div class="wrap" style="max-width:760px">' +
     '<button class="btn btn-ghost btn-sm" data-action="phome" style="margin-bottom:14px">' + ico(IC.arrow, 'i-sm') + 'All assignments</button>' +
+    brandBanner(pay) +
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px"><h1 style="font-size:26px;letter-spacing:-.02em;font-weight:660;margin:0">' + esc(pay.product || pid) + '</h1>' +
-    (pay.label ? '<span class="pill pill-solid"><span class="mono">v' + esc(pay.label) + '</span></span>' : '') + '</div>' +
+    (pay.label ? '<span class="pill pill-solid"><span class="mono">v' + esc(pay.label) + '</span></span>' : '') +
+    (md ? '<div style="flex:1"></div><button class="btn btn-sec btn-sm" data-action="brandprint" title="Print or save as PDF">' + ico(IC.print, 'i-sm') + 'Print / PDF</button>' : '') + '</div>' +
     (md ? '<div class="card" style="padding:26px 30px;margin-bottom:22px">' + mdToHtml(md) + '</div>'
         : '<div class="card" style="padding:26px;margin-bottom:22px;color:var(--ink-3);font-size:13.5px">The team has not published a brief for this PRD yet.</div>') +
     '<div class="card" style="padding:18px;margin-bottom:18px;border:1px solid var(--sky-2);background:var(--sky)">' +

@@ -116,10 +116,23 @@ create table if not exists projects (
   name text not null,
   archived boolean not null default false,
   disc_export boolean not null default false,   -- include discovery appendix in exports
+  brand_logo text not null default '',          -- collaborator logo (data URL) shown on the shared PRD + exports
+  brand_label text not null default '',         -- collaborator name shown under the logo
   created_by uuid default auth.uid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- Additive for projects created before this column existed.
+alter table projects add column if not exists brand_logo text not null default '';
+alter table projects add column if not exists brand_label text not null default '';
+-- Cap the stored logo (a downscaled data URL is ~10-60 KB; this bounds abuse).
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'projects_brand_cap') then
+    alter table projects add constraint projects_brand_cap
+      check (length(brand_logo) <= 600000 and length(brand_label) <= 160) not valid;
+  end if;
+end $$;
 create index if not exists projects_org on projects(org_id) where not archived;
 alter table projects enable row level security;
 
@@ -222,6 +235,31 @@ drop policy if exists va_write on version_approvals;
 create policy va_write on version_approvals for all
   using (exists(select 1 from versions v where v.id = version_id and is_project_manager(v.project_id)))
   with check (exists(select 1 from versions v where v.id = version_id and is_project_manager(v.project_id)));
+
+-- Approval provenance is enforced, not merely conventional: a new approver
+-- row always starts 'pending', and any transition to a decided state stamps
+-- decided_by/decided_at from auth.uid() — so a manager cannot forge who
+-- signed off, even writing the table directly. Decisions flow through
+-- approval_decide(); this trigger is the backstop for direct writes.
+create or replace function enforce_approval_provenance()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    new.status := 'pending';                 -- approvers are added pending, never pre-approved
+    new.decided_by := null; new.decided_at := null;
+  elsif new.status is distinct from old.status then
+    if new.status = 'pending' then
+      new.decided_by := null; new.decided_at := null;
+    else
+      new.decided_by := coalesce(auth.uid(), new.decided_by);
+      new.decided_at := now();
+    end if;
+  end if;
+  return new;
+end; $$;
+drop trigger if exists va_provenance on version_approvals;
+create trigger va_provenance before insert or update on version_approvals
+  for each row execute function enforce_approval_provenance();
 
 -- ----------------------------------------------------------------------------
 -- 5) Communications
@@ -332,6 +370,12 @@ begin
     alter table messages add constraint messages_body_cap
       check (length(body) <= 20000) not valid;
   end if;
+  -- Version labels must be numeric (create_version parses them with ::integer;
+  -- a hand-edited non-numeric label would otherwise break version creation).
+  if not exists (select 1 from pg_constraint where conname = 'versions_label_fmt') then
+    alter table versions add constraint versions_label_fmt
+      check (label ~ '^[0-9]+(\.[0-9]+)?$') not valid;
+  end if;
 end $$;
 
 -- Per-user read receipts (v1 stored these org-wide, which was wrong).
@@ -416,7 +460,7 @@ create policy disc_manager_write on discovery_entries for all
 -- ----------------------------------------------------------------------------
 create table if not exists activity (
   id bigint generated always as identity primary key,
-  org_id uuid not null,
+  org_id uuid not null references orgs(id) on delete cascade,   -- audit rows can't outlive or misattribute their org
   project_id text,
   actor uuid,
   actor_name text not null default '',
@@ -546,15 +590,18 @@ create policy rt_recv on realtime.messages for select to authenticated using (
       or is_project_partner(substring(realtime.topic() from 6))
     else false
   end);
--- Sending (presence, client broadcast) is members-only. Clients apply incoming
--- field/row payloads to their view, so send rights are held to people who can
--- already write through the audited path; partners and SMEs receive only.
--- Database state is unaffected either way: writes go through rev-checked RPCs.
+-- Sending on a PROJECT channel (presence + client broadcast) is limited to
+-- managers — the only role that can edit the document. Since a manager can
+-- already make any change through the audited RPCs, a forged broadcast grants
+-- them nothing new; and a read-only viewer therefore cannot broadcast
+-- fabricated live edits onto teammates' screens. Partners and SMEs receive
+-- only. Database state is never touched by broadcast either way.
+-- Org channel send stays member-wide (dashboard presence, no document data).
 drop policy if exists rt_send on realtime.messages;
 create policy rt_send on realtime.messages for insert to authenticated with check (
   case
     when realtime.topic() like 'org:%'  then is_org_member(substring(realtime.topic() from 5)::uuid)
-    when realtime.topic() like 'proj:%' then is_project_member(substring(realtime.topic() from 6))
+    when realtime.topic() like 'proj:%' then is_project_manager(substring(realtime.topic() from 6))
     else false
   end);
 
@@ -796,9 +843,13 @@ begin
   end if;
   v_origin := case s.kind when 'brief' then 'brief' when 'pilot' then 'app' else 'sme' end;
   -- Throttle: this endpoint is reachable with only a link. 60 submissions per
-  -- project per origin per hour covers a busy pilot sprint and stops a flood.
+  -- project per hour covers a busy pilot sprint and stops a flood. An advisory
+  -- lock per project serializes the count-then-insert so parallel calls cannot
+  -- each read a below-limit count and all slip through (TOCTOU). The cap counts
+  -- ALL anon origins together, so it can't be multiplied by splitting kinds.
+  perform pg_advisory_xact_lock(hashtextextended('anon/' || s.project_id, 7));
   if (select count(*) from comms c
-       where c.project_id = s.project_id and c.origin = v_origin
+       where c.project_id = s.project_id and c.origin in ('brief','app','sme')
          and c.created_at > now() - interval '1 hour') >= 60 then
     return jsonb_build_object('ok', false, 'error', 'rate_limited');
   end if;
@@ -837,6 +888,7 @@ declare c comms%rowtype;
 begin
   select * into c from comms where reply_token = p_reply_token;
   if c.id is null or coalesce(trim(p_body), '') = '' or length(p_body) > 20000 then return false; end if;
+  perform pg_advisory_xact_lock(hashtextextended('smerep/' || c.id::text, 7));
   if (select count(*) from messages m
        where m.parent_kind = 'comm' and m.parent_id = c.id
          and m.created_at > now() - interval '1 hour') >= 30 then
@@ -875,6 +927,7 @@ begin
   if coalesce(trim(p_body), '') = '' or length(p_body) > 20000 then
     return jsonb_build_object('ok', false, 'error', 'empty');
   end if;
+  perform pg_advisory_xact_lock(hashtextextended('req/' || r.id::text, 7));
   if (select count(*) from comms c
        where c.request_id = r.id and c.created_at > now() - interval '1 hour') >= 30 then
     return jsonb_build_object('ok', false, 'error', 'rate_limited');
@@ -960,8 +1013,13 @@ declare c comms%rowtype; v_name text;
 begin
   select * into c from comms where id = p_comm;
   if c.id is null or coalesce(trim(p_body), '') = '' or length(p_body) > 20000 then return false; end if;
+  -- The caller must be the comm's partner AND still hold access to its project.
+  -- (partner_post enforces the same; without the partner_access join a
+  --  de-assigned partner could keep replying on historical threads.)
   select coalesce(nullif(trim(p.name), ''), 'Partner') into v_name
-    from partners p where p.id = c.partner_id and p.user_id = auth.uid();
+    from partners p
+    join partner_access pa on pa.partner_id = p.id and pa.project_id = c.project_id
+    where p.id = c.partner_id and p.user_id = auth.uid();
   if v_name is null then return false; end if;
   insert into messages(org_id, parent_kind, parent_id, author_kind, author_name, body)
   values (c.org_id, 'comm', c.id, 'partner', v_name, p_body);
@@ -992,5 +1050,19 @@ grant execute on function v2_context() to authenticated;
 grant select, insert, update, delete on projects, comms, messages, read_marks,
   input_requests, discovery_entries, versions, version_approvals, user_profiles to authenticated;
 grant select on project_fields, field_rows, activity to authenticated;
+
+-- Defense in depth: this schema shares a project with v1, whose setup ran a
+-- blanket `grant ... on all tables to authenticated`. Revoke write on the
+-- three tables that must only ever be written by their SECURITY DEFINER RPCs,
+-- so their protection does not rest on the absence of an RLS policy alone.
+-- (project_fields/field_rows → save_field/upsert_row/delete_row; activity is
+--  the append-only audit trail, written only by log_activity.)
+revoke insert, update, delete on project_fields, field_rows, activity from authenticated;
+revoke insert, update, delete on activity from anon;
+
+-- New foreign-key / RLS-subquery indexes (partner paths run on every partner
+-- RPC and every project channel subscribe; without these they seq-scan).
+create index if not exists partners_user on partners(user_id);
+create index if not exists partner_access_project on partner_access(project_id);
 
 notify pgrst, 'reload schema';

@@ -186,6 +186,73 @@ try {
   check('profile unchanged after that attempt', prof2.name === 'Pat Q. Partner');
   await asUser(PARTNER_USER);
 
+  console.log('\n— PRD brand logo (v2.6) —');
+  await asUser(MANAGER);
+  await run(`update projects set brand_logo = 'data:image/png;base64,iVBORw0KAAAA', brand_label = 'Northwind Field Services' where id = 'p1'`);
+  const brand = await one(`select brand_logo, brand_label from projects where id='p1'`);
+  check('manager can assign a brand logo + label to a PRD', brand.brand_logo.startsWith('data:image/png') && brand.brand_label === 'Northwind Field Services', brand.brand_label);
+  // publish a brief carrying the logo, then read it back as an anonymous SME
+  const btok = (await one(`select share_put('p1','brief',2,'{"product":"RecordMade","label":"1.1","logo":"data:image/png;base64,iVBORw0KAAAA","brandLabel":"Northwind Field Services","answers":{"ov_vision":"V"}}'::jsonb) t`)).t;
+  await asUser('');
+  const seen = await one(`select get_share('${btok}') p`);
+  check('anonymous SME receives the brand logo in the published brief', seen.p.logo && seen.p.logo.startsWith('data:image/png') && seen.p.brandLabel === 'Northwind Field Services', seen.p.brandLabel);
+  await asUser(MANAGER);
+  let brandCapDenied = false;
+  try { await run(`update projects set brand_logo = repeat('x', 700000) where id='p1'`); }
+  catch (eb) { brandCapDenied = true; }
+  check('oversized brand logo is rejected by the size cap', brandCapDenied);
+
+  console.log('\n— v2.5 hardening —');
+  // partner_reply now requires current project access (H2)
+  await asUser(PARTNER_USER);
+  const pcomm = await one(`select id from comms where legacy_id = 'ffffffff-0000-0000-0000-000000000006'`);
+  r = await one(`select partner_reply('${pcomm.id}'::uuid, 'reply with access') j`);
+  check('partner can reply while assigned', r.j === true);
+  await asUser(MANAGER);
+  await run(`delete from partner_access where partner_id = 'dddddddd-0000-0000-0000-000000000004' and project_id = 'p1'`);
+  await asUser(PARTNER_USER);
+  r = await one(`select partner_reply('${pcomm.id}'::uuid, 'reply after de-assignment') j`);
+  check('de-assigned partner cannot reply (project-access enforced)', r.j === false, r.j);
+  await asUser(MANAGER);
+  await run(`insert into partner_access(partner_id, project_id) values ('dddddddd-0000-0000-0000-000000000004','p1')`);
+
+  // approval provenance trigger (M3): direct insert forced pending; decided_by stamped
+  const vv = await one(`select id from versions where project_id='p1' order by seq desc limit 1`);
+  await run(`insert into version_approvals(version_id, approver_role, approver_name, status, decided_by)
+             values ('${vv.id}','Sponsor','Sam','approved','${PARTNER_USER}')`);
+  const forged = await one(`select status, decided_by from version_approvals where approver_name='Sam'`);
+  check('direct approver insert is forced to pending (no pre-approval)', forged.status === 'pending' && forged.decided_by === null, forged);
+  const said = await one(`select id from version_approvals where approver_name='Sam'`);
+  await run(`select approval_decide('${said.id}'::uuid, 'approved', 'ok')`);
+  const decided = await one(`select decided_by from version_approvals where id='${said.id}'`);
+  check('approval decision stamps decided_by from the caller', decided.decided_by === MANAGER, decided.decided_by);
+
+  // read-only tables reject direct writes under the authenticated role (blanket-grant defense)
+  await asUser(MANAGER); await run('set role authenticated');
+  let roDenied = false;
+  try { await run(`insert into activity(org_id, action) values ('${ORG}','hack')`); }
+  catch (e2) { roDenied = true; }
+  check('authenticated cannot write the audit trail directly', roDenied);
+  let fieldDenied = false;
+  try { await run(`update project_fields set value='"x"'::jsonb where project_id='p1'`); }
+  catch (e3) { fieldDenied = true; }
+  check('authenticated cannot write project_fields directly (revoked, not just no-policy)', fieldDenied);
+  await run('reset role');
+
+  // version label format guard (M4)
+  let labelDenied = false;
+  try { await run(`update versions set label='final' where id='${vv.id}'`); }
+  catch (e4) { labelDenied = true; }
+  check('non-numeric version label is rejected', labelDenied);
+
+  // migration used the share's project, not the payload's (H4)
+  const orphanProj = await one(`select project_id from comms where legacy_id='99999999-0000-0000-0000-000000000007'`);
+  check('recovered submission attributed to the share project', orphanProj.project_id === 'p1', orphanProj.project_id);
+
+  // realtime send is manager-only on project channels (H1)
+  const sendPol = await one(`select pg_get_expr(polwithcheck, polrelid) w from pg_policy where polname='rt_send'`);
+  check('rt_send requires manager on project channels', /is_project_manager/.test(sendPol.w), sendPol.w);
+
   console.log('\n— side effects —');
   const bcast = await one(`select count(*) n from realtime.messages where topic = 'proj:p1'`);
   check('broadcast triggers emitted project events', +bcast.n > 0, bcast.n);

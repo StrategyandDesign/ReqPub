@@ -33,7 +33,9 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 ├── tests/
 │   ├── domain.test.mjs                13 document/diff/brief tests
 │   ├── sync.test.mjs                  12 multi-writer concurrency simulations
-│   └── backend-e2e/run.mjs            58 checks against a real embedded Postgres
+│   ├── share.test.mjs                 7 section-scoped share payload tests
+│   └── backend-e2e/run.mjs            73 checks against a real embedded Postgres
+├── docs/AUDIT.md                      pre-review security audit: findings + fixes
 └── terms/privacy/cookies/…            legal pages (carried over)
 ```
 

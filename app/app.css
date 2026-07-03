@@ -297,26 +297,70 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:0}
 .acc-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
 .acc-row:first-of-type{border-top:none}
 
-/* ---- Print ---- */
+/* ---- Print / PDF (designed, co-branded) ---- */
 #printArea{display:none}
-.rp-cover{border-bottom:2.5px solid var(--brand);padding-bottom:16px;margin-bottom:26px}
-.rp-cover .rp-brand{display:flex;align-items:center;gap:9px;margin-bottom:14px}
-.rp-cover .rp-brand .brandmark{width:30px;height:30px;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.rp-cover .rp-word{font-size:19px;font-weight:680;letter-spacing:-.02em;color:var(--ink)}
-.rp-cover .rp-title{font-size:30px;font-weight:680;letter-spacing:-.025em;line-height:1.1;margin:2px 0;color:var(--ink)}
-.rp-cover .rp-org{font-size:14px;color:var(--ink-3);margin-top:4px}
-.rp-cover .rp-meta{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:12px;letter-spacing:.01em}
+
+/* Cover: a full first page. The collaborator's logo leads; ReqPub co-signs. */
+.rp-cover{display:flex;flex-direction:column;min-height:9.4in;padding:0}
+.rp-cover-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:22px;border-bottom:1px solid var(--line-2)}
+.rp-lockup{display:flex;flex-direction:column;gap:10px;min-width:0}
+.rp-logo{max-height:96px;max-width:340px;object-fit:contain;object-position:left top}
+.rp-nologo{height:2px}
+.rp-client{font-size:17px;font-weight:640;letter-spacing:-.01em;color:var(--ink)}
+.rp-by{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto}
+.rp-by-t{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4)}
+.rp-by-brand{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:680;letter-spacing:-.02em;color:var(--ink)}
+.rp-mk{width:22px;height:22px;border-radius:6px;background:var(--brand);display:inline-flex;align-items:center;justify-content:center;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rp-cover-mid{flex:1;display:flex;flex-direction:column;justify-content:center;padding:44px 0}
+.rp-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--brand);margin-bottom:14px}
+.rp-title{font-size:44px;line-height:1.06;letter-spacing:-.03em;font-weight:680;color:var(--ink);margin:0 0 18px}
+.rp-status{align-self:flex-start;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 15px;border-radius:999px;
+  font-size:13px;font-weight:640;letter-spacing:.02em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rp-status::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.rp-status.draft{background:var(--bg-3);color:var(--ink-3)}
+.rp-status.in_review{background:var(--amber-bg);color:var(--amber)}
+.rp-status.approved{background:var(--good-bg);color:var(--good)}
+.rp-status.changes_requested{background:var(--bad-bg);color:var(--bad)}
+.rp-cover-foot{border-top:2.5px solid var(--brand);padding-top:20px}
+.rp-rail{display:flex;flex-wrap:wrap;gap:34px}
+.rp-rail-k{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);margin-bottom:3px}
+.rp-rail-v{font-size:14px;font-weight:600;color:var(--ink)}
+.rp-appr{margin-top:22px}
+.rp-appr-h{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);margin-bottom:9px}
+.rp-appr-row{display:flex;align-items:center;gap:11px;padding:7px 0;border-top:1px solid var(--line)}
+.rp-appr-mark{width:20px;height:20px;border-radius:50%;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;background:var(--bg-3);color:var(--ink-4);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rp-appr-mark.yes{background:var(--good-bg);color:var(--good)}
+.rp-appr-role{flex:1;font-size:13.5px;color:var(--ink-2)}
+.rp-appr-state{font-size:11px;font-weight:640}
+.rp-appr-state.approved{color:var(--good)} .rp-appr-state.pending{color:var(--ink-4)}
+.rp-appr-state.changes_requested{color:var(--bad)}
+.rp-runhead{display:none}
+
 @media print{
+  @page{margin:0.7in 0.72in;size:letter}
   body *{visibility:hidden}
   #printArea,#printArea *{visibility:visible}
   #printArea{display:block;position:absolute;inset:0;padding:0}
-  .page{padding:0;max-width:none}
-  .rp-cover{break-after:avoid}
-  body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .md .part{color:var(--brand)!important}
-  .md h2 .secn,.md h3 .secn,.md td.idc{color:var(--brand)!important}
-  .md th{background:#eef3ff!important}
-  .md table{break-inside:auto} .md tr{break-inside:avoid}
+  body{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff}
+  .rp-cover{break-after:page;min-height:9.2in}
+  .rp-body{padding-top:6px}
+  /* Running header on document pages (not the cover). */
+  .rp-runhead{display:flex;justify-content:space-between;align-items:center;
+    font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;color:var(--ink-4);
+    border-bottom:1px solid var(--line);padding-bottom:5px;margin-bottom:2px}
+  .rp-body .md h1{display:none}         /* title already on the cover */
+  .rp-body .md .doc-meta{margin-top:0}
+  .md{color:#111}
   .md h2,.md h3,.md .part{break-after:avoid}
+  .md .part{color:var(--brand)!important;margin-top:22px}
+  .md h2{font-size:16pt;margin-top:18px} .md h3{font-size:12.5pt}
+  .md h2 .secn,.md h3 .secn,.md td.idc{color:var(--brand)!important}
+  .md p,.md li{font-size:10.5pt;line-height:1.55}
+  .md table{break-inside:auto;font-size:9pt} .md tr{break-inside:avoid}
+  .md thead{display:table-header-group}   /* repeat table headers across pages */
+  .md th{background:#eef3ff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .md h2#docsec-functional + table{box-shadow:none!important;border:1.5px solid var(--brand)!important}
 }
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}

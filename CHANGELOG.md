@@ -1,5 +1,55 @@
 # Changelog
 
+## 2.6.0 — PRD brand logo and a designed, co-branded PDF
+
+- The internal team can assign a collaborator's logo to a PRD (Access tab →
+  Brand on the shared PRD). Managers upload a PNG/JPG/SVG/WebP; it is
+  downscaled to a print-safe logo entirely in the browser (no upload service),
+  stored on the project, and size-capped in the database.
+- The assigned logo travels with the published brief, so accountless SMEs and
+  account-holding partners see it on the PRD they review — co-signed by a small
+  ReqPub mark. Changing the logo re-publishes live briefs automatically.
+- Print / Save-as-PDF is redesigned into a proper document: a full cover page
+  led by the collaborator's logo, the product title, a status chip, a metadata
+  rail (version, status, prepared-by, date), and the approval sign-off list;
+  then the body with a running header, repeating table headers across pages,
+  numeric page margins, and page-break control. The Word export cover carries
+  the logo and approvals too.
+- SME brief and partner project pages gained a Print / PDF button, so external
+  reviewers can produce the branded document themselves.
+- New tests: branded-payload unit test, three backend checks (assign, logo
+  reaches an anonymous SME via the published brief, size-cap rejection), and a
+  brand render check. Backend suite now 76 checks.
+
+
+## 2.5.0 — pre-review security & correctness hardening
+
+Ran two independent adversarial audits (SQL/RLS and frontend/XSS) against the
+actual code and fixed every real finding. Full write-up in docs/AUDIT.md.
+
+- Realtime: project-channel broadcast restricted to managers, so a read-only
+  viewer can no longer push fabricated live edits onto teammates' screens; the
+  client also ignores malformed broadcast payloads.
+- partner_reply now requires current project access (a de-assigned partner can
+  no longer reply on historical threads), matching partner_post.
+- Write is explicitly revoked from `authenticated` on project_fields,
+  field_rows, and activity, so their write-only-via-RPC protection is
+  affirmative rather than resting on the inherited v1 blanket grant; activity
+  gained a foreign key to orgs.
+- Approval provenance trigger: approver rows start pending and decisions stamp
+  decided_by from auth.uid(), so sign-off cannot be forged even by direct write.
+- Anonymous rate limits are serialized with advisory locks (closing a TOCTOU
+  race) and the submission cap counts all anon origins together.
+- Migration attributes recovered submissions by the share's project, not the
+  unauthenticated payload's project id.
+- Numeric version-label CHECK constraint; null-safe Promote handlers; a
+  top-level guard so any unexpected data shape surfaces as a toast, never a
+  dead button.
+- New indexes on partners(user_id) and partner_access(project_id).
+- Backend suite grew to 73 checks (nine new hardening assertions); verify.sql
+  gained six hardening checks. Unit and render suites unchanged and green.
+
+
 ## 2.4.1 — auth page audit: password reset fixed, legal footers added
 
 - Fixed Forgot password end to end. Two defects: the signed-in auto-redirect

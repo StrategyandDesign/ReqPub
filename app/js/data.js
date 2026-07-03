@@ -124,6 +124,10 @@ export const repo = {
   async setDiscExport(id, on) {
     return durable(() => sb.from('projects').update({ disc_export: !!on }).eq('id', id));
   },
+  async setBrand(id, logo, label) {
+    return durable(() => sb.from('projects')
+      .update({ brand_logo: logo || '', brand_label: label || '', updated_at: new Date().toISOString() }).eq('id', id));
+  },
 
   /* ---- worksheet: everything a project view needs, in parallel ---- */
   async projectBundle(pid) {
@@ -302,5 +306,11 @@ export function buildSharePayload(project, answers, versionLabel, seq, kind, bui
   }
   if (has('success')) ca.metrics = answers.metrics;
   if (has('oos')) ca.sol_out = answers.sol_out;
-  return { product: project.name || '', label: versionLabel || '', sections: secs, answers: stripInternal(ca) };
+  // The assigned collaborator logo travels with the brief so accountless SMEs
+  // and partners see it on the PRD (they cannot read the projects table).
+  return {
+    product: project.name || '', label: versionLabel || '', sections: secs,
+    logo: project.brand_logo || '', brandLabel: project.brand_label || '',
+    answers: stripInternal(ca)
+  };
 }
