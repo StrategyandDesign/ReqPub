@@ -54,8 +54,33 @@ test('assemble produces the full two-part document with appendices', () => {
   assert.ok(md.includes('## 7. Functional Requirements'));
   assert.ok(md.includes('Appendix A. AI Evaluation Method'));   // has_ai = Yes
   assert.ok(md.includes('Appendix B. Requirement Attribute Definitions'));
-  assert.ok(md.includes('## 16. Revision History'));
+  assert.ok(md.includes('## 16. Decisions and Rationale'));
+  assert.ok(md.includes('## 17. Revision History'));
   assert.ok(md.includes('Micah'));
+});
+
+test('decisions render as an ID-numbered record, placed before revision history', () => {
+  const a = assembleAnswers(
+    { ctrl_product: { value: 'Acme' } },
+    { decisions: [
+      { id: 'd1', k: 1, data: { decision: 'Use Postgres', options: 'Postgres vs Dynamo', rationale: 'Relational fit', owner: 'Tim', date: '2026-07' }, pos: 1, rev: 1 },
+      { id: 'd2', k: 2, data: { decision: 'Ship EU-only first', options: 'Global vs EU', rationale: 'AI Act timing', owner: 'Micah', date: '2026-07', supersedes: 'DEC-001' }, pos: 2, rev: 1 }
+    ] }
+  );
+  const md = assemble(buildSections(a, null, []), a);
+  assert.ok(md.includes('## 16. Decisions and Rationale'));
+  assert.ok(md.includes('DEC-001') && md.includes('DEC-002'));   // permanent IDs from k
+  assert.ok(md.includes('Use Postgres') && md.includes('Relational fit') && md.includes('Tim'));
+  assert.ok(md.includes('Global vs EU') && md.includes('AI Act timing')); // second row's columns render
+  assert.ok(md.includes('| DEC-001 |'));                                  // supersedes cell references a prior decision
+  assert.ok(md.indexOf('Decisions and Rationale') < md.indexOf('Revision History')); // ordering
+});
+
+test('empty decisions render a clear placeholder, not a broken table', () => {
+  const a = assembleAnswers({ ctrl_product: { value: 'Acme' } }, {});
+  const md = assemble(buildSections(a, null, []), a);
+  assert.ok(md.includes('## 16. Decisions and Rationale'));
+  assert.ok(md.includes('No decisions recorded yet'));
 });
 
 test('AI appendix and Section 9 are omitted when has_ai is No', () => {

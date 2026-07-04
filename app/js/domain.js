@@ -27,7 +27,8 @@ export const SECTIONS = [
   { key: 'traceability', num: 13, title: 'Traceability' },
   { key: 'people', num: 14, title: 'People, Roles, and Links' },
   { key: 'glossary', num: 15, title: 'Glossary' },
-  { key: 'revision', num: 16, title: 'Revision History' }
+  { key: 'decisions', num: 16, title: 'Decisions and Rationale' },
+  { key: 'revision', num: 17, title: 'Revision History' }
 ];
 export const SECNUM2KEY = {};
 SECTIONS.forEach((s) => { if (s.num != null) SECNUM2KEY[s.num] = s.key; });
@@ -88,7 +89,8 @@ export const Q = [
   { id: 'link_board', sec: 'people', type: 'short', prompt: 'Project board link', help: 'Where work is tracked.' },
   { id: 'link_design', sec: 'people', type: 'short', prompt: 'Design link', help: 'Mockups, design files, or product URL.' },
 
-  { id: 'glossary', sec: 'glossary', type: 'rows', prompt: 'Glossary', help: 'Terms specific to this product and their definitions.', add: 'Add term', cols: [{ k: 'term', l: 'Term', ph: 'Term' }, { k: 'def', l: 'Definition', ph: 'Definition' }] }
+  { id: 'glossary', sec: 'glossary', type: 'rows', prompt: 'Glossary', help: 'Terms specific to this product and their definitions.', add: 'Add term', cols: [{ k: 'term', l: 'Term', ph: 'Term' }, { k: 'def', l: 'Definition', ph: 'Definition' }] },
+  { id: 'decisions', sec: 'decisions', type: 'rows', prompt: 'Key decisions', help: 'Each material decision on this engagement: the options weighed, why this one, who decided, and when. Each gets a permanent ID (DEC-###). This is the record you defend later.', add: 'Add decision', cols: [{ k: 'decision', l: 'Decision', ph: 'What was decided' }, { k: 'options', l: 'Options considered', ph: 'Alternatives weighed' }, { k: 'rationale', l: 'Rationale', ph: 'Why this one' }, { k: 'owner', l: 'Decided by', ph: 'Name or role' }, { k: 'date', l: 'Date', ph: 'e.g. 2026-07' }, { k: 'supersedes', l: 'Supersedes', ph: 'Prior decision or requirement, if any' }] }
 ];
 export const qById = Object.fromEntries(Q.map((q) => [q.id, q]));
 export const qBySec = (k) => Q.filter((q) => q.sec === k);
@@ -282,11 +284,18 @@ function bGlossary(a) {
   const t = rowsFilled(a.glossary);
   return '## 15. Glossary\n\n' + (t.length ? mdTable(['Term', 'Definition'], t.map((r) => [r.term || '', r.def || ''])) : '_No product-specific terms recorded._');
 }
+function bDecisions(a) {
+  const rows = rowsFilled(a.decisions);
+  if (!rows.length) return '## 16. Decisions and Rationale\n\n_No decisions recorded yet._';
+  return '## 16. Decisions and Rationale\n\n' + mdTable(
+    ['ID', 'Decision', 'Options considered', 'Rationale', 'Decided by', 'Date', 'Supersedes'],
+    rows.map((r, i) => [idOf('DEC', r, i), r.decision || '', r.options || '', r.rationale || '', r.owner || '', r.date || '', r.supersedes || '']));
+}
 function bRevision(versions) {
-  if (!versions || !versions.length) return '## 16. Revision History\n\n_No baselined version yet. This document is a working draft._';
+  if (!versions || !versions.length) return '## 17. Revision History\n\n_No baselined version yet. This document is a working draft._';
   const rows = versions.slice().sort((x, y) => x.seq - y.seq)
     .map((v) => [v.label, new Date(v.createdAt || v.created_at).toLocaleDateString(), v.author || v.author_name || '', v.note || (v.seq === 1 ? 'Initial baseline' : 'Revision')]);
-  return '## 16. Revision History\n\n' + mdTable(['Version', 'Date', 'Author', 'Description'], rows);
+  return '## 17. Revision History\n\n' + mdTable(['Version', 'Date', 'Author', 'Description'], rows);
 }
 const APX_A = '## Appendix A. AI Evaluation Method\n\n**Golden dataset.** A trusted, labeled set of representative inputs and expected outcomes, curated from vetted sources.\n\n**Evaluation harness.** An automated suite that runs each candidate build against the golden dataset and reports accuracy, latency, grounding, and guardrail metrics.\n\n**Thresholds.** Each EVAL requirement states a numeric threshold. A build that falls below threshold does not ship.\n\n**Red-teaming.** An adversarial set probes for hallucination and for sycophancy, the failure where an agent affirms an incorrect assertion. Safety thresholds are verified on this set.\n\n**Human review.** Generated output and guardrail outcomes are sampled and reviewed by a domain reviewer before and after release.\n\n**Regression.** The evaluation suite runs on every release, so accuracy and safety do not regress as prompts, models, or content change.';
 const APX_B = '## Appendix B. Requirement Attribute Definitions\n\n' + mdTable(['Attribute', 'Definition'], [
@@ -304,7 +313,8 @@ export function buildSections(a, label, versions) {
   s.overview = bOverview(a); s.users = bUsers(a); s.solution = bSolution(a); s.metrics = bMetrics(a);
   s.method = METHOD; s.adc = bADC(a); s.functional = bFunctional(a); s.nonfunctional = bNonFunctional(a);
   s.aieval = bAIEval(a); s.data = bData(a); s.interfaces = bInterfaces(a); s.verification = bVerification(a);
-  s.traceability = bTraceability(a); s.people = bPeople(a); s.glossary = bGlossary(a); s.revision = bRevision(versions);
+  s.traceability = bTraceability(a); s.people = bPeople(a); s.glossary = bGlossary(a);
+  s.decisions = bDecisions(a); s.revision = bRevision(versions);
   return s;
 }
 export function assemble(sections, a) {
@@ -313,7 +323,7 @@ export function assemble(sections, a) {
   p.push('## Part I: Product Definition');
   ['overview', 'users', 'solution', 'metrics'].forEach((k) => { if (sections[k]) p.push(sections[k]); });
   p.push('## Part II: Requirements');
-  ['method', 'adc', 'functional', 'nonfunctional', 'aieval', 'data', 'interfaces', 'verification', 'traceability', 'people', 'glossary', 'revision'].forEach((k) => { if (sections[k]) p.push(sections[k]); });
+  ['method', 'adc', 'functional', 'nonfunctional', 'aieval', 'data', 'interfaces', 'verification', 'traceability', 'people', 'glossary', 'decisions', 'revision'].forEach((k) => { if (sections[k]) p.push(sections[k]); });
   if (a.has_ai === 'Yes') p.push(APX_A);
   p.push(APX_B);
   return p.join('\n\n');

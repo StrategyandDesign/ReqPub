@@ -83,11 +83,11 @@ Partners and seated SMEs can also attach documents to their threads. Uploads are
 
 Three layers, all in the repo and all green at delivery. Counts are current as of this release; the suites themselves are the source of truth.
 
-1. Pure document pipeline: `tests/domain.test.mjs` (13: builders, IDs, diffing, brief redaction, summary math), `tests/share.test.mjs` (10: section-scoped share payloads and selection/display alignment), `tests/msgdedup.test.mjs` (5: optimistic/realtime message dedupe).
+1. Pure document pipeline: `tests/domain.test.mjs` (15: builders, IDs, diffing, brief redaction, summary math, decision log), `tests/share.test.mjs` (10: section-scoped share payloads and selection/display alignment), `tests/msgdedup.test.mjs` (5: optimistic/realtime message dedupe).
 2. `tests/sync.test.mjs` (12): the real client engine against a mock server implementing the RPC contracts. Nine simultaneous adders, cross-field and same-field races (both focus cases), keystroke coalescing, transient-failure retry, generate collisions, remote-delete-while-editing, realtime idempotence.
 3. `tests/backend-e2e/` (148): a genuine embedded Postgres with Supabase shims. `run.mjs` (79) runs a full v1 seed (two orgs), schema, migration twice, and every core RPC exercised as manager, viewer, partner, rival-org manager, and anonymous SME, including the adversarial set (cross-org share-token takeover attempt, anonymous rate-limit trip, forged team-name rejection, oversize-payload rejection, and viewer RLS under the `authenticated` database role). The feature suites add brand overlay (12), the durable SME workspace (16), attachments (18: type/size/infected guards, authorization resolvers, RLS, rate limit), partner-note references and backfill (10), and seed-data integrity (13).
 
-`npm test` runs layers 1 and 2 with node only (40 checks). `npm run test:backend` runs layer 3 (148) on an embedded Postgres. Total: 188.
+`npm test` runs layers 1 and 2 with node only (42 checks). `npm run test:backend` runs layer 3 (148) on an embedded Postgres. Total: 190.
 
 ## 8. Known limits
 

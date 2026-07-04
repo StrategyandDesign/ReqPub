@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.14.0 · decision log (Decisions and Rationale)
+
+- Added a first-class "Decisions and Rationale" section (worksheet section 16): a
+  permanent record of each material decision, with the options considered, the
+  rationale, who decided, the date, and what it supersedes. Each row gets a
+  permanent ID (DEC-###) from the same mechanism as requirements, so a decision
+  is citable and its number is never reused even after edits or deletion.
+- It renders in the assembled document as an ID-numbered table, appears in the
+  worksheet and in version diffs automatically (the section list drives all of
+  it), and shows a clear placeholder when empty. Existing sections are unchanged;
+  only Revision History moved from 16 to 17. Frontend only, no SQL.
+- This is the reusable primitive behind the "engagement agreement and decision
+  record" direction: the same versioning, approval, and audit now cover decisions,
+  not only requirements. Two tests added; suite now 190 (42 + 148).
+
+
 ## 2.13.0 · team controls which sections partners and SMEs see
 
 - The section selector now clearly governs every external view. When the team
