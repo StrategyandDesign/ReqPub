@@ -10,21 +10,29 @@
 import { esc } from './core.js';
 
 /* ---- Template sections ---- */
+// Document type. A project is either a full product/project requirements doc
+// (the default, and every existing project) or a consulting engagement. The
+// engagement worksheet hides the software-specific sections and the document
+// assembles as an engagement charter. Same engine, one toggle: proven cond.
+export const ENGAGEMENT = 'Consulting engagement';
+export const isEngagement = (a) => !!a && a.ctrl_type === ENGAGEMENT;
+const reqOnly = (a) => !isEngagement(a);   // sections shown only for requirements docs
+
 export const SECTIONS = [
   { key: 'control', num: null, title: 'Document Control' },
   { key: 'overview', num: 1, title: 'Overview' },
-  { key: 'users', num: 2, title: 'Users and Context' },
+  { key: 'users', num: 2, title: 'Users and Context', cond: reqOnly },
   { key: 'solution', num: 3, title: 'Solution Overview' },
   { key: 'metrics', num: 4, title: 'Success Metrics' },
-  { key: 'method', num: 5, title: 'Requirements Method and Conventions' },
+  { key: 'method', num: 5, title: 'Requirements Method and Conventions', cond: reqOnly },
   { key: 'adc', num: 6, title: 'Assumptions, Dependencies, and Constraints' },
-  { key: 'functional', num: 7, title: 'Functional Requirements' },
-  { key: 'nonfunctional', num: 8, title: 'Non-Functional Requirements' },
-  { key: 'aieval', num: 9, title: 'AI Evaluation Criteria', cond: (a) => a.has_ai === 'Yes' },
-  { key: 'data', num: 10, title: 'Data, Privacy, and Safeguarding' },
-  { key: 'interfaces', num: 11, title: 'Interfaces and Integrations' },
-  { key: 'verification', num: 12, title: 'Verification and Acceptance' },
-  { key: 'traceability', num: 13, title: 'Traceability' },
+  { key: 'functional', num: 7, title: 'Functional Requirements', cond: reqOnly },
+  { key: 'nonfunctional', num: 8, title: 'Non-Functional Requirements', cond: reqOnly },
+  { key: 'aieval', num: 9, title: 'AI Evaluation Criteria', cond: (a) => a.has_ai === 'Yes' && reqOnly(a) },
+  { key: 'data', num: 10, title: 'Data, Privacy, and Safeguarding', cond: reqOnly },
+  { key: 'interfaces', num: 11, title: 'Interfaces and Integrations', cond: reqOnly },
+  { key: 'verification', num: 12, title: 'Verification and Acceptance', cond: reqOnly },
+  { key: 'traceability', num: 13, title: 'Traceability', cond: reqOnly },
   { key: 'people', num: 14, title: 'People, Roles, and Links' },
   { key: 'glossary', num: 15, title: 'Glossary' },
   { key: 'decisions', num: 16, title: 'Decisions and Rationale' },
@@ -32,10 +40,39 @@ export const SECTIONS = [
 ];
 export const SECNUM2KEY = {};
 SECTIONS.forEach((s) => { if (s.num != null) SECNUM2KEY[s.num] = s.key; });
+const SECBYKEY = {};
+SECTIONS.forEach((s) => { SECBYKEY[s.key] = s; });
+
+// Engagement charter layout. Each entry reuses a worksheet section's KEY, so the
+// same fields, worksheet, anchors, and jump-to-section behavior serve both modes;
+// only the number and heading title change. The keys here are exactly the sections
+// left visible in engagement mode (the software-only sections are gated off above).
+export const ENG_SECTIONS = [
+  { num: 1, key: 'overview', title: 'Objective and Context' },
+  { num: 2, key: 'metrics', title: 'Success Metrics' },
+  { num: 3, key: 'solution', title: 'Scope and Approach' },
+  { num: 4, key: 'adc', title: 'Assumptions, Dependencies, and Constraints' },
+  { num: 5, key: 'people', title: 'Stakeholders and Roles' },
+  { num: 6, key: 'decisions', title: 'Decisions and Rationale' },
+  { num: 7, key: 'glossary', title: 'Glossary' },
+  { num: 8, key: 'revision', title: 'Revision History' }
+];
+const ENG_NUM = {}, ENG_TITLE = {}, ENG_TITLE2KEY = {};
+ENG_SECTIONS.forEach((s) => { ENG_NUM[s.key] = s.num; ENG_TITLE[s.key] = s.title; ENG_TITLE2KEY[s.title] = s.key; });
+
+// The section number to display for a section key, given the document type. PRD
+// keeps its fixed numbering; an engagement renders a contiguous 1..8.
+export const docSecNum = (a, key) =>
+  isEngagement(a) ? (ENG_NUM[key] != null ? ENG_NUM[key] : null)
+                  : (SECBYKEY[key] ? SECBYKEY[key].num : null);
+// The section heading to display, so the worksheet and the document agree.
+export const docSecTitle = (a, key) =>
+  (isEngagement(a) && ENG_TITLE[key]) ? ENG_TITLE[key] : (SECBYKEY[key] ? SECBYKEY[key].title : key);
 
 /* ---- Question bank ---- */
 export const Q = [
   { id: 'ctrl_product', sec: 'control', type: 'short', prompt: 'Product or project name', help: 'The name of the product or project this document specifies.', ph: 'e.g. RecordMade', req: true },
+  { id: 'ctrl_type', sec: 'control', type: 'choice', prompt: 'Document type', options: ['Product or project requirements', ENGAGEMENT], help: 'Requirements produces the full specification. Consulting engagement produces an engagement record: objective, scope and approach, workstreams, stakeholders, decisions. It hides the software-specific sections and reuses everything else.' },
   { id: 'ctrl_org', sec: 'control', type: 'short', prompt: 'Venture or organization', help: 'Who owns the product or project.', ph: 'e.g. Collection Ventures' },
   { id: 'ctrl_owner', sec: 'control', type: 'short', prompt: 'Document owner', help: 'Person accountable for this document.', ph: 'Name' },
   { id: 'ctrl_status', sec: 'control', type: 'choice', prompt: 'Status', options: ['Draft', 'In Review', 'Approved'], help: 'Lifecycle state of this baseline.' },
@@ -284,19 +321,21 @@ function bGlossary(a) {
   const t = rowsFilled(a.glossary);
   return '## 15. Glossary\n\n' + (t.length ? mdTable(['Term', 'Definition'], t.map((r) => [r.term || '', r.def || ''])) : '_No product-specific terms recorded._');
 }
-function bDecisions(a) {
+function decisionsBody(a) {
   const rows = rowsFilled(a.decisions);
-  if (!rows.length) return '## 16. Decisions and Rationale\n\n_No decisions recorded yet._';
-  return '## 16. Decisions and Rationale\n\n' + mdTable(
+  if (!rows.length) return '_No decisions recorded yet._';
+  return mdTable(
     ['ID', 'Decision', 'Options considered', 'Rationale', 'Decided by', 'Date', 'Supersedes'],
     rows.map((r, i) => [idOf('DEC', r, i), r.decision || '', r.options || '', r.rationale || '', r.owner || '', r.date || '', r.supersedes || '']));
 }
-function bRevision(versions) {
-  if (!versions || !versions.length) return '## 17. Revision History\n\n_No baselined version yet. This document is a working draft._';
+function revisionBody(versions) {
+  if (!versions || !versions.length) return '_No baselined version yet. This document is a working draft._';
   const rows = versions.slice().sort((x, y) => x.seq - y.seq)
     .map((v) => [v.label, new Date(v.createdAt || v.created_at).toLocaleDateString(), v.author || v.author_name || '', v.note || (v.seq === 1 ? 'Initial baseline' : 'Revision')]);
-  return '## 17. Revision History\n\n' + mdTable(['Version', 'Date', 'Author', 'Description'], rows);
+  return mdTable(['Version', 'Date', 'Author', 'Description'], rows);
 }
+function bDecisions(a) { return '## 16. Decisions and Rationale\n\n' + decisionsBody(a); }
+function bRevision(versions) { return '## 17. Revision History\n\n' + revisionBody(versions); }
 const APX_A = '## Appendix A. AI Evaluation Method\n\n**Golden dataset.** A trusted, labeled set of representative inputs and expected outcomes, curated from vetted sources.\n\n**Evaluation harness.** An automated suite that runs each candidate build against the golden dataset and reports accuracy, latency, grounding, and guardrail metrics.\n\n**Thresholds.** Each EVAL requirement states a numeric threshold. A build that falls below threshold does not ship.\n\n**Red-teaming.** An adversarial set probes for hallucination and for sycophancy, the failure where an agent affirms an incorrect assertion. Safety thresholds are verified on this set.\n\n**Human review.** Generated output and guardrail outcomes are sampled and reviewed by a domain reviewer before and after release.\n\n**Regression.** The evaluation suite runs on every release, so accuracy and safety do not regress as prompts, models, or content change.';
 const APX_B = '## Appendix B. Requirement Attribute Definitions\n\n' + mdTable(['Attribute', 'Definition'], [
   ['Identifier', 'Permanent unique ID of the form PREFIX-###.'],
@@ -317,7 +356,67 @@ export function buildSections(a, label, versions) {
   s.decisions = bDecisions(a); s.revision = bRevision(versions);
   return s;
 }
+/* ---- Engagement charter ----
+   When the document type is a consulting engagement, the same answers assemble
+   as a clean, sequentially numbered engagement record instead of a PRD. Each
+   section reuses a shared field set and the same section KEY as its PRD
+   counterpart, so the worksheet, the jump-to-section anchors, and the exports
+   serve both modes; only the framing and numbering differ. The software-only
+   sections are gated off the worksheet, so nothing the team fills is dropped. */
+const bodyOf = (block) => (block ? block.slice(block.indexOf('\n\n') + 2) : '');
+function engObjective(a) {
+  const p = ['## 1. Objective and Context'];
+  if (a.ov_purpose) p.push('### 1.1 Purpose and Audience\n\n' + a.ov_purpose);
+  if (a.ov_vision) p.push('### 1.2 Objective\n\n' + a.ov_vision);
+  if (a.ov_problem) p.push('### 1.3 Context\n\n' + a.ov_problem);
+  if (a.ov_market) p.push('### 1.4 Opportunity\n\n' + a.ov_market);
+  const g = bullets(a.ov_goals);
+  if (g) p.push('### 1.5 Goals\n\n' + g);
+  return p.length > 1 ? p.join('\n\n') : null;
+}
+function engMetrics(a) {
+  const m = rowsFilled(a.metrics);
+  if (!m.length) return null;
+  return '## 2. Success Metrics\n\n' + mdTable(['Metric', 'Target', 'Measurement Method'], m.map((r) => [r.metric || '', r.target || '', r.method || '']));
+}
+function engScope(a) {
+  const comps = rowsFilled(a.components);
+  const inb = bullets(a.sol_in), outb = bullets(a.sol_out);
+  if (!a.sol_solution && !inb && !outb && !comps.length) return null;
+  const p = ['## 3. Scope and Approach'];
+  if (a.sol_solution) p.push('### 3.1 Approach\n\n' + a.sol_solution);
+  if (inb || outb) p.push('### 3.2 Scope\n\n' + (inb ? '**In scope**\n\n' + inb + (outb ? '\n\n' : '') : '') + (outb ? '**Out of scope**\n\n' + outb : ''));
+  if (comps.length) p.push('### 3.3 Workstreams\n\n' + mdTable(['Workstream', 'Owner', 'Status', 'Description'], comps.map((c) => [c.name || '', c.owner || 'to confirm', c.status || 'Active', c.desc || ''])));
+  return p.join('\n\n');
+}
+function engADC(a) {
+  const as = bullets(a.assume), de = bullets(a.depend), co = bullets(a.constrain);
+  if (!as && !de && !co) return null;
+  const p = ['## 4. Assumptions, Dependencies, and Constraints'];
+  if (as) p.push('### 4.1 Assumptions\n\n' + as);
+  if (de) p.push('### 4.2 Dependencies\n\n' + de);
+  if (co) p.push('### 4.3 Constraints\n\n' + co);
+  return p.join('\n\n');
+}
+function engStakeholders(a) {
+  const pe = rowsFilled(a.people);
+  const p = ['## 5. Stakeholders and Roles'];
+  p.push('### 5.1 People and Roles\n\n' + (pe.length ? mdTable(['Name', 'Role'], pe.map((r) => [r.name || '', r.role || ''])) : '_To confirm._'));
+  p.push('### 5.2 Links\n\n- Repository: ' + (a.link_repo || 'to confirm') + '\n- Project board: ' + (a.link_board || 'to confirm') + '\n- Design: ' + (a.link_design || 'to confirm'));
+  return p.join('\n\n');
+}
+export function assembleEngagement(sections, a) {
+  const p = [];
+  if (sections.control) p.push(sections.control);
+  [engObjective(a), engMetrics(a), engScope(a), engADC(a), engStakeholders(a),
+    '## 6. Decisions and Rationale\n\n' + bodyOf(sections.decisions),
+    '## 7. Glossary\n\n' + bodyOf(sections.glossary),
+    '## 8. Revision History\n\n' + bodyOf(sections.revision)
+  ].forEach((b) => { if (b) p.push(b); });
+  return p.join('\n\n');
+}
 export function assemble(sections, a) {
+  if (isEngagement(a)) return assembleEngagement(sections, a);
   const p = [];
   if (sections.control) p.push(sections.control);
   p.push('## Part I: Product Definition');
@@ -448,8 +547,12 @@ export function mdToHtml(md) {
     if (line.indexOf('# ') === 0) { out.push('<h1 id="docsec-control">' + inlineMd(line.slice(2)) + '</h1>'); i++; continue; }
     if (line.indexOf('## ') === 0) {
       const ht = line.slice(3);
-      const nm = /^(\d+)\./.exec(ht);
-      const sid = (nm && SECNUM2KEY[+nm[1]]) ? ' id="docsec-' + SECNUM2KEY[+nm[1]] + '"' : '';
+      // Resolve the section key by title first (so an engagement heading anchors
+      // to its worksheet section), then by number (the PRD path). Overlapping
+      // titles map to the same key in both, so PRD anchors are unchanged.
+      const nm = /^(\d+)\.\s*(.*)$/.exec(ht);
+      const key = nm ? (ENG_TITLE2KEY[nm[2].trim()] || SECNUM2KEY[+nm[1]] || '') : '';
+      const sid = key ? ' id="docsec-' + key + '"' : '';
       out.push('<h2' + sid + '>' + secNum(ht) + '</h2>'); i++; continue;
     }
     if (line.indexOf('### ') === 0) { out.push('<h3>' + secNum(line.slice(4)) + '</h3>'); i++; continue; }

@@ -1,5 +1,50 @@
 # Changelog
 
+## 2.16.0 · in-app approval routing (Send for review actually reaches someone)
+
+- Approvals were a manual sign-off ledger: "Send for review" only flipped the
+  status label, an approver was free text with no account, nobody was notified,
+  and only a manager could check a slot off. That was unclear. An approver slot
+  can now be assigned to a real team member, chosen from a roster picker when you
+  add it.
+- An assigned teammate sees a "Waiting on your approval" flag on their dashboard
+  (in-app, no email) the moment a version is sent for review, and can approve
+  their OWN sign-off. A manager can still decide any slot; anyone else is refused.
+  Provenance is unchanged and now proven for self-approval: a sign-off is always
+  attributed to whoever actually made it. Free-text, name-only approvers still
+  work as manual sign-offs, marked as such.
+- The Version history copy now states plainly how it works: Send for review moves
+  a version to In review; assign a teammate for an in-app flag and self-approval,
+  or record a manual sign-off; and a version cannot be Approved while any approver
+  is pending. Backend change is one nullable column plus three functions, shipped
+  as `supabase/fix-approver-assignment.sql` (idempotent; existing rows unaffected).
+  Eighteen backend tests added (`tests/backend-e2e/approvals.test.mjs`); suite now
+  218 (52 + 166).
+
+
+## 2.15.0 · engagement mode (one worksheet, two document types)
+
+- A project now has a document type, chosen in Document Control: a product or
+  project requirements specification (the default, and every existing project) or
+  a consulting engagement. The engagement type produces an engagement record,
+  numbered 1 to 8: objective and context, success metrics, scope and approach with
+  workstreams, assumptions and dependencies and constraints, stakeholders and
+  roles, decisions and rationale, glossary, revision history.
+- It is the same worksheet and the same fields. Engagement mode hides the
+  software-specific sections (functional and non-functional requirements, method,
+  AI evaluation, interfaces, verification, traceability, personas, data and
+  privacy) and reuses everything else, so nothing is duplicated and a team can
+  switch a project's framing without re-entering it. The worksheet, the
+  jump-to-section anchors, versioning, approvals, sharing, and exports all serve
+  both modes.
+- The requirements path is byte-for-byte unchanged: existing projects carry no
+  document type, so they render exactly as before. Proven by test, including an
+  assertion that output is identical whether the type is unset or set to
+  requirements. Positioning language broadened to "the record your client
+  approves" across the landing page and the app. Frontend only, no SQL. Ten tests
+  added (new `tests/engagement.test.mjs`); suite now 200 (52 + 148).
+
+
 ## 2.14.0 · decision log (Decisions and Rationale)
 
 - Added a first-class "Decisions and Rationale" section (worksheet section 16): a

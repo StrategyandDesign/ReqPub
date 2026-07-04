@@ -42,12 +42,14 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── sync.test.mjs                    12 multi-writer concurrency simulations
 │   ├── share.test.mjs                   10 section-scoped share-payload tests
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
-│   └── backend-e2e/                     148 checks against a real embedded Postgres
+│   ├── engagement.test.mjs             10 engagement-charter + PRD-invariance tests
+│   └── backend-e2e/                     166 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
 │       ├── sme-workspace.test.mjs       durable SME workspace (16)
 │       ├── attachments.test.mjs         attachment guards, authz, RLS, rate limit (18)
 │       ├── partner-notes.test.mjs       partner-note references + backfill (10)
+│       ├── approvals.test.mjs           approver assignment, self-approve authz, gate (18)
 │       └── seed-prds.test.mjs           seed-data integrity (13)
 ├── tools/                               PRD seed generator (validated against the builders)
 ├── docs/
@@ -62,9 +64,13 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 42 domain + concurrency + dedupe checks (node only)
-npm i && npm run test:backend   # 148 checks on an embedded Postgres
+npm test                        # 52 domain + concurrency + dedupe + engagement checks (node only)
+npm i && npm run test:backend   # 166 checks on an embedded Postgres
 ```
+
+## Document types
+
+A project is one of two types, chosen in Document Control. A product or project requirements specification (the default, and every existing project) assembles the full two-part PRD. A consulting engagement assembles an engagement record, numbered 1 to 8: objective and context, success metrics, scope and approach with workstreams, assumptions and dependencies and constraints, stakeholders and roles, decisions and rationale, glossary, revision history. It is the same worksheet and the same fields: engagement mode hides the software-specific sections and reuses everything else, so a team can switch a project's framing without re-entering it, and the requirements path is unchanged for every project that carries no type. The mechanism is the same section conditions used for AI sections; see `docs/ARCHITECTURE.md`.
 
 ## Roles
 
@@ -72,4 +78,4 @@ Manager (internal, writes), Viewer (internal, reads everything and can reply), P
 
 ## Enterprise posture
 
-Append-only audit trail written by database triggers; a real approval state machine (a version cannot be Approved while a named approver is pending); per-field edit attribution with server-stamped team identity; immutable version baselines; org-scoped RLS on every table; rate-limited anonymous endpoints; input size ceilings; virus-scanned uploads stored in a private bucket. Also a command palette (⌘K), dark mode, and exports that carry status, approvals, and revision history. See `SECURITY.md` for the threat model and accepted residual risks, and `CHANGELOG.md` for release history.
+Append-only audit trail written by database triggers; a real approval state machine (a version cannot be Approved while a named approver is pending) with in-app routing (assign an approver to a teammate; they get a dashboard flag and approve their own slot, and only they or a manager can); per-field edit attribution with server-stamped team identity; immutable version baselines; org-scoped RLS on every table; rate-limited anonymous endpoints; input size ceilings; virus-scanned uploads stored in a private bucket. Also a command palette (⌘K), dark mode, and exports that carry status, approvals, and revision history. See `SECURITY.md` for the threat model and accepted residual risks, and `CHANGELOG.md` for release history.

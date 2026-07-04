@@ -468,6 +468,12 @@ function renderAccess(APP) {
 function renderVersions(APP) {
   if (!APP.versions.length) return '<div class="empty">' + ico(IC.hist) + '<div style="font-size:13px">No versions yet.</div></div>';
   const isMgr = APP.role === 'manager';
+  const meId = APP.user && APP.user.id;
+  const members = APP.members || [];
+  const memOpts = members.map((m) => {
+    const nm = (m.display_name && m.display_name.trim()) || m.email || 'Teammate';
+    return '<option value="' + escA(m.user_id) + '" data-name="' + escA(nm) + '">' + esc(nm) + '</option>';
+  }).join('');
   const items = APP.versions.slice().reverse().map((v) => {
     const on = APP.viewSeq === v.seq;
     const apprs = APP.approvals[v.id] || [];
@@ -475,18 +481,29 @@ function renderVersions(APP) {
     const tbtns = isMgr ? (transitions[v.status] || []).map((t) =>
       '<button class="btn btn-sec btn-sm" data-action="vstatus" data-id="' + escA(v.id) + '" data-val="' + t + '" style="font-size:11.5px">' +
       ({ in_review: 'Send for review', approved: 'Approve', changes_requested: 'Request changes', draft: 'Back to draft' })[t] + '</button>').join('') : '';
-    const apprRows = apprs.map((ap) =>
-      '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px">' +
-      '<span class="stchip ' + esc(ap.status === 'pending' ? 'draft' : ap.status) + '" style="height:20px;font-size:10px">' + esc(ap.status === 'pending' ? 'Pending' : STATUS_LABEL[ap.status]) + '</span>' +
-      '<span style="flex:1;min-width:0"><strong>' + esc(ap.approver_role || 'Approver') + '</strong>' + (ap.approver_name ? ' — ' + esc(ap.approver_name) : '') +
-      (ap.comment ? '<span style="color:var(--ink-4)"> · ' + esc(ap.comment) + '</span>' : '') + '</span>' +
-      (isMgr && ap.status === 'pending' ? '<button class="btn btn-ghost btn-sm" data-action="apprdecide" data-id="' + escA(ap.id) + '" data-val="approved" style="font-size:11px;color:var(--good)">Approve</button>' +
-        '<button class="btn btn-ghost btn-sm" data-action="apprdecide" data-id="' + escA(ap.id) + '" data-val="changes_requested" style="font-size:11px;color:var(--amber)">Changes</button>' : '') +
-      (isMgr ? '<button class="icobtn" data-action="apprdel" data-id="' + escA(ap.id) + '" style="width:26px;height:26px">' + ico(IC.close, 'i-sm') + '</button>' : '') + '</div>').join('');
+    const apprRows = apprs.map((ap) => {
+      const mineSlot = ap.approver_user_id && meId && ap.approver_user_id === meId;
+      const canDecide = ap.status === 'pending' && (isMgr || mineSlot);
+      // How this slot resolves: an assigned teammate can self-approve; a name-only
+      // slot is a manual sign-off a manager records.
+      const tag = mineSlot ? '<span style="color:var(--brand);font-weight:600"> · you</span>'
+        : (ap.approver_user_id ? '' : '<span style="color:var(--ink-4)"> · manual</span>');
+      return '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px">' +
+        '<span class="stchip ' + esc(ap.status === 'pending' ? 'draft' : ap.status) + '" style="height:20px;font-size:10px">' + esc(ap.status === 'pending' ? 'Pending' : STATUS_LABEL[ap.status]) + '</span>' +
+        '<span style="flex:1;min-width:0"><strong>' + esc(ap.approver_role || 'Approver') + '</strong>' + (ap.approver_name ? ' — ' + esc(ap.approver_name) : '') + tag +
+        (ap.comment ? '<span style="color:var(--ink-4)"> · ' + esc(ap.comment) + '</span>' : '') + '</span>' +
+        (mineSlot && ap.status === 'pending' ? '<span class="stchip" style="height:20px;font-size:10px;background:var(--brand);color:#fff">Waiting on you</span>' : '') +
+        (canDecide ? '<button class="btn btn-ghost btn-sm" data-action="apprdecide" data-id="' + escA(ap.id) + '" data-val="approved" style="font-size:11px;color:var(--good)">Approve</button>' +
+          '<button class="btn btn-ghost btn-sm" data-action="apprdecide" data-id="' + escA(ap.id) + '" data-val="changes_requested" style="font-size:11px;color:var(--amber)">Changes</button>' : '') +
+        (isMgr ? '<button class="icobtn" data-action="apprdel" data-id="' + escA(ap.id) + '" style="width:26px;height:26px">' + ico(IC.close, 'i-sm') + '</button>' : '') + '</div>';
+    }).join('');
     const addAppr = (isMgr && v.status !== 'approved')
-      ? '<div style="display:flex;gap:6px;margin-top:8px"><input class="input" id="apr-role-' + escA(v.id) + '" placeholder="Role (e.g. Engineering)" style="height:32px;font-size:12px;flex:1">' +
-        '<input class="input" id="apr-name-' + escA(v.id) + '" placeholder="Name" style="height:32px;font-size:12px;flex:1">' +
-        '<button class="btn btn-sec btn-sm" data-action="appradd" data-id="' + escA(v.id) + '">Add approver</button></div>' : '';
+      ? '<div style="margin-top:8px"><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        (memOpts ? '<select class="input" id="apr-user-' + escA(v.id) + '" style="height:32px;font-size:12px;flex:1;min-width:130px"><option value="">Assign a teammate…</option>' + memOpts + '</select>' : '') +
+        '<input class="input" id="apr-role-' + escA(v.id) + '" placeholder="Role (e.g. Engineering)" style="height:32px;font-size:12px;flex:1;min-width:120px">' +
+        '<input class="input" id="apr-name-' + escA(v.id) + '" placeholder="or type a name" style="height:32px;font-size:12px;flex:1;min-width:110px">' +
+        '<button class="btn btn-sec btn-sm" data-action="appradd" data-id="' + escA(v.id) + '">Add</button></div>' +
+        '<div class="hint" style="font-size:10.5px;margin-top:5px">Assign a teammate: they see a waiting on you flag in the app and can approve their own sign-off. Or type a name to record a manual sign-off yourself.</div></div>' : '';
     return '<div class="tl-item' + (on ? ' hot' : '') + '">' +
       '<button data-action="viewver" data-seq="' + v.seq + '" style="text-align:left;display:block;width:100%">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-size:14px;font-weight:600">v' + esc(v.label) + '</span>' +
@@ -500,7 +517,7 @@ function renderVersions(APP) {
       '</div>';
   }).join('');
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Version history</h2>' +
-    '<p class="hint" style="margin:0 0 18px">Baselines are immutable. Approval is a real gate: a version cannot be marked Approved while a named approver is still pending.</p>' +
+    '<p class="hint" style="margin:0 0 18px">Baselines are immutable. Send for review moves a version to In review and lets you add approvers. Assign a teammate and they get a waiting on you flag in the app (no email) and can approve their own sign-off; or record a manual sign-off yourself. A version cannot be marked Approved while any approver is still pending.</p>' +
     '<div class="tl">' + items + '</div></div>';
 }
 

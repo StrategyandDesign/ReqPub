@@ -221,6 +221,7 @@ create table if not exists version_approvals (
   version_id uuid not null references versions(id) on delete cascade,
   approver_role text not null default '',   -- e.g. Product, Engineering, Sponsor
   approver_name text not null default '',
+  approver_user_id uuid,                     -- set when assigned to a team member (in-app flag + self-approve); null = manual sign-off
   status text not null default 'pending'
     check (status in ('pending','approved','changes_requested')),
   comment text not null default '',
@@ -228,6 +229,7 @@ create table if not exists version_approvals (
   decided_at timestamptz
 );
 create index if not exists va_ver on version_approvals(version_id);
+create index if not exists va_user on version_approvals(approver_user_id);
 alter table version_approvals enable row level security;
 
 drop policy if exists va_read on version_approvals;
@@ -781,12 +783,23 @@ begin
 end; $$;
 grant execute on function version_set_status(uuid, text) to authenticated;
 
+-- A manager may decide any slot; the ASSIGNED team member may decide their own
+-- (in-app approval routing). Everyone else is refused. The provenance trigger
+-- still stamps decided_by/decided_at from auth.uid(), so a sign-off is always
+-- attributed to whoever actually made it.
 create or replace function approval_decide(p_approval uuid, p_status text, p_comment text default '')
 returns boolean language plpgsql security definer set search_path = public as $$
-declare v_ver versions%rowtype;
+declare v_ver versions%rowtype; v_uid uuid; v_self boolean;
 begin
-  select v.* into v_ver from versions v join version_approvals a on a.version_id = v.id where a.id = p_approval;
-  if v_ver.id is null or not is_project_manager(v_ver.project_id) then return false; end if;
+  select v.* into v_ver from versions v
+    join version_approvals a on a.version_id = v.id where a.id = p_approval;
+  if v_ver.id is null then return false; end if;
+  select approver_user_id into v_uid from version_approvals where id = p_approval;
+  v_self := v_uid is not null and v_uid = auth.uid();
+  if not (is_project_manager(v_ver.project_id)
+          or (v_self and is_project_member(v_ver.project_id))) then
+    return false;
+  end if;
   if p_status not in ('pending','approved','changes_requested') then return false; end if;
   update version_approvals
      set status = p_status, comment = coalesce(p_comment, ''),
@@ -797,6 +810,35 @@ begin
   return true;
 end; $$;
 grant execute on function approval_decide(uuid, text, text) to authenticated;
+
+-- Every pending slot assigned to the caller on an in-review version: the
+-- "waiting on you" flag shown on the dashboard.
+create or replace function my_open_approvals()
+returns table(approval_id uuid, project_id text, project_name text,
+              version_id uuid, version_label text, version_seq int, approver_role text)
+language sql security definer set search_path = public as $$
+  select a.id, v.project_id, p.name, v.id, v.label, v.seq, a.approver_role
+    from version_approvals a
+    join versions v on v.id = a.version_id
+    join projects p on p.id = v.project_id
+   where a.approver_user_id = auth.uid()
+     and a.status = 'pending'
+     and v.status = 'in_review'
+   order by v.seq desc;
+$$;
+grant execute on function my_open_approvals() to authenticated;
+
+-- Team roster with display names, for the approver "assign to" picker.
+create or replace function org_members_named(p_org uuid)
+returns table(user_id uuid, email text, display_name text)
+language sql security definer set search_path = public as $$
+  select m.user_id, m.email, coalesce(up.display_name, '')
+    from org_members m
+    left join user_profiles up on up.user_id = m.user_id
+   where m.org_id = p_org
+     and exists(select 1 from org_members me where me.org_id = p_org and me.user_id = auth.uid());
+$$;
+grant execute on function org_members_named(uuid) to authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 10) Shares (SME links) — server-generated tokens; v1 get_share still serves

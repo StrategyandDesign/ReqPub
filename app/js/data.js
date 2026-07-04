@@ -177,11 +177,24 @@ export const repo = {
   setVersionStatus(versionId, status) {
     return rpc('version_set_status', { p_version: versionId, p_status: status });
   },
-  async addApprover(versionId, role, name) {
-    return durable(() => sb.from('version_approvals').insert({ version_id: versionId, approver_role: role, approver_name: name }));
+  async addApprover(versionId, role, name, userId) {
+    return durable(() => sb.from('version_approvals').insert({
+      version_id: versionId, approver_role: role, approver_name: name,
+      approver_user_id: userId || null
+    }));
   },
   decideApproval(id, status, comment) {
     return rpc('approval_decide', { p_approval: id, p_status: status, p_comment: comment || '' });
+  },
+  // Team roster (with display names) for the approver picker.
+  async orgMembersNamed(orgId) {
+    const r = await rpc('org_members_named', { p_org: orgId });
+    return (r && r.data) || [];
+  },
+  // Pending approval slots assigned to the current user on in-review versions.
+  async myOpenApprovals() {
+    const r = await rpc('my_open_approvals');
+    return (r && r.data) || [];
   },
   async removeApprover(id) { return durable(() => sb.from('version_approvals').delete().eq('id', id)); },
   async setBuild(versionId, build) {

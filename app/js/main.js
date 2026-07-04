@@ -297,6 +297,15 @@ async function enterOrg(m) {
   APP.projects = await repo.projects(APP.orgId);
   render();
   refreshDashboardStats();
+  refreshMyApprovals();
+}
+
+// The "waiting on you" feed: approval slots assigned to the current user on
+// in-review versions. Loaded for the dashboard flag; refreshed after any
+// approval decision. Fire-and-forget so it never blocks the UI.
+function refreshMyApprovals() {
+  repo.myOpenApprovals().then((list) => { APP.myApprovals = list || []; render(); })
+    .catch(() => { /* leave the last known value */ });
 }
 
 async function refreshDashboardStats() {
@@ -335,11 +344,11 @@ async function repoReads() {
 }
 
 /* ---------------- project open / close ---------------- */
-async function openProject(id) {
+async function openProject(id, tab) {
   APP.pid = id;
   APP.project = APP.projects.find((p) => p.id === id) || null;
   APP.view = 'workspace';
-  APP.docTab = 'document'; APP.viewSeq = null; APP.fbSeq = null;
+  APP.docTab = tab || 'document'; APP.viewSeq = null; APP.fbSeq = null;
   APP.fields = {}; APP.rows = {}; APP.versions = []; APP.comms = []; APP.msgs = {};
   APP.requests = []; APP.discovery = []; APP.reads = {}; APP.snapshots = {}; APP.shares = [];
   APP.approvals = {}; APP.conflicts = {}; APP.openComms = {}; APP.openDisc = {}; APP.openSecs = {};
@@ -357,14 +366,16 @@ async function openProject(id) {
     requests: b.requests, discovery: b.discovery, reads: b.reads, bundleLoading: false
   });
   const parentIds = [...b.comms.map((c) => c.id), ...b.requests.map((r) => r.id)];
-  const [msgs, approvals, shares, attachments] = await Promise.all([
+  const [msgs, approvals, shares, attachments, members] = await Promise.all([
     repo.messagesFor(parentIds),
     repo.approvals(b.versions.map((v) => v.id)),
     repo.sharesFor(id),
-    repo.attachmentsFor(id)
+    repo.attachmentsFor(id),
+    APP.role === 'manager' ? repo.orgMembersNamed(APP.orgId) : Promise.resolve(APP.members || [])
   ]);
   if (APP.pid !== id) return;
   APP.msgs = msgs; APP.approvals = approvals; APP.shares = shares; APP.attachments = attachments;
+  APP.members = members;
   sync.subscribeProject(id, APP.user);
   render();
 }
@@ -629,6 +640,7 @@ async function handleAction(a, id, t, e) {
       break;
     }
     case 'open': e.stopPropagation(); openProject(t.dataset.id); break;
+    case 'openappr': e.stopPropagation(); openProject(t.dataset.id, 'versions'); break;
     case 'del': {
       e.stopPropagation();
       const p = APP.projects.find((x) => x.id === t.dataset.id);
@@ -1103,21 +1115,30 @@ async function handleAction(a, id, t, e) {
       break;
     }
     case 'appradd': {
-      const role = val('apr-role-' + id).trim(), name = val('apr-name-' + id).trim();
-      if (!role && !name) { toast('Name the approver or role'); break; }
-      const r = await repo.addApprover(id, role, name);
-      if (!r.error && r.data) { /* realtime will sync; also apply locally */ }
+      const sel = document.getElementById('apr-user-' + id);
+      const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+      const userId = (sel && sel.value) || '';
+      const role = val('apr-role-' + id).trim();
+      const typed = val('apr-name-' + id).trim();
+      // When a teammate is chosen, the name comes from the roster; otherwise it is free text.
+      const name = userId ? ((opt && (opt.dataset.name || opt.textContent.trim())) || typed) : typed;
+      if (!role && !name) { toast('Pick a teammate or type a name'); break; }
+      const r = await repo.addApprover(id, role, name, userId || null);
+      if (r.error) { toast('Could not add approver'); break; }
       const list = await repo.approvals([id]);
       APP.approvals[id] = list[id] || [];
       render();
       break;
     }
     case 'apprdecide': {
-      await repo.decideApproval(id, t.dataset.val, '');
+      const r = await repo.decideApproval(id, t.dataset.val, '');
+      if (r && r.error) { toast('Could not record that decision'); break; }
+      if (r && r.data === false) { toast('You are not an approver on this version'); break; }
       for (const vid of Object.keys(APP.approvals)) {
         const ap = APP.approvals[vid].find((x) => x.id === id);
         if (ap) ap.status = t.dataset.val;
       }
+      refreshMyApprovals();
       render();
       break;
     }

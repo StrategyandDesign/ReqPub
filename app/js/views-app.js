@@ -4,7 +4,7 @@
    ============================================================================ */
 
 import { esc, escA, ico, IC, brandmark, initials, relTime, themeGet } from './core.js';
-import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, BRIEF_SECTIONS } from './domain.js';
+import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
 import { renderTab, unreadCount } from './views-collab.js';
 import { execSummaryHTML } from './exports.js';
 
@@ -287,6 +287,18 @@ export function viewProjects(APP) {
       '<div style="width:38px;height:38px;border-radius:11px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto">' + ico(IC.msg) + '</div>' +
       '<div><div style="font-size:14px;font-weight:640">At a glance</div><div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">' + esc(bits.join(' · ')) + '</div></div></div>' : '';
 
+  // Personal action item: versions where a slot is assigned to me and pending.
+  // This is the in-app "waiting on you" flag (no email is sent).
+  const mine = APP.myApprovals || [];
+  const apprBanner = mine.length
+    ? '<div class="card rise" style="padding:16px 18px;margin-bottom:18px;background:var(--brand);color:#fff;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<div style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex:0 0 auto">' + ico(IC.check) + '</div>' +
+      '<div style="flex:1;min-width:180px"><div style="font-size:14px;font-weight:660">Waiting on your approval</div>' +
+      '<div style="font-size:12.5px;opacity:.9;margin-top:2px">' + mine.length + ' version' + (mine.length === 1 ? '' : 's') + ' assigned to you for sign-off.</div></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+      mine.map((m) => '<button data-action="openappr" data-id="' + escA(m.project_id) + '" style="background:#fff;color:var(--brand);border:none;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer">Review v' + esc(m.version_label) + ' · ' + esc(m.project_name || 'Project') + '</button>').join('') +
+      '</div></div>' : '';
+
   const cards = list.length ? list.map((p, i) => {
     const s = stats[p.id] || {};
     const latest = s.latest;
@@ -323,13 +335,13 @@ export function viewProjects(APP) {
     '</div><div style="display:flex;align-items:center;gap:8px">' + saveChip(APP) + userMenu(APP) + '</div></div>' +
     '<div style="flex:1;overflow-y:auto"><div class="wrap">' +
     '<div class="rise" style="margin-bottom:40px"><h1 style="font-size:38px;line-height:1.08;letter-spacing:-.03em;font-weight:660;margin:0 0 12px">Discovery to Requirements.</h1>' +
-    '<p style="color:var(--ink-3);max-width:760px;font-size:15.5px;line-height:1.6;margin:0">One shared workspace from workshop input to a versioned, approved, testable requirements document.</p></div>' +
+    '<p style="color:var(--ink-3);max-width:760px;font-size:15.5px;line-height:1.6;margin:0">One shared workspace from workshop input to a versioned, approved requirements or engagement record.</p></div>' +
     (APP.role === 'manager'
       ? '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms"><div style="display:flex;gap:10px;flex-wrap:wrap">' +
         '<input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product or project to specify">' +
         '<button class="btn btn-primary" style="height:46px" data-action="new">' + ico(IC.plus) + 'New project</button></div></div>'
       : '') +
-    banner +
+    apprBanner + banner +
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">' + cards + '</div>' +
     '</div></div>', APP);
 }
@@ -386,7 +398,7 @@ function renderWorksheet(APP, a, ac, total) {
     const open = APP.openSecs[s.key] !== false;
     const head = '<button data-action="secto" data-val="' + s.key + '" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:14px 2px">' +
       '<span class="dot ' + (done === qs.length ? 'done' : done ? 'some' : '') + '"></span>' +
-      '<span style="flex:1;font-size:14px;font-weight:600;letter-spacing:-.01em">' + (s.num != null ? '<span class="mono" style="font-size:11px;color:var(--ink-4);margin-right:7px">' + s.num + '</span>' : '') + esc(s.title) + '</span>' +
+      '<span style="flex:1;font-size:14px;font-weight:600;letter-spacing:-.01em">' + (docSecNum(a, s.key) != null ? '<span class="mono" style="font-size:11px;color:var(--ink-4);margin-right:7px">' + docSecNum(a, s.key) + '</span>' : '') + esc(docSecTitle(a, s.key)) + '</span>' +
       '<span style="font-size:11px;color:var(--ink-4)" class="mono">' + done + '/' + qs.length + '</span>' +
       '<span style="color:var(--ink-4);display:inline-flex;transition:transform .15s;' + (open ? 'transform:rotate(90deg)' : '') + '">' + ico(IC.fwd, 'i-sm') + '</span></button>';
     const items = open ? qs.map((q) => fieldHTML(APP, q, a, editingBy)).join('') : '';
