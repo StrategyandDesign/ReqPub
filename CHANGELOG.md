@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.16.1 · Esign API worked example + landing fix
+
+- Added a third worked-example PRD, Esign API, the API-first e-signature service
+  behind ReqPub sign-off: envelope lifecycle, recipients and fields, the signing
+  ceremony (draw, type, click, decline, self-sign), assurance levels, a
+  hash-chained append-only ledger, and a sealed bundle that verifies offline. It
+  is authored in the same seed template as the others (14 functional requirements,
+  measurable fit criteria, component tags) and validated through the real
+  document builders.
+- The seed generator now emits, alongside the combined `seed-prds.sql`, a
+  standalone `seed-<name>.sql` per example so a single PRD can be added to a live
+  workspace without re-seeding the others. Six seed checks added (three examples
+  now covered, plus standalone-safety); suite now 224 (52 + 172).
+- Landing page: the problem headline now breaks after the first sentence, so
+  "They fail at 'that's not what we agreed.'" sits on its own line.
+
+
 ## 2.16.0 · in-app approval routing (Send for review actually reaches someone)
 
 - Approvals were a manual sign-off ledger: "Send for review" only flipped the

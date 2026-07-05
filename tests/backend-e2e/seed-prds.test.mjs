@@ -40,7 +40,7 @@ try {
   const stale = await one(`select count(*)::int n from project_fields where value::text = '"stale content"'`);
   check('old Fathering content replaced', stale.n === 0, stale.n);
 
-  for (const id of ['prd-fathering-excellence', 'prd-reqpub-platform']) {
+  for (const id of ['prd-fathering-excellence', 'prd-reqpub-platform', 'prd-esign-api']) {
     const p = await one(`select p.name, o.name org from projects p join orgs o on o.id=p.org_id where p.id=$1`, [id]);
     check(id + ' exists in Collection Ventures', p && p.org === 'Collection Ventures', p);
     const nf = await one(`select count(*)::int n from project_fields where project_id=$1`, [id]);
@@ -66,6 +66,14 @@ try {
   await db.query(sql(rel('../../supabase/seed-prds.sql')));
   const dup = await one(`select count(*)::int n from projects where id='prd-reqpub-platform'`);
   check('seed is idempotent on re-run', dup.n === 1, dup.n);
+
+  // The standalone Esign file adds only its own project and is idempotent, so it
+  // can be run on an existing workspace without disturbing the other examples.
+  await db.query(sql(rel('../../supabase/seed-esign-api.sql')));
+  const solo = await one(`select count(*)::int n from projects where id='prd-esign-api'`);
+  check('standalone esign seed keeps exactly one Esign API', solo.n === 1, solo.n);
+  const others = await one(`select count(*)::int n from projects where id in ('prd-fathering-excellence','prd-reqpub-platform')`);
+  check('standalone esign seed leaves the other examples intact', others.n === 2, others.n);
 } catch (e) {
   fail++; console.error('\n✗ HARNESS ERROR:', e.message);
 } finally { await db.end().catch(() => {}); await epg.stop().catch(() => {}); }
