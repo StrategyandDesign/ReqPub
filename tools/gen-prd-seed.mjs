@@ -113,7 +113,7 @@ const shortId = (p) => p.id.replace(/^prd-/, '');
 // and any prior copy of these PRDs, by name and by id).
 const allIds = PRDS.map((p) => sql(p.id)).join(', ');
 const combined = render(PRDS, {
-  intro: 'ReqPub — worked-example PRDs for the Collection Ventures workspace',
+  intro: 'ReqPub - worked-example PRDs for the Collection Ventures workspace',
   cleanup: [
     'delete from projects where org_id = v_org and name ilike \'%botyield%\';',
     'delete from projects where org_id = v_org and (name ilike \'%fathering%\' or lower(name) = \'fathering excellence profile\');',
@@ -125,7 +125,7 @@ writeFileSync(fileURLToPath(new URL('seed-prds.sql', root)), combined.out);
 // Standalone per-PRD files: add just that one example, touching nothing else.
 for (const prd of PRDS) {
   const one = render([prd], {
-    intro: 'ReqPub — seed the "' + prd.name + '" worked-example PRD (standalone; touches nothing else)',
+    intro: 'ReqPub - seed the "' + prd.name + '" worked-example PRD (standalone; touches nothing else)',
     cleanup: [`delete from projects where org_id = v_org and id = ${sql(prd.id)};`]
   });
   writeFileSync(fileURLToPath(new URL('seed-' + shortId(prd) + '.sql', root)), one.out);

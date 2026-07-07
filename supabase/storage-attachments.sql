@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub — Storage bucket + policies for attachments (v2.10.0)
+-- ReqPub - Storage bucket + policies for attachments (v2.10.0)
 -- ============================================================================
 -- Run ONCE in the Supabase SQL editor, AFTER schema.sql (which creates the
 -- attachments metadata table and is_org_member/is_org_manager helpers).
@@ -9,7 +9,7 @@
 --     URLs the app requests.
 --   • Only org MEMBERS can read (sign) files under their own org's path.
 --   • Only org MANAGERS can delete.
---   • NOBODY can write bytes directly — uploads go through the attachment-upload
+--   • NOBODY can write bytes directly - uploads go through the attachment-upload
 --     edge function (service role), which type/size-checks and virus-scans first.
 --
 -- Storage path convention (set by the edge function):  <org_id>/<project_id>/<uuid>/<filename>

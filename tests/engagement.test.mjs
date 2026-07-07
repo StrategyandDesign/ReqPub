@@ -1,9 +1,9 @@
-/* ReqPub v2 — engagement-mode tests (node tests/engagement.test.mjs)
+/* ReqPub v2 - engagement-mode tests (node tests/engagement.test.mjs)
    One worksheet, two document types. These tests prove (a) a consulting
    engagement assembles as a clean, contiguously numbered charter from the
    shared fields, (b) the software-only sections are gated off in engagement
    mode, and (c) the requirements (PRD) path is byte-for-byte unchanged, so
-   every existing project — none of which carries ctrl_type — is untouched. */
+   every existing project - none of which carries ctrl_type - is untouched. */
 import assert from 'node:assert/strict';
 import {
   SECTIONS, ENGAGEMENT, isEngagement, assembleAnswers, buildSections, assemble,

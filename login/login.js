@@ -1,11 +1,18 @@
-/* ReqPub v2 — sign in, password reset request, and reset completion. */
+/* ReqPub v2 - sign in, password reset request, and reset completion. */
 (function () {
   var cfg = window.SB_CFG || {};
   if (!cfg.url || !cfg.anon || !window.supabase) return;
   var sb = window.supabase.createClient(cfg.url, cfg.anon);
 
   var $ = function (id) { return document.getElementById(id); };
-  var say = function (el, text, ok) { el.innerHTML = text ? '<div class="' + (ok ? 'ok' : 'err') + '">' + text.replace(/[<>&]/g, '') + '</div>' : ''; };
+  var say = function (el, text, ok) {
+    el.innerHTML = '';
+    if (!text) return;
+    var d = document.createElement('div');
+    d.className = ok ? 'ok' : 'err';
+    d.textContent = text;   // textContent, so an auth message can never inject markup
+    el.appendChild(d);
+  };
 
   // Recovery links arrive in two shapes depending on the project's auth flow:
   //   implicit:  /login/#access_token=…&type=recovery
@@ -69,7 +76,7 @@
     if (!email) { say($('msg'), 'Enter your email above first, then press Forgot again.'); return; }
     sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/login/' })
       .then(function (r) {
-        say($('msg'), r.error ? r.error.message : 'Reset link sent to ' + email + ' — check your inbox.', !r.error);
+        say($('msg'), r.error ? r.error.message : 'Reset link sent to ' + email + ' - check your inbox.', !r.error);
       });
   });
 
@@ -84,7 +91,7 @@
         say($('msgReset'), r.error.message);
         return;
       }
-      say($('msgReset'), 'Password updated — taking you in…', true);
+      say($('msgReset'), 'Password updated - taking you in…', true);
       setTimeout(function () { location.replace('/app/'); }, 700);
     });
   });

@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub — attachments (files from partners & SMEs) · v2.10.0
+-- ReqPub - attachments (files from partners & SMEs) · v2.10.0
 -- ============================================================================
 -- Run ONCE in the Supabase SQL editor (idempotent; changes no existing data).
 -- Then also run storage-attachments.sql, and deploy the attachment-upload edge
@@ -137,7 +137,7 @@ exception when undefined_object then null; end $$;
 -- ── Persistent upload visibility ──────────────────────────────────────────────
 -- Redefine the partner-thread and SME-thread reads to include each thread's own
 -- files, so a partner or seated SME sees what they uploaded even after a reload
--- (same scope as the messages they already read — no new exposure).
+-- (same scope as the messages they already read - no new exposure).
 create or replace function partner_thread_v2(p_project text)
 returns jsonb language sql security definer stable set search_path = public as $$
   select coalesce(jsonb_agg(jsonb_build_object(

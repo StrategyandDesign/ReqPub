@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub — worked-example PRDs for the Collection Ventures workspace
+-- ReqPub - worked-example PRDs for the Collection Ventures workspace
 -- ============================================================================
 -- Run ONCE in the Supabase SQL editor, AFTER schema.sql. Re-runnable (idempotent).
 -- It targets the org named exactly 'Collection Ventures'. If your workspace is

@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub — partner-portal fixes (v2.8.2)   ← run this ONE file in Supabase
+-- ReqPub - partner-portal fixes (v2.8.2)   ← run this ONE file in Supabase
 -- ============================================================================
 -- Supersedes fix-brand-overlay.sql (includes everything it did). Safe to run on
 -- its own, any time, repeatedly. No schema changes; no data is modified.

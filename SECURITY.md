@@ -25,6 +25,10 @@ Full detail lives in `docs/ARCHITECTURE.md` §3. The essentials:
   criteria, schedules, or internal notes.
 - Share tokens cannot be hijacked across organizations: publishing a link is
   fenced to the caller's own org and project.
+- The invite email function verifies, under the caller's own identity, that they
+  have already added the recipient to a workspace they manage (a row visible to
+  them only under the manager-scoped policy) before sending, so it cannot be used
+  to email arbitrary addresses.
 - Realtime channels are private. Members receive and send; partners receive
   only; anonymous visitors have no channel access. Database state is never
   writable through realtime.
@@ -52,3 +56,13 @@ Documented deliberately rather than hidden:
 - Supabase project administrators can alter data with SQL, outside the
   in-app audit trail. That boundary belongs to Supabase access control:
   restrict dashboard access accordingly.
+- Uploads are virus-scanned only when a scanner (`SCAN_URL`) is configured. With
+  none set, a file stores flagged `unscanned`; a scanner error stores `error`
+  unless `SCAN_FAIL_CLOSED` is enabled. Configure a private scanner (for example a
+  self-hosted ClamAV REST service) and `SCAN_FAIL_CLOSED` in production; see
+  `docs/ATTACHMENTS.md`.
+- The `attachment-upload` function reflects a permissive CORS origin. It
+  authorizes by bearer JWT (team, partner) or the SME reply token, not by
+  cookies, so a cross-origin request carries no ambient authority and CORS is not
+  its trust boundary; a leaked token would be the concern. `send-invite`
+  restricts its origin to the app URL.

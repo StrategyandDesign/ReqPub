@@ -1,4 +1,4 @@
-/* ReqPub v2 — exports: Markdown, Word (.doc), print/PDF, executive summary. */
+/* ReqPub v2 - exports: Markdown, Word (.doc), print/PDF, executive summary. */
 
 import { esc, escA, download, copyText } from './core.js';
 import { mdToHtml, execSummaryData } from './domain.js';
@@ -67,7 +67,7 @@ export function downloadWord(md, meta) {
     .filter(Boolean).join('  ·  ');
   const approvals = (meta.approvals || []).length
     ? '<div style="font-family:Consolas,monospace;font-size:9pt;color:#333;margin-top:8pt">Approvals: ' +
-      meta.approvals.map((a) => esc((a.approver_role || 'Approver') + (a.approver_name ? ' — ' + a.approver_name : '') +
+      meta.approvals.map((a) => esc((a.approver_role || 'Approver') + (a.approver_name ? ' - ' + a.approver_name : '') +
         ' (' + (STATUS_LABEL[a.status] || a.status) + ')')).join('; ') + '</div>' : '';
   const cover = '<div class="rp-cover">' + logo + label +
     '<div style="font-family:Consolas,monospace;font-size:8.5pt;letter-spacing:1.5pt;text-transform:uppercase;color:#2563FF;margin-top:10pt">Requirements Baseline</div>' +
@@ -113,21 +113,21 @@ export function execSummaryHTML(answers, meta) {
     (d.counts.eval ? chip(d.counts.eval, 'AI eval') : '') + chip(d.counts.ir, 'Interfaces') + chip(d.counts.musts, 'Musts') + '</div>';
   const list = (items, fmt) => items.length ? '<ul>' + items.map((x) => '<li>' + fmt(x) + '</li>').join('') + '</ul>' : '<p style="color:var(--ink-4)">None recorded.</p>';
   return '<div class="md doc-anim">' +
-    '<h1>' + esc(d.product) + ' — Executive Summary</h1>' +
+    '<h1>' + esc(d.product) + ' - Executive Summary</h1>' +
     '<div class="doc-meta">' + esc([d.org, meta.label ? 'v' + meta.label : 'Working draft', new Date().toLocaleDateString()].filter(Boolean).join('  ·  ')) + '</div>' +
     (d.vision ? '<h2>Vision</h2><p>' + esc(d.vision) + '</p>' : '') +
     (d.problem ? '<h2>Problem</h2><p>' + esc(d.problem) + '</p>' : '') +
     '<h2>Goals</h2>' + list(d.goals, (g) => esc(g)) +
     '<h2>Success metrics</h2>' + list(d.metrics, (m) => '<strong>' + esc(m.metric || '') + '</strong>' + (m.target ? ': ' + esc(m.target) : '') + (m.method ? ' <span style="color:var(--ink-4)">(' + esc(m.method) + ')</span>' : '')) +
     '<h2>Scale of the specification</h2>' + stat +
-    (d.components.length ? '<h2>Components</h2>' + list(d.components, (c) => '<strong>' + esc(c.name || '') + '</strong>' + (c.owner ? ' — ' + esc(c.owner) : '') + (c.status ? ' <span style="color:var(--ink-4)">(' + esc(c.status) + ')</span>' : '')) : '') +
+    (d.components.length ? '<h2>Components</h2>' + list(d.components, (c) => '<strong>' + esc(c.name || '') + '</strong>' + (c.owner ? ' - ' + esc(c.owner) : '') + (c.status ? ' <span style="color:var(--ink-4)">(' + esc(c.status) + ')</span>' : '')) : '') +
     (d.outOfScope.length ? '<h2>Explicitly out of scope</h2>' + list(d.outOfScope, (x) => esc(x)) : '') +
     '</div>';
 }
 
 export function downloadExecSummary(answers, meta) {
   const d = execSummaryData(answers);
-  const md = ['# ' + d.product + ' — Executive Summary', '',
+  const md = ['# ' + d.product + ' - Executive Summary', '',
     [d.org, meta.label ? 'v' + meta.label : 'Working draft', new Date().toLocaleDateString()].filter(Boolean).join(' · '), '',
     d.vision ? '## Vision\n\n' + d.vision : '', d.problem ? '## Problem\n\n' + d.problem : '',
     '## Goals', ...d.goals.map((g) => '- ' + g), '',

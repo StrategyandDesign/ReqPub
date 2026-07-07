@@ -1,4 +1,4 @@
-/* ReqPub v2 — sign up. The display name travels in user metadata; the app
+/* ReqPub v2 - sign up. The display name travels in user metadata; the app
    copies it into user_profiles at first sign-in (works with or without
    email confirmation enabled). claim_invites() at first app load routes
    invited teammates and partners to the right workspace. */
@@ -7,6 +7,11 @@
   if (!cfg.url || !cfg.anon || !window.supabase) return;
   var sb = window.supabase.createClient(cfg.url, cfg.anon);
   var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
 
   // Invite links carry the workspace name and the invited email
   // (/signup/?ws=Collection%20Ventures&email=lee@fathers.com): show where
@@ -34,12 +39,12 @@
     }).then(function (r) {
       if (r.error) {
         btn.disabled = false; btn.textContent = 'Create account';
-        $('msg').innerHTML = '<div class="err">' + String(r.error.message || 'Could not sign up').replace(/[<>&]/g, '') + '</div>';
+        $('msg').innerHTML = '<div class="err">' + esc(r.error.message || 'Could not sign up') + '</div>';
         return;
       }
       if (r.data && r.data.session) { location.replace('/app/'); return; }
       $('msg').innerHTML = '<div class="ok"><strong>Check your email.</strong> We sent a confirmation link to ' +
-        $('email').value.trim().replace(/[<>&]/g, '') + '. Open it, then sign in.</div>';
+        esc($('email').value.trim()) + '. Open it, then sign in.</div>';
       btn.textContent = 'Account created';
     });
   });

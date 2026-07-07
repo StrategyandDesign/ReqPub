@@ -1,4 +1,4 @@
-/* ReqPub v2 — sync engine concurrency tests (node tests/sync.test.mjs)
+/* ReqPub v2 - sync engine concurrency tests (node tests/sync.test.mjs)
    Runs the REAL client sync engine (createSync) against a mock server that
    implements the same semantics as the SQL RPCs: rev-checked field saves,
    lock-serialized row inserts with k allocation, lock-serialized version
@@ -161,7 +161,7 @@ await test('same field, second writer NOT typing: newer save wins locally, no si
   B.state.activeField = null;                     // Ben has left the field
   B.client.flushNow();
   await until(() => B.client.dirtyCount() === 0);
-  // Ben's client must now hold Ana's committed value at rev 1 or hold his own at rev 2 —
+  // Ben's client must now hold Ana's committed value at rev 1 or hold his own at rev 2 -
   // either way the server value is what a client shows, never a phantom.
   const server = srv.fields.get('ov_vision');
   assert.equal(B.state.fields.ov_vision.value, server.value);
@@ -275,7 +275,7 @@ await test('field known only via realtime (server row missing): save recovers as
   assert.equal(srv.fields.get('ov_vision').value, 'Recovered text');
 });
 
-/* Let any straggler timers fire before declaring victory — a late unhandled
+/* Let any straggler timers fire before declaring victory - a late unhandled
    rejection here would fail the run. */
 await sleep(700);
 console.log('\nsync.test: ' + passed + '/' + passed + ' passed');

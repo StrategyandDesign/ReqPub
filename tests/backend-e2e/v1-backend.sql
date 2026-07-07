@@ -1,12 +1,12 @@
--- ReqPub backend — multi-tenant organizations with role-based access control
+-- ReqPub backend - multi-tenant organizations with role-based access control
 -- Run once in your Supabase project (SQL Editor -> paste -> Run).
 -- Then enable Email auth under Authentication -> Sign In / Providers -> Email.
 --
 -- Roles:
---   Manager  (internal) — read + write across all of the org's documents, manage members & partners
---   Viewer   (internal) — read-only across all of the org's documents
---   Partner  (external) — sees only the SME version of assigned PRDs, submits notes (via partner portal)
---   SME      (external) — no account; opens a share/notes link
+--   Manager  (internal) - read + write across all of the org's documents, manage members & partners
+--   Viewer   (internal) - read-only across all of the org's documents
+--   Partner  (external) - sees only the SME version of assigned PRDs, submits notes (via partner portal)
+--   SME      (external) - no account; opens a share/notes link
 --
 -- Security model: documents live in `kv`, keyed by org_id. Row-level security lets any
 -- member READ their org's rows and only Managers WRITE. Membership tests run through

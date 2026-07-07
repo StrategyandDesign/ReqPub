@@ -1,6 +1,6 @@
 /* deploy-fathering-baseline.sql: rebuilds the existing Fathering project in
-   place — retitle, erase every SME/partner interchange, replace content, and
-   publish an approved v1.1 — without touching any other project. Run:
+   place - retitle, erase every SME/partner interchange, replace content, and
+   publish an approved v1.1 - without touching any other project. Run:
    node tests/backend-e2e/deploy-fathering.test.mjs */
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';

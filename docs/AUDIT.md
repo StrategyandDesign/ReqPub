@@ -102,6 +102,6 @@ subscribe queries.
 ## Reproduce
 
 ```
-npm test                # 52 unit checks
-npm run test:backend    # 193 checks incl. the adversarial hardening set
+npm test                # 32 unit checks (v2.5.0 baseline; 52 today)
+npm run test:backend    # 73 checks incl. the adversarial hardening set (v2.5.0 baseline; 193 today)
 ```

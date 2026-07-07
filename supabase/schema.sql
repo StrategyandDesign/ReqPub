@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub v2 — relational backend
+-- ReqPub v2 - relational backend
 -- ============================================================================
 -- Run once in the Supabase SQL Editor of the EXISTING ReqPub project.
 -- Safe to re-run (idempotent). Creates only NEW objects; v1 tables (kv, shares,
@@ -8,7 +8,7 @@
 --
 -- Design (see docs/ARCHITECTURE.md):
 --   * Every shared collection is rows, not a JSON array under one key.
---     Adds are INSERTs, edits are UPDATEs by id — concurrent adds cannot
+--     Adds are INSERTs, edits are UPDATEs by id - concurrent adds cannot
 --     overwrite each other.
 --   * Scalar worksheet fields live one-row-per-field with an integer `rev`.
 --     Writes are conditional on `rev` (optimistic concurrency): a stale write
@@ -19,10 +19,10 @@
 --   * `activity` is an insert-only audit trail written by triggers.
 --
 -- Roles:
---   manager  (internal) — full write
---   viewer   (internal) — read everything, may post notes/replies, no doc edits
---   partner  (external) — assigned projects only, via SECURITY DEFINER RPCs
---   SME      (external) — no account; tokened share links + tokened reply threads
+--   manager  (internal) - full write
+--   viewer   (internal) - read everything, may post notes/replies, no doc edits
+--   partner  (external) - assigned projects only, via SECURITY DEFINER RPCs
+--   SME      (external) - no account; tokened share links + tokened reply threads
 -- ============================================================================
 
 create extension if not exists pgcrypto;
@@ -32,7 +32,7 @@ create extension if not exists pgcrypto;
 set check_function_bodies = off;
 
 -- ----------------------------------------------------------------------------
--- 0) Helpers (shared with v1 — recreated here so this file stands alone)
+-- 0) Helpers (shared with v1 - recreated here so this file stands alone)
 -- ----------------------------------------------------------------------------
 create or replace function is_org_member(p_org uuid)
 returns boolean language sql security definer stable set search_path = public as $$
@@ -146,8 +146,8 @@ create policy projects_write on projects for all
 
 -- ----------------------------------------------------------------------------
 -- 3) Worksheet storage
---    project_fields — one row per scalar answer (short/long/choice), rev-checked
---    field_rows     — one row per repeating item (rows/list questions)
+--    project_fields - one row per scalar answer (short/long/choice), rev-checked
+--    field_rows     - one row per repeating item (rows/list questions)
 -- ----------------------------------------------------------------------------
 create table if not exists project_fields (
   project_id text not null references projects(id) on delete cascade,
@@ -242,7 +242,7 @@ create policy va_write on version_approvals for all
 
 -- Approval provenance is enforced, not merely conventional: a new approver
 -- row always starts 'pending', and any transition to a decided state stamps
--- decided_by/decided_at from auth.uid() — so a manager cannot forge who
+-- decided_by/decided_at from auth.uid() - so a manager cannot forge who
 -- signed off, even writing the table directly. Decisions flow through
 -- approval_decide(); this trigger is the backstop for direct writes.
 create or replace function enforce_approval_provenance()
@@ -267,9 +267,9 @@ create trigger va_provenance before insert or update on version_approvals
 
 -- ----------------------------------------------------------------------------
 -- 5) Communications
---    comms    — every inbound/outbound item (app feedback, brief reviews,
+--    comms    - every inbound/outbound item (app feedback, brief reviews,
 --               SME notes, partner notes, team notes, meeting notes)
---    messages — threaded replies on any parent (comm / request)
+--    messages - threaded replies on any parent (comm / request)
 -- ----------------------------------------------------------------------------
 create table if not exists comms (
   id uuid primary key default gen_random_uuid(),
@@ -332,7 +332,7 @@ alter table messages enable row level security;
 
 drop policy if exists msg_member_read on messages;
 create policy msg_member_read on messages for select using (is_org_member(org_id));
--- (msg_member_insert is created after input_requests exists — see section 6.)
+-- (msg_member_insert is created after input_requests exists - see section 6.)
 -- Partner/SME replies via RPCs. No update/delete: messages are permanent record.
 
 -- Team identity is asserted by the server, not the client: a signed-in member
@@ -424,7 +424,7 @@ create policy req_manager_write on input_requests for all
   using (is_org_manager(org_id)) with check (is_org_manager(org_id));
 
 -- Members (managers and viewers) may reply on comms and requests in their org.
--- The parent must belong to the same org — prevents cross-org message injection.
+-- The parent must belong to the same org - prevents cross-org message injection.
 drop policy if exists msg_member_insert on messages;
 create policy msg_member_insert on messages for insert with check (
   is_org_member(org_id) and author_kind = 'team' and author_user = auth.uid()
@@ -463,7 +463,7 @@ create policy disc_manager_write on discovery_entries for all
   using (is_org_manager(org_id)) with check (is_org_manager(org_id));
 
 -- ----------------------------------------------------------------------------
--- 7) Activity — insert-only audit trail (Palantir-style: cannot be edited)
+-- 7) Activity - insert-only audit trail (Palantir-style: cannot be edited)
 -- ----------------------------------------------------------------------------
 create table if not exists activity (
   id bigint generated always as identity primary key,
@@ -499,7 +499,7 @@ exception when others then null;  -- the audit trail must never break a write
 end; $$;
 
 -- ----------------------------------------------------------------------------
--- 8) Realtime — broadcast-from-database on private channels
+-- 8) Realtime - broadcast-from-database on private channels
 --    Topics:  org:<org_id>      (project list, inbox counters)
 --             proj:<project_id> (fields, rows, versions, comms, messages, ...)
 -- ----------------------------------------------------------------------------
@@ -598,7 +598,7 @@ create policy rt_recv on realtime.messages for select to authenticated using (
     else false
   end);
 -- Sending on a PROJECT channel (presence + client broadcast) is limited to
--- managers — the only role that can edit the document. Since a manager can
+-- managers - the only role that can edit the document. Since a manager can
 -- already make any change through the audited RPCs, a forged broadcast grants
 -- them nothing new; and a read-only viewer therefore cannot broadcast
 -- fabricated live edits onto teammates' screens. Partners and SMEs receive
@@ -613,12 +613,12 @@ create policy rt_send on realtime.messages for insert to authenticated with chec
   end);
 
 -- ----------------------------------------------------------------------------
--- 9) Write RPCs — the only mutation path for racy structures
+-- 9) Write RPCs - the only mutation path for racy structures
 -- ----------------------------------------------------------------------------
 
 -- 9.1 Scalar field save with optimistic concurrency.
--- Returns: {ok:true, rev:N}                       — saved
---          {ok:false, conflict:true, rev:N,       — stale base; caller merges
+-- Returns: {ok:true, rev:N}                       - saved
+--          {ok:false, conflict:true, rev:N,       - stale base; caller merges
 --           value:<current>, by:<who>, at:<when>}
 create or replace function save_field(
   p_project text, p_field text, p_value jsonb, p_base_rev integer)
@@ -723,7 +723,7 @@ end; $$;
 grant execute on function delete_row(text, uuid) to authenticated;
 
 -- 9.3 Version creation: seq and label allocated under a project lock, so two
--- managers clicking Generate at once produce v1.4 and v1.5 — never two v1.4s.
+-- managers clicking Generate at once produce v1.4 and v1.5 - never two v1.4s.
 create or replace function create_version(
   p_project text, p_major boolean, p_note text, p_snapshot jsonb, p_build text default '')
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -841,7 +841,7 @@ $$;
 grant execute on function org_members_named(uuid) to authenticated;
 
 -- ----------------------------------------------------------------------------
--- 10) Shares (SME links) — server-generated tokens; v1 get_share still serves
+-- 10) Shares (SME links) - server-generated tokens; v1 get_share still serves
 -- ----------------------------------------------------------------------------
 create or replace function share_put(
   p_project text, p_kind text, p_seq integer, p_payload jsonb, p_token text default null)
@@ -967,7 +967,7 @@ grant execute on function sme_reply(text, text) to anon, authenticated;
 -- Durable SME workspace. A manager seats an SME (name + email) on a PRD; this
 -- finds-or-creates ONE persistent thread for that (project, email) and returns
 -- its stable reply_token. Re-seating the same email returns the same token, so
--- every exchange with that SME on that PRD stays in one place across versions —
+-- every exchange with that SME on that PRD stays in one place across versions -
 -- the SME's personal link never changes and needs no login. url_token() lives
 -- in extensions; keep it on the search_path.
 create or replace function sme_seat(p_project text, p_name text, p_email text)
@@ -1017,11 +1017,11 @@ $$;
 grant execute on function sme_seats(text) to authenticated;
 
 -- ----------------------------------------------------------------------------
--- 6c) Attachments — files the team, partners, and seated SMEs upload onto a
+-- 6c) Attachments - files the team, partners, and seated SMEs upload onto a
 --     conversation. The bytes live in the private 'attachments' Storage bucket
 --     (see storage-attachments.sql); this table is the metadata + audit anchor.
 --     Every row is written by attachment_add, which the upload edge function
---     calls only AFTER it type/size-checks and virus-scans the file — so a
+--     calls only AFTER it type/size-checks and virus-scans the file - so a
 --     stored file is always clean or explicitly flagged, never silently unsafe.
 -- ----------------------------------------------------------------------------
 create table if not exists attachments (
@@ -1055,7 +1055,7 @@ begin
 end $$;
 
 -- Team members read their org's attachments; managers may delete. Nobody writes
--- directly — inserts go through attachment_add (service role, post-scan).
+-- directly - inserts go through attachment_add (service role, post-scan).
 drop policy if exists attach_member_read on attachments;
 create policy attach_member_read on attachments for select using (is_org_member(org_id));
 drop policy if exists attach_manager_delete on attachments;
@@ -1224,7 +1224,7 @@ returns jsonb language sql security definer stable set search_path = public as $
   -- name, so an assignment with no published brief yet still shows a real title
   -- instead of its internal id. The brief payload is a version snapshot, but the
   -- collaborator logo/label is a *current* property of the project, so overlay
-  -- the live brand at read time (jsonb || overwrites the two keys) — a logo added
+  -- the live brand at read time (jsonb || overwrites the two keys) - a logo added
   -- after the brief was shared reaches the partner with no re-publish.
   select coalesce(jsonb_agg(jsonb_build_object(
     'project_id', pa.project_id,

@@ -1,4 +1,4 @@
-/* ReqPub shared site script — footer injection + cookie consent + Do Not Share.
+/* ReqPub shared site script - footer injection + cookie consent + Do Not Share.
    Single origin (reqpub.com): links are root-relative paths. */
 (function(){
   var YEAR = new Date().getFullYear();

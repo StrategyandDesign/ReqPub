@@ -20,7 +20,7 @@ const asUser = (uid) => db.query(`select set_config('test.uid', '${uid || ''}', 
 let pass = 0, fail = 0;
 const check = (n, c, x) => { if (c) { pass++; console.log('  ✓ ' + n); } else { fail++; console.log('  ✗ ' + n + (x !== undefined ? ' → ' + JSON.stringify(x) : '')); } };
 
-// A real (tiny) PNG data URL — the shape okLogo() accepts and downscaleLogo() emits.
+// A real (tiny) PNG data URL - the shape okLogo() accepts and downscaleLogo() emits.
 const LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 const MGR = '11111111-0000-0000-0000-000000000001';
 const PARTNER = '22222222-0000-0000-0000-000000000002';
@@ -34,13 +34,13 @@ try {
   await db.query(`insert into auth.users(id,email) values ($1,'mgr@collection.co'),($2,'partner@vendor.co')`, [MGR, PARTNER]);
   await db.query(`insert into orgs(id,name,created_by) values ($1,'Collection Ventures',$2)`, [ORG, MGR]);
   await db.query(`insert into org_members(org_id,user_id,email,role) values ($1,$2,'mgr@collection.co','manager')`, [ORG, MGR]);
-  // Fathering PRD — created with NO logo yet (as the SQL seed leaves it).
+  // Fathering PRD - created with NO logo yet (as the SQL seed leaves it).
   await db.query(`insert into projects(id,org_id,name,brand_logo,brand_label) values ('fathering',$1,'Fathering Excellence Profile','','')`, [ORG]);
   // A partner is assigned to it.
   const pid = (await one(`insert into partners(org_id,user_id,email,name) values ($1,$2,'partner@vendor.co','Vendor') returning id`, [ORG, PARTNER])).id;
   await db.query(`insert into partner_access(partner_id,project_id) values ($1,'fathering')`, [pid]);
 
-  // The team shares the brief NOW — before any logo exists. Snapshot has empty brand.
+  // The team shares the brief NOW - before any logo exists. Snapshot has empty brand.
   await db.query(`insert into shares(token,org_id,project_id,version_seq,kind,payload,revoked)
     values ('tok-brief',$1,'fathering',1,'brief',
       jsonb_build_object('product','Fathering Excellence Profile','label','1.0','logo','','brandLabel','','answers',jsonb_build_object('ctrl_product','Fathering Excellence Profile')),

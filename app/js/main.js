@@ -1,5 +1,5 @@
 /* ============================================================================
-   ReqPub v2 — application core: state, boot, routing, event delegation.
+   ReqPub v2 - application core: state, boot, routing, event delegation.
    Views are pure string builders; this file owns every state change.
    ============================================================================ */
 
@@ -95,7 +95,7 @@ function toast(t) {
 /* Re-render, but never yank the DOM out from under someone mid-keystroke.
    Deferred renders run when the field blurs (or on the trailing edge). The
    document pane is the exception: it lives in its own scroll container, so it
-   is live-patched while you type — your words appear in the document as you
+   is live-patched while you type - your words appear in the document as you
    write them, and so do your teammates'. */
 const deferredRender = debounce(() => { if (!APP.activeField) render(); }, 900);
 function scheduleRender(reason) {
@@ -174,7 +174,7 @@ function patchSaveChips() {
     el.className = 'savechip ' + s;
     el.innerHTML = s === 'saving' ? '<span class="spin"></span>Saving…'
       : s === 'saved' ? ico(IC.check, 'i-sm') + 'Saved'
-      : s === 'offline' ? 'Offline — will retry' : 'Save failed — Retry';
+      : s === 'offline' ? 'Offline - will retry' : 'Save failed - Retry';
     if (s === 'error') el.setAttribute('data-action', 'retrysave'); else el.removeAttribute('data-action');
     el.disabled = s !== 'error';
   });
@@ -401,7 +401,7 @@ async function generateVersion() {
   g.busy = true; g.error = null; render();
   sync.flushNow();
   for (let i = 0; i < 40 && sync.dirtyCount() > 0; i++) await new Promise((r) => setTimeout(r, 150));
-  if (sync.dirtyCount() > 0) { g.busy = false; g.error = 'Some edits have not saved yet — check the save indicator, then try again.'; render(); return; }
+  if (sync.dirtyCount() > 0) { g.busy = false; g.error = 'Some edits have not saved yet - check the save indicator, then try again.'; render(); return; }
 
   const answers = assembleAnswers(APP.fields, APP.rows);
   const label = nextLabel(APP.versions, !!g.major);
@@ -409,12 +409,12 @@ async function generateVersion() {
   const prevMeta = APP.versions[APP.versions.length - 1];
   if (prevMeta) await ensureSnapshot(prevMeta.seq);
   const auto = changeNote(prevMeta ? (APP.snapshots[prevMeta.seq] || {}).snapshot : null, answers, !prevMeta);
-  const note = [g.note && g.note.trim(), auto].filter(Boolean).join(' — ');
+  const note = [g.note && g.note.trim(), auto].filter(Boolean).join(' - ');
 
   const r = await repo.createVersion(APP.pid, !!g.major, note, { answers, sections });
   const out = r.data;
   if (r.error || !out || !out.ok) {
-    g.busy = false; g.error = (out && out.error === 'forbidden') ? 'Your role cannot generate versions.' : 'Could not generate — try again.';
+    g.busy = false; g.error = (out && out.error === 'forbidden') ? 'Your role cannot generate versions.' : 'Could not generate - try again.';
     render(); return;
   }
   // Publish the SME-safe payloads for this baseline (brief + app testing).
@@ -564,7 +564,7 @@ document.addEventListener('click', (e) => {
   // say) must surface as a toast, never a silently dead button or a broken app.
   Promise.resolve(handleAction(t.dataset.action, t.dataset.id, t, e)).catch((err) => {
     console.error('action failed:', t.dataset.action, err);
-    toast('Something went wrong with that action — please try again');
+    toast('Something went wrong with that action - please try again');
   });
 });
 
@@ -694,11 +694,11 @@ async function handleAction(a, id, t, e) {
     case 'shr-pilot': {
       const link = await ensureShareLink('pilot');
       closeModals();
-      if (!link) { toast('Could not create the link — try again'); render(); break; }
+      if (!link) { toast('Could not create the link - try again'); render(); break; }
       APP.docTab = 'access';
       render();
       loadAccessData();
-      if (await copyText(link)) toast('Testing link copied — send it to your tester');
+      if (await copyText(link)) toast('Testing link copied - send it to your tester');
       break;
     }
 
@@ -733,7 +733,7 @@ async function handleAction(a, id, t, e) {
       const r = await repo.sharePut(APP.pid, 'brief', latest.seq,
         buildSharePayload(APP.project || {}, answers, latest.label, latest.seq, 'brief', latest.build, secs),
         live ? live.token : null);
-      if (r.error || !r.data) { toast('Could not publish — try again'); break; }
+      if (r.error || !r.data) { toast('Could not publish - try again'); break; }
       briefSecsStore(APP.pid, secs);
       APP.shares = await repo.sharesFor(APP.pid);
       closeModals();
@@ -741,7 +741,7 @@ async function handleAction(a, id, t, e) {
       render();
       loadAccessData();
       const link = location.origin + location.pathname + '#brief/' + APP.pid + '/' + latest.seq + '/' + r.data;
-      if (await copyText(link)) toast('Review link copied — ' + secs.length + ' section' + (secs.length === 1 ? '' : 's') + ' shared');
+      if (await copyText(link)) toast('Review link copied - ' + secs.length + ' section' + (secs.length === 1 ? '' : 's') + ' shared');
       break;
     }
 
@@ -756,7 +756,7 @@ async function handleAction(a, id, t, e) {
       closeModals();
       APP.ctx = await repo.context();
       const m = (APP.ctx.memberships || []).find((x) => x.org_name === name) || (APP.ctx.memberships || [])[0];
-      if (m) { sync.unsubscribeProject(); await enterOrg(m); toast('Workspace created — you are its first manager'); }
+      if (m) { sync.unsubscribeProject(); await enterOrg(m); toast('Workspace created - you are its first manager'); }
       break;
     }
     case 'shr-request': case 'accnewreq': closeModals(); APP.docTab = 'notes'; APP.reqDraft = { open: true }; render(); break;
@@ -783,30 +783,30 @@ async function handleAction(a, id, t, e) {
       break;
     }
 
-    /* read-only presentation link — copy handlers per role */
+    /* read-only presentation link - copy handlers per role */
     case 'copypresent': {   // manager or viewer, from the app
       const link = await ensurePresentLink();
-      if (!link) { toast(APP.role === 'manager' ? 'Generate a version first' : 'No public link yet — ask a manager to share this PRD'); break; }
-      if (await copyText(link)) toast('Read-only link copied — anyone with it can view, not edit');
+      if (!link) { toast(APP.role === 'manager' ? 'Generate a version first' : 'No public link yet - ask a manager to share this PRD'); break; }
+      if (await copyText(link)) toast('Read-only link copied - anyone with it can view, not edit');
       break;
     }
-    case 'smepresent': {   // SME, from their brief page — reuse their own token
+    case 'smepresent': {   // SME, from their brief page - reuse their own token
       const rt = APP.shareRoute;
       if (!rt || !rt.pid) { toast('Link unavailable'); break; }
       const link = presentUrl(rt.pid, rt.seq, rt.token);
-      if (await copyText(link)) toast('Read-only link copied — share it with anyone');
+      if (await copyText(link)) toast('Read-only link copied - share it with anyone');
       break;
     }
     case 'ppresent': {   // partner, from the portal
       const r = await repo.partnerPresentToken(t.dataset.id);
       const out = r.data;
-      if (!out || !out.ok) { toast('No shareable link yet — the team has not published a brief'); break; }
+      if (!out || !out.ok) { toast('No shareable link yet - the team has not published a brief'); break; }
       const link = presentUrl(t.dataset.id, out.seq, out.token);
-      if (await copyText(link)) toast('Read-only link copied — share it with anyone');
+      if (await copyText(link)) toast('Read-only link copied - share it with anyone');
       break;
     }
 
-    /* print from an SME / partner / presentation page — uses the branded payload */
+    /* print from an SME / partner / presentation page - uses the branded payload */
     case 'brandprint': {
       const pay = (APP.share && APP.share.payload) ||
         (APP.partnerProjects || []).find((x) => x.project_id === APP.partnerPid)?.payload;
@@ -825,7 +825,7 @@ async function handleAction(a, id, t, e) {
       const had = t.dataset.has === '1';
       const r = had ? await repo.revokePartner(id, APP.pid) : await repo.grantPartner(id, APP.pid);
       if (r.error) { toast('Could not update access'); break; }
-      toast(had ? 'Access revoked' : 'Access granted — they see the latest published brief');
+      toast(had ? 'Access revoked' : 'Access granted - they see the latest published brief');
       loadAccessData();
       break;
     }
@@ -848,8 +848,8 @@ async function handleAction(a, id, t, e) {
       if (r.error || !out || !out.ok) { toast('Could not create the SME workspace'); break; }
       const link = location.origin + location.pathname + '#sme/' + out.reply_token;
       await loadAccessData();
-      if (await copyText(link)) toast(out.existed ? 'Existing link copied — same workspace as before' : 'SME workspace link copied — send it to ' + (out.name || email));
-      else toast(out.existed ? 'Link ready below (already existed)' : 'SME workspace created — copy the link below');
+      if (await copyText(link)) toast(out.existed ? 'Existing link copied - same workspace as before' : 'SME workspace link copied - send it to ' + (out.name || email));
+      else toast(out.existed ? 'Link ready below (already existed)' : 'SME workspace created - copy the link below');
       break;
     }
 
@@ -923,7 +923,7 @@ async function handleAction(a, id, t, e) {
       const body = (APP.drafts[id] || '').trim();
       if (!body) break;
       const r = await repo.addMessage(APP.orgId, 'comm', id, body, (APP.ctx && APP.ctx.display_name) || 'Team', APP.user.id);
-      if (r.error) { toast('Reply failed — try again'); break; }
+      if (r.error) { toast('Reply failed - try again'); break; }
       delete APP.drafts[id];
       // Idempotent: the realtime echo of this insert can arrive before this
       // await resolves. Push only if not already present (same dedup as sync.js)
@@ -934,7 +934,7 @@ async function handleAction(a, id, t, e) {
     }
     case 'dlattach': {
       const url = await repo.signedUrl(t.dataset.path);
-      if (url) window.open(url, '_blank', 'noopener'); else toast('Could not open that file — try again');
+      if (url) window.open(url, '_blank', 'noopener'); else toast('Could not open that file - try again');
       break;
     }
     case 'commstatus': break; // handled on change event
@@ -960,7 +960,7 @@ async function handleAction(a, id, t, e) {
         const rid = 'FR-' + String(row.k).padStart(3, '0');
         await repo.setCommFields(id, { promoted_to: rid });
         c.promoted_to = rid;
-        toast('Created ' + rid + ' — refine it in Section 7');
+        toast('Created ' + rid + ' - refine it in Section 7');
         render();
       }
       break;
@@ -1029,7 +1029,7 @@ async function handleAction(a, id, t, e) {
       if (r.error) { d.error = 'Could not create'; render(); break; }
       if (!APP.requests.some((x) => x.id === r.data.id)) APP.requests.unshift(r.data);
       APP.reqDraft = {};
-      toast('Request created — copy its link below');
+      toast('Request created - copy its link below');
       render();
       break;
     }
@@ -1093,13 +1093,13 @@ async function handleAction(a, id, t, e) {
         const out = rr && rr.data;
         if (!(out && out.ok)) {
           toast(out && out.error === 'approvals_pending'
-            ? 'Named approvers are still pending — open the PRD’s Version history to decide them'
+            ? 'Named approvers are still pending - open the PRD’s Version history to decide them'
             : 'Could not approve this version');
           break;
         }
         v.status = next;
       }
-      if (v.status === 'approved') toast('Approved — v' + v.label + ' is now the approved baseline');
+      if (v.status === 'approved') toast('Approved - v' + v.label + ' is now the approved baseline');
       scheduleRender('stats');
       break;
     }
@@ -1110,7 +1110,7 @@ async function handleAction(a, id, t, e) {
         const v = APP.versions.find((x) => x.id === id);
         if (v) v.status = t.dataset.val;
         toast('Status updated');
-      } else toast(out && out.error === 'approvals_pending' ? 'Approvals are still pending — decide them first' : 'Could not change status');
+      } else toast(out && out.error === 'approvals_pending' ? 'Approvals are still pending - decide them first' : 'Could not change status');
       render();
       break;
     }
@@ -1252,13 +1252,13 @@ document.addEventListener('change', async (e) => {
     toast('Processing logo…');
     let logo;
     try { logo = await downscaleLogo(file); }
-    catch { toast('That image could not be read — try a PNG, JPG, or SVG'); return; }
-    if (!logo) { toast('That image is too large even after resizing — try a simpler logo'); return; }
+    catch { toast('That image could not be read - try a PNG, JPG, or SVG'); return; }
+    if (!logo) { toast('That image is too large even after resizing - try a simpler logo'); return; }
     const r = await repo.setBrand(APP.pid, logo, (APP.project && APP.project.brand_label) || '');
     if (r.error) { toast(/violates|constraint/i.test(r.error.message || '') ? 'That logo is too large' : 'Could not save the logo'); return; }
     if (APP.project) APP.project.brand_logo = logo;
     await republishBrandedBriefs();
-    toast('Logo added — it now appears on the shared PRD and exports');
+    toast('Logo added - it now appears on the shared PRD and exports');
     render();
   } else if (t.matches('[data-action="buildset"]')) {
     const verId = t.dataset.verid;
@@ -1276,7 +1276,7 @@ document.addEventListener('change', async (e) => {
   }
 });
 
-/* input events (typing) — save without re-rendering the worksheet; the
+/* input events (typing) - save without re-rendering the worksheet; the
    document pane follows the keystrokes live */
 document.addEventListener('input', (e) => {
   const t = e.target;
@@ -1408,7 +1408,7 @@ function docMeta(d) {
 }
 
 /* Downscale any uploaded image to a print-safe logo (max 320px, PNG data URL)
-   entirely in the browser — no upload service, no new storage bucket. */
+   entirely in the browser - no upload service, no new storage bucket. */
 function downscaleLogo(file) {
   return new Promise((resolve, reject) => {
     if (!file || !/^image\//.test(file.type)) { reject(new Error('not an image')); return; }
@@ -1453,12 +1453,12 @@ async function doUpload(file, target) {
     const m = r.error.message || '';
     toast(/flagged by the virus scanner/i.test(m) ? m
       : /too large|type not allowed|Too many/i.test(m) ? m
-      : 'Upload failed — please try again');
+      : 'Upload failed - please try again');
     return;
   }
   const d = r.data || {};
-  toast(d.scan_status === 'error' ? 'Uploaded — scanner unavailable, flagged for the team'
-    : d.scan_status === 'clean' ? 'Uploaded — scanned clean'
+  toast(d.scan_status === 'error' ? 'Uploaded - scanner unavailable, flagged for the team'
+    : d.scan_status === 'clean' ? 'Uploaded - scanned clean'
     : 'Uploaded ' + (d.file_name || 'file'));
   // Refresh authoritative data so the file persists across reloads: the team
   // reads the attachments table; partners and SMEs re-read their thread (which

@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub — durable SME workspace (v2.9.0)   ← run this ONE file in Supabase
+-- ReqPub - durable SME workspace (v2.9.0)   ← run this ONE file in Supabase
 -- ============================================================================
 -- Adds a persistent, no-login workspace for each SME on a PRD: one stable
 -- personal link that always reopens the SAME thread (read-only PRD + one

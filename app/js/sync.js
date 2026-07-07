@@ -1,5 +1,5 @@
 /* ============================================================================
-   ReqPub v2 — sync engine
+   ReqPub v2 - sync engine
    Field-level optimistic concurrency + realtime broadcast + presence.
 
    The contract that removes v1's lost writes:
@@ -7,8 +7,8 @@
      * the server accepts it only if that rev is still current;
      * a rejected write comes back with the winning value and author, and the
        client resolves it explicitly (keep-typing wins the field you're in,
-       remote wins fields you aren't in) — never a silent clobber;
-     * adds are inserts — two simultaneous adds both land;
+       remote wins fields you aren't in) - never a silent clobber;
+     * adds are inserts - two simultaneous adds both land;
      * every write is awaited and retried with backoff, and its state is
        visible in the UI (saving / saved / offline / failed).
    ============================================================================ */
@@ -115,7 +115,7 @@ export function createSync() {
         st.conflicts[fieldId] = { by: out.by, at: out.at };
         this.pendingFields.set(fieldId, value);
         this.scheduleFlush();
-        this.onToast(`${out.by || 'A teammate'} also edited this field — keeping your text`);
+        this.onToast(`${out.by || 'A teammate'} also edited this field - keeping your text`);
       } else {
         // You had left the field: the newer save wins.
         st.fields[fieldId] = { value: out.value, rev: out.rev, dirty: false, by: out.by, at: out.at };
@@ -183,7 +183,7 @@ export function createSync() {
       if (editingThisRow) {
         row.rev = out.rev; row.dirty = true;
         this.pendingRows.set(rowId, job); this.scheduleFlush();
-        this.onToast(`${out.by || 'A teammate'} also edited this item — keeping your text`);
+        this.onToast(`${out.by || 'A teammate'} also edited this item - keeping your text`);
       } else {
         row.data = out.data; row.rev = out.rev; row.dirty = false;
         this.onChange('rows:' + job.fieldId);
@@ -213,7 +213,7 @@ export function createSync() {
     this.failed++;
     this.retryLast = retry;
     this.bump();
-    this.onToast(`Could not ${what} — check your connection, then press Retry`);
+    this.onToast(`Could not ${what} - check your connection, then press Retry`);
   },
   retry() {
     this.failed = 0;

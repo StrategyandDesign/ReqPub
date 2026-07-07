@@ -1,5 +1,5 @@
 /* ============================================================================
-   ReqPub v2 — collaboration tabs: inbox, feedback, discovery, notes & requests,
+   ReqPub v2 - collaboration tabs: inbox, feedback, discovery, notes & requests,
    people, links, versions & approvals, activity.
    ============================================================================ */
 
@@ -52,7 +52,7 @@ function threadHTML(APP, comm, canReply) {
   const draft = (APP.drafts[comm.id] || '');
   const files = attachChips(attachmentsForComm(APP, comm.id), { download: true });
   const replyBox = canReply
-    ? '<textarea class="input" data-draft="' + escA(comm.id) + '" rows="2" placeholder="Reply to ' + escA(comm.author_name || 'them') + (EXTERNAL[comm.origin] ? ' — they see this at their link' : '') + '" style="font-size:12.5px;resize:vertical;min-height:44px;line-height:1.5;margin-top:8px">' + esc(draft) + '</textarea>' +
+    ? '<textarea class="input" data-draft="' + escA(comm.id) + '" rows="2" placeholder="Reply to ' + escA(comm.author_name || 'them') + (EXTERNAL[comm.origin] ? ' - they see this at their link' : '') + '" style="font-size:12.5px;resize:vertical;min-height:44px;line-height:1.5;margin-top:8px">' + esc(draft) + '</textarea>' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:7px;gap:8px">' + attachInput({ comm: comm.id }) +
       '<button class="btn btn-primary btn-sm" data-action="reply" data-id="' + escA(comm.id) + '">Send reply</button></div>'
     : '';
@@ -127,7 +127,7 @@ function renderInbox(APP) {
   const search = '<input class="input" data-ibsearch="1" value="' + escA(F.q || '') + '" placeholder="Search people, titles, text" style="margin:12px 0 10px;font-size:13px">';
   const filters = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px"><span class="eyebrow" style="font-size:9px">Source</span><div class="choice">' + srcs.map(schip).join('') + '</div><div style="width:8px"></div><span class="eyebrow" style="font-size:9px">Status</span><div class="choice">' + stats.map(stchip).join('') + '</div></div>';
   const items = !all.length
-    ? '<div class="empty">' + ico(IC.msg) + '<div style="font-size:14px;color:var(--ink-2);font-weight:560;margin-bottom:4px">No communications yet</div><div style="font-size:13px;max-width:280px">App reports, PRD reviews, SME input, and partner notes all land here — live.</div></div>'
+    ? '<div class="empty">' + ico(IC.msg) + '<div style="font-size:14px;color:var(--ink-2);font-weight:560;margin-bottom:4px">No communications yet</div><div style="font-size:13px;max-width:280px">App reports, PRD reviews, SME input, and partner notes all land here - live.</div></div>'
     : !filtered.length ? '<div class="empty">' + ico(IC.msg) + '<div style="font-size:13px">Nothing matches.</div></div>'
     : filtered.map((it) => commCard(APP, it)).join('');
   return '<div class="page" style="max-width:600px">' + header + search + filters + items + '</div>';
@@ -171,7 +171,7 @@ function renderFeedback(APP) {
   const list = (APP.comms || []).filter((c) => (c.origin === 'app' || c.origin === 'brief') && (filterAll || c.version_seq === seq));
   const cur = versions.find((v) => v.seq === seq);
   const share = (!filterAll && cur)
-    ? shareRow(APP, 'brief', 'PRD review link · v' + cur.label, 'A plain-language brief for collaborators. Their review lands in the Inbox and opens a two-way thread — no account needed.', seq) +
+    ? shareRow(APP, 'brief', 'PRD review link · v' + cur.label, 'A plain-language brief for collaborators. Their review lands in the Inbox and opens a two-way thread - no account needed.', seq) +
       shareRow(APP, 'pilot', 'App testing link · v' + cur.label, 'For people using the build. Bug reports and ideas land in the Inbox against this exact version.', seq) +
       (APP.role === 'manager'
         ? '<div style="display:flex;gap:8px;align-items:center;margin:2px 0 14px"><span class="eyebrow" style="font-size:9px">Deployed build</span>' +
@@ -239,7 +239,7 @@ function renderNotes(APP) {
     engage = '<div class="card" style="padding:16px 18px;margin-bottom:18px;border:1px solid var(--sky-2);background:var(--sky)">' +
       '<div style="display:flex;align-items:flex-start;gap:13px"><div style="width:40px;height:40px;border-radius:11px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto">' + ico(IC.send) + '</div>' +
       '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:660;letter-spacing:-.01em">Request input from an SME</div>' +
-      '<div style="font-size:12.5px;color:var(--ink-3);margin-top:3px;line-height:1.5">Send a link — no account needed on their side. Their responses land in the Inbox and open a live two-way thread.</div></div>' +
+      '<div style="font-size:12.5px;color:var(--ink-3);margin-top:3px;line-height:1.5">Send a link - no account needed on their side. Their responses land in the Inbox and open a live two-way thread.</div></div>' +
       (isMgr ? '<button class="btn btn-primary btn-sm" data-action="nropen" style="flex:0 0 auto">' + ico(IC.plus, 'i-sm') + 'New request</button>' : '') + '</div>' +
       reqItems + '</div>';
   }
@@ -273,7 +273,7 @@ function renderDiscovery(APP) {
   const composer = isMgr
     ? '<div class="card" style="padding:16px;margin-bottom:16px">' +
       '<div style="font-size:13.5px;font-weight:620;margin-bottom:10px">Log a discovery entry</div>' +
-      '<textarea class="input" data-disc="takeaway" rows="2" placeholder="The takeaway — the one thing worth remembering" style="resize:vertical;min-height:48px;line-height:1.5;margin-bottom:9px">' + esc(d.takeaway || '') + '</textarea>' +
+      '<textarea class="input" data-disc="takeaway" rows="2" placeholder="The takeaway - the one thing worth remembering" style="resize:vertical;min-height:48px;line-height:1.5;margin-bottom:9px">' + esc(d.takeaway || '') + '</textarea>' +
       '<textarea class="input" data-disc="notes" rows="2" placeholder="Detail, quotes, what was heard (optional)" style="resize:vertical;min-height:44px;line-height:1.5;margin-bottom:9px">' + esc(d.notes || '') + '</textarea>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
       '<input class="input" data-disc="who" value="' + escA(d.who || '') + '" placeholder="Who said it" style="flex:1;min-width:130px;height:36px;font-size:12.5px">' +
@@ -294,7 +294,7 @@ function renderDiscovery(APP) {
         (isMgr ? '<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-ghost btn-sm" data-action="discdel" data-id="' + escA(e.id) + '" style="color:' + (APP.discDel === e.id ? 'var(--bad)' : 'var(--ink-4)') + '">' + (APP.discDel === e.id ? 'Confirm delete' : 'Delete') + '</button></div>' : '') +
         '</div>' : '') +
       '</div>';
-  }).join('') : '<div class="empty">' + ico(IC.spark) + '<div style="font-size:14px;color:var(--ink-2);font-weight:560;margin-bottom:4px">No discovery yet</div><div style="font-size:13px;max-width:300px">Interview takeaways, decisions, and open questions live here — the evidence base under the requirements.</div></div>';
+  }).join('') : '<div class="empty">' + ico(IC.spark) + '<div style="font-size:14px;color:var(--ink-2);font-weight:560;margin-bottom:4px">No discovery yet</div><div style="font-size:13px;max-width:300px">Interview takeaways, decisions, and open questions live here - the evidence base under the requirements.</div></div>';
   return '<div class="page" style="max-width:600px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">' +
     '<h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Discovery</h2>' +
     '<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-3)"><input type="checkbox" data-action="discexport"' + (APP.project && APP.project.disc_export ? ' checked' : '') + (isMgr ? '' : ' disabled') + '> include in exports</label></div>' +
@@ -338,7 +338,7 @@ function renderAccess(APP) {
     '<div class="acc-sec"><div class="acc-head"><div class="acc-ic" style="background:' + bg + ';color:' + color + '">' + ico(iconPath, 'i-sm') + '</div><h3>' + title + '</h3></div>' +
     '<p class="acc-sub">' + sub + '</p>' + body + '</div>';
 
-  /* 1 — the team (workspace-wide) */
+  /* 1 - the team (workspace-wide) */
   const managers = acc.members.filter((m) => m.role === 'manager').length;
   const viewers = acc.members.filter((m) => m.role === 'viewer').length;
   const teamBody = '<div class="acc-row" style="border-top:none;padding-top:2px">' +
@@ -348,7 +348,7 @@ function renderAccess(APP) {
       : 'Teammates share every project in this workspace.') + '</span>' +
     (isMgr ? '<button class="btn btn-sec btn-sm" data-action="orgopen">' + ico(IC.users, 'i-sm') + 'Manage team</button>' : '') + '</div>';
 
-  /* 2 — partners (this project) */
+  /* 2 - partners (this project) */
   const pRows = (acc.partners || []).map((p) => {
     const has = !!p.acc[APP.pid];
     return '<div class="acc-row">' +
@@ -368,13 +368,13 @@ function renderAccess(APP) {
   const partnersBody = (pRows || '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">' +
     (isMgr ? 'No partners yet. Add one below; they sign in with their email.' : 'No partners yet.') + '</span></div>') + pAdd;
 
-  /* 3 — guest links for the latest version */
+  /* 3 - guest links for the latest version */
   const guestBody = latest
-    ? shareRow(APP, 'brief', 'PRD review · v' + latest.label, 'A plain-language brief. Reviews land in the Inbox and open a two-way thread — no account on their side.', latest.seq) +
+    ? shareRow(APP, 'brief', 'PRD review · v' + latest.label, 'A plain-language brief. Reviews land in the Inbox and open a two-way thread - no account on their side.', latest.seq) +
       shareRow(APP, 'pilot', 'App testing · v' + latest.label, 'For people using the build. Reports land in the Inbox against this exact version.', latest.seq)
-    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">Generate a version first — guest links always point at a numbered baseline.</span></div>';
+    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">Generate a version first - guest links always point at a numbered baseline.</span></div>';
 
-  /* 4 — input requests */
+  /* 4 - input requests */
   const reqRows = (APP.requests || []).map((r) => {
     const link = base + '#note/' + APP.pid + '/' + r.token;
     const cnt = (APP.comms || []).filter((c) => c.request_id === r.id).length;
@@ -389,7 +389,7 @@ function renderAccess(APP) {
   const reqBody = (reqRows || '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">No requests yet. Ask a specific question, send the link, and the answers thread back here.</span></div>') +
     (isMgr ? '<div class="acc-row"><button class="btn btn-sec btn-sm" data-action="accnewreq">' + ico(IC.plus, 'i-sm') + 'New input request</button></div>' : '');
 
-  /* 5 — older links still live */
+  /* 5 - older links still live */
   const older = (APP.shares || []).filter((s) => !s.revoked && s.kind !== 'note' && (!latest || s.version_seq !== latest.seq));
   const olderBody = older.length ? older.map((s) => {
     const v = (APP.versions || []).find((x) => x.seq === s.version_seq);
@@ -399,11 +399,15 @@ function renderAccess(APP) {
       (isMgr ? '<button class="btn btn-ghost btn-sm" data-action="sharerevoke" data-token="' + escA(s.token) + '">Revoke</button>' : '') + '</div>';
   }).join('') : '';
 
-  /* 0 — brand on the shared PRD (what partners/SMEs see, and what prints) */
+  /* 0 - brand on the shared PRD (what partners/SMEs see, and what prints) */
   const proj = APP.project || {};
+  // Only render a logo that is a real image data URI, matching the external
+  // surfaces (views-external okLogo, exports ok). Defense in depth: brand_logo is
+  // manager-written and size-capped, but the preview should never emit a non-image src.
+  const logoOk = typeof proj.brand_logo === 'string' && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(proj.brand_logo);
   const brandPreview = proj.brand_logo
     ? '<div class="acc-row" style="border-top:none;align-items:center">' +
-      '<img src="' + escA(proj.brand_logo) + '" alt="brand" style="max-height:44px;max-width:180px;object-fit:contain;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fff">' +
+      (logoOk ? '<img src="' + escA(proj.brand_logo) + '" alt="brand" style="max-height:44px;max-width:180px;object-fit:contain;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fff">' : '') +
       '<div style="flex:1;min-width:0"><input class="input" id="brandLabel" value="' + escA(proj.brand_label || '') + '" placeholder="Collaborator name (optional)" style="height:34px;font-size:12.5px"' + (isMgr ? '' : ' readonly') + '></div>' +
       (isMgr ? '<button class="btn btn-sec btn-sm" data-action="brandlabelsave">Save name</button><button class="btn btn-ghost btn-sm" data-action="brandremove">Remove</button>' : '') +
       '</div>'
@@ -414,7 +418,7 @@ function renderAccess(APP) {
     (isMgr && proj.brand_logo ? '<div class="acc-row"><span style="flex:1;font-size:11.5px;color:var(--ink-4)">Shown to partners and SMEs on the shared PRD, and on every printed or Word export.</span><button class="btn btn-ghost btn-sm" data-action="brandpick">Replace</button></div>' : '') +
     (isMgr ? '<input type="file" id="brandFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none">' : '');
 
-  /* SME workspaces — one durable personal link per expert (this project) */
+  /* SME workspaces - one durable personal link per expert (this project) */
   const seats = APP.smeSeats || [];
   const smeRows = seats.map((s) => {
     const link = base + '#sme/' + s.reply_token;
@@ -431,7 +435,7 @@ function renderAccess(APP) {
       '<button class="btn btn-primary btn-sm" data-action="smeseat">Create link</button></div>'
     : '';
   const smeBody = (smeRows || '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">' +
-    (isMgr ? 'No SME workspaces yet. Add an expert to mint their durable link — one place they return to, with the PRD and one continuous thread, across every version.' : 'No SME workspaces yet.') + '</span></div>') + smeAdd;
+    (isMgr ? 'No SME workspaces yet. Add an expert to mint their durable link - one place they return to, with the PRD and one continuous thread, across every version.' : 'No SME workspaces yet.') + '</span></div>') + smeAdd;
 
   /* Files partners and SMEs have attached (this project) */
   const files = (APP.attachments || []).slice().reverse();
@@ -442,21 +446,21 @@ function renderAccess(APP) {
         '<div style="font-size:11px;color:var(--ink-4)">' + esc(a.uploader_name || a.uploader_kind) + ' · ' + fmtBytes(a.size_bytes) + ' · ' + esc(relTime(a.created_at)) +
         (a.scan_status === 'error' ? ' · <span style="color:var(--amber)">scan failed</span>' : '') + '</div></div>' +
         '<button class="btn btn-sec btn-sm" data-action="dlattach" data-path="' + escA(a.storage_path) + '">' + ico(IC.download, 'i-sm') + 'Download</button></div>').join('')
-    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">No files yet. Partners and seated SMEs can attach documents to their notes — virus-scanned on the way in, they land here and on the thread.</span></div>';
+    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">No files yet. Partners and seated SMEs can attach documents to their notes - virus-scanned on the way in, they land here and on the thread.</span></div>';
 
   return '<div class="page" style="max-width:640px">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:16px">' +
     '<div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Access</h2>' +
     '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Everyone outside this window reaches the project through what is below. Grants and revocations take effect immediately.</div></div>' +
     (isMgr ? '<button class="btn btn-primary btn-sm" data-action="shareopen" style="flex:0 0 auto">' + ico(IC.send, 'i-sm') + 'Share…</button>' : '') + '</div>' +
-    section(IC.eye, 'var(--bg-3)', 'var(--ink)', 'Read-only presentation link', 'A fixed, branded, view-only page of the latest published version. No account and no review form — the link to send when someone just needs to see the record.',
+    section(IC.eye, 'var(--bg-3)', 'var(--ink)', 'Read-only presentation link', 'A fixed, branded, view-only page of the latest published version. No account and no review form - the link to send when someone just needs to see the record.',
       '<div class="acc-row" style="border-top:none"><span style="flex:1;font-size:12.5px;color:var(--ink-4)">' +
       (latest ? 'Points at v' + esc(latest.label) + '. Anyone with the link can view; nobody can edit.' : 'Generate a version first.') + '</span>' +
       '<button class="btn btn-sec btn-sm" data-action="copypresent"' + (latest ? '' : ' disabled') + '>' + ico(IC.link, 'i-sm') + 'Copy link</button></div>') +
     section(IC.doc, 'var(--bg-3)', 'var(--ink)', 'Brand on the shared PRD', 'Assign the collaborator’s logo to this PRD. It appears when a partner or SME views the brief, and on the printed and Word exports.', brandBody) +
     section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
     section(IC.user, '#f1ebfd', 'var(--purple)', 'Partners', 'Manage SMEs on the client side. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
-    section(IC.msg, '#e6f7fb', 'var(--teal)', 'SME workspaces', 'A durable personal link per expert: the branded PRD plus one continuous thread that stays put across every version. No account, no lost bookmarks — the same link always reopens their conversation.', smeBody) +
+    section(IC.msg, '#e6f7fb', 'var(--teal)', 'SME workspaces', 'A durable personal link per expert: the branded PRD plus one continuous thread that stays put across every version. No account, no lost bookmarks - the same link always reopens their conversation.', smeBody) +
     section(IC.clip, 'var(--bg-3)', 'var(--ink)', 'Files from reviewers', 'Documents partners and SMEs attach to their notes. Download here or from the thread. Files are virus-scanned when a scanner is configured; a “scan failed” flag means one was set but unreachable.', filesBody) +
     section(IC.send, '#e6f7fb', 'var(--teal)', 'Review &amp; testing links', 'No account needed. Each recipient gets a private thread back to your inbox. Anyone with the link can respond, so share deliberately.', guestBody) +
     section(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'Input requests', 'Ask SMEs a specific question before or after the PRD exists. Responses land in the Inbox, linked to the request.', reqBody) +
@@ -490,7 +494,7 @@ function renderVersions(APP) {
         : (ap.approver_user_id ? '' : '<span style="color:var(--ink-4)"> · manual</span>');
       return '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px">' +
         '<span class="stchip ' + esc(ap.status === 'pending' ? 'draft' : ap.status) + '" style="height:20px;font-size:10px">' + esc(ap.status === 'pending' ? 'Pending' : STATUS_LABEL[ap.status]) + '</span>' +
-        '<span style="flex:1;min-width:0"><strong>' + esc(ap.approver_role || 'Approver') + '</strong>' + (ap.approver_name ? ' — ' + esc(ap.approver_name) : '') + tag +
+        '<span style="flex:1;min-width:0"><strong>' + esc(ap.approver_role || 'Approver') + '</strong>' + (ap.approver_name ? ' - ' + esc(ap.approver_name) : '') + tag +
         (ap.comment ? '<span style="color:var(--ink-4)"> · ' + esc(ap.comment) + '</span>' : '') + '</span>' +
         (mineSlot && ap.status === 'pending' ? '<span class="stchip" style="height:20px;font-size:10px;background:var(--brand);color:#fff">Waiting on you</span>' : '') +
         (canDecide ? '<button class="btn btn-ghost btn-sm" data-action="apprdecide" data-id="' + escA(ap.id) + '" data-val="approved" style="font-size:11px;color:var(--good)">Approve</button>' +
@@ -529,6 +533,6 @@ function renderActivity(APP) {
     '<div class="tl-item"><div style="font-size:13px;color:var(--ink-2);line-height:1.5"><strong>' + esc(e.actor_name || 'System') + '</strong> ' + esc(e.summary || e.action) + '</div>' +
     '<div style="font-size:11px;color:var(--ink-4);margin-top:2px">' + esc(fmtDate(e.created_at)) + ' · <span class="mono">' + esc(e.action) + '</span></div></div>').join('');
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Activity</h2>' +
-    '<p class="hint" style="margin:0 0 18px">The audit trail is append-only and written by the database itself — entries cannot be edited or deleted from the app.</p>' +
+    '<p class="hint" style="margin:0 0 18px">The audit trail is append-only and written by the database itself - entries cannot be edited or deleted from the app.</p>' +
     '<div class="tl">' + items + '</div></div>';
 }

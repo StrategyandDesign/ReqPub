@@ -2,8 +2,9 @@
 
 Partners and seated SMEs (and the team) can attach documents (PDFs, Word/Excel/
 PowerPoint, text/CSV/Markdown, images, and zips) to a conversation. Files are
-**virus-scanned on the way in**, stored in a **private** bucket, and reachable
-only through short-lived signed links. Every upload is written to the audit log.
+**scanned on the way in when a scanner is configured** (see setup below), stored
+in a **private** bucket, and reachable only through short-lived signed links.
+Every upload is written to the audit log.
 
 Who can upload, by design:
 

@@ -41,15 +41,22 @@ const md = assemble(sections, answers);
 if (!md.startsWith('# ' + PRD.scalars.ctrl_product)) throw new Error('document did not assemble with the product title');
 const snapshot = { answers, sections };
 
-/* VALUES bodies. */
-const fieldVals = Object.entries(PRD.scalars).map(([id, value]) => `    (${s(id)}, ${jsonb(value)})`).join(',\n');
+/* VALUES bodies (keyed on the plpgsql variable v_pid). */
+const fieldVals = Object.entries(PRD.scalars)
+  .map(([id, value]) => `    (v_pid, ${s(id)}, ${jsonb(value)}, 1, 'FC-REQ-001', now())`).join(',\n');
 const rowVals = [];
-const push = (id, items, toData) => items.forEach((item, i) => rowVals.push(`    (${s(id)}, ${i + 1}, ${jsonb(toData(item))}, ${i + 1})`));
+const push = (id, items, toData) => items.forEach((item, i) =>
+  rowVals.push(`    (v_pid, ${s(id)}, ${i + 1}, ${jsonb(toData(item))}, ${i + 1}, 'FC-REQ-001', now())`));
 for (const [id, arr] of Object.entries(PRD.lists)) push(id, arr, (t) => ({ text: t }));
 for (const [id, arr] of Object.entries(PRD.rows)) push(id, arr, (d) => d);
 
+// The whole migration is ONE plpgsql DO block. A DO command is a single
+// statement, so it is atomic on its own and needs no session temp table or
+// multi-statement transaction - which is what a connection pooler (Supabase's
+// SQL editor) cannot carry across statements. The resolved project id lives in
+// the variable v_pid and is used directly in every insert.
 const out = `-- ============================================================================
--- deploy-fathering-baseline.sql   (one transaction; generated, do not hand-edit)
+-- deploy-fathering-baseline.sql   (one atomic statement; generated, do not hand-edit)
 --
 -- Rebuilds the existing Fathering project in the 'Collection Ventures' workspace
 -- as "Fathering Baseline Assessment", mapped from FC-REQ-001. It:
@@ -62,18 +69,19 @@ const out = `-- ================================================================
 --      approvers (Product, Engineering, Sponsor).
 --
 -- Run ONCE in the Supabase SQL editor, AFTER schema.sql and the feature
--- migrations. It is destructive for this one project's collaboration history and
--- prior versions, and runs entirely inside a single transaction (all-or-nothing).
--- Branding, the audit/activity log, and every other project are left untouched.
+-- migrations. The entire operation is a single DO block, so it is atomic
+-- (all-or-nothing) and safe under connection pooling. It is destructive only for
+-- this one project's collaboration history and prior versions; branding, the
+-- audit/activity log, and every other project are left untouched. Re-runnable.
 -- Generated from tools/prd-seed-data.mjs (fatheringBaseline).
 -- ============================================================================
 
-begin;
-
-create temp table _fb (pid text, org uuid, owner uuid) on commit drop;
-
-do $$
-declare v_org uuid; v_pid text; v_owner uuid;
+do $fb$
+declare
+  v_org   uuid;
+  v_pid   text;
+  v_owner uuid;
+  v_ver   uuid;
 begin
   select id, created_by into v_org, v_owner from orgs where name = 'Collection Ventures' order by created_at limit 1;
   if v_org is null then
@@ -107,43 +115,33 @@ begin
   delete from project_fields where project_id = v_pid;
   delete from versions       where project_id = v_pid;   -- cascades version_approvals
 
-  insert into _fb values (v_pid, v_org, v_owner);
-end $$;
+  -- Worksheet scalars.
+  insert into project_fields (project_id, field_id, value, rev, updated_by_name, updated_at) values
+${fieldVals};
 
--- Worksheet scalars.
-insert into project_fields (project_id, field_id, value, rev, updated_by_name, updated_at)
-select (select pid from _fb), t.f, t.v, 1, 'FC-REQ-001', now()
-from (values
-${fieldVals}
-) as t(f, v);
+  -- Worksheet rows (lists and tables); k is the permanent per-field id.
+  insert into field_rows (project_id, field_id, k, data, pos, updated_by_name, updated_at) values
+${rowVals.join(',\n')};
 
--- Worksheet rows (lists and tables); k is the permanent per-field id.
-insert into field_rows (project_id, field_id, k, data, pos, updated_by_name, updated_at)
-select (select pid from _fb), t.fid, t.k, t.d, t.p, 'FC-REQ-001', now()
-from (values
-${rowVals.join(',\n')}
-) as t(fid, k, d, p);
+  -- Approved v1.1 baseline with the assembled { answers, sections } snapshot.
+  insert into versions (id, project_id, seq, label, status, note, author_name, snapshot, created_by, created_at)
+    values (gen_random_uuid(), v_pid, 1, '1.1', 'approved',
+      'Baseline Father Profile Assessment, Phase 1 (FC-REQ-001).', 'Micah Canfield',
+      ${jsonb(snapshot)}, v_owner, now())
+    returning id into v_ver;
 
--- Approved v1.1 baseline with the assembled { answers, sections } snapshot.
-insert into versions (id, project_id, seq, label, status, note, author_name, snapshot, created_by, created_at)
-select gen_random_uuid(), (select pid from _fb), 1, '1.1', 'approved',
-  'Baseline Father Profile Assessment, Phase 1 (FC-REQ-001).', 'Micah Canfield',
-  ${jsonb(snapshot)}, (select owner from _fb), now();
+  -- Record the document's named approvers as signed off. The provenance trigger
+  -- forces new rows to 'pending', so we insert then mark approved.
+  insert into version_approvals (version_id, approver_role, approver_name) values
+    (v_ver, 'Product', 'Micah Canfield'),
+    (v_ver, 'Engineering', 'Alon Arad'),
+    (v_ver, 'Sponsor', 'Dr. Ken Canfield');
 
--- Record the document's named approvers as signed off. The provenance trigger
--- forces new rows to 'pending', so we insert then mark approved (attributed to
--- the workspace owner).
-insert into version_approvals (version_id, approver_role, approver_name)
-select v.id, a.role, a.name
-from (select id from versions where project_id = (select pid from _fb) and label = '1.1') v,
-     (values ('Product', 'Micah Canfield'),
-             ('Engineering', 'Alon Arad'),
-             ('Sponsor', 'Dr. Ken Canfield')) as a(role, name);
+  update version_approvals set status = 'approved', decided_by = v_owner, decided_at = now() where version_id = v_ver;
 
-update version_approvals set status = 'approved', decided_by = (select owner from _fb), decided_at = now()
-where version_id in (select id from versions where project_id = (select pid from _fb) and label = '1.1');
-
-commit;
+  raise notice 'Fathering Baseline Assessment deployed: project %, version 1.1 approved.', v_pid;
+end
+$fb$;
 
 -- Verify what landed:
 --   select id, name, archived from projects where name = 'Fathering Baseline Assessment';

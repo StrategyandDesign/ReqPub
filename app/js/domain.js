@@ -1,5 +1,5 @@
 /* ============================================================================
-   ReqPub v2 — domain logic (framework-free, fully testable in Node)
+   ReqPub v2 - domain logic (framework-free, fully testable in Node)
    The question bank, the deterministic PRD builders, the review brief,
    markdown rendering, and version diffing. Ported from v1 verbatim where the
    behavior was already right; the storage shape it consumes is unchanged:
@@ -231,7 +231,7 @@ function bSolution(a) {
       const ids = groups[c.name] || [];
       return [c.name || '', c.owner || 'to confirm', c.status || 'Active', ids.length ? ids.length + ': ' + ids.join(', ') : 'none yet', c.desc || ''];
     });
-    if (unassigned.length) trows.push(['Unassigned', '—', '—', unassigned.length + ': ' + unassigned.join(', '), 'Requirements not yet tagged to a component']);
+    if (unassigned.length) trows.push(['Unassigned', '-', '-', unassigned.length + ': ' + unassigned.join(', '), 'Requirements not yet tagged to a component']);
     p.push('### 3.4 Components and Ownership\n\nThe product is delivered as named components, each with an owner and a status. A component is a vertical slice that may span functional, non-functional, evaluation, and interface requirements. The canonical requirement text stays in Sections 7 to 11; this table maps each component to its owner and the requirements it covers.\n\n' + mdTable(['Component', 'Owner', 'Status', 'Requirements', 'Description'], trows));
   }
   return p.join('\n\n');

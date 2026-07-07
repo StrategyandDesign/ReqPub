@@ -86,7 +86,7 @@ insert into partner_notes(id, org_id, project_id, partner_id, name, text, create
  '[{"from":"team","name":"Team","text":"Pricing page ships with v1.2","at":"2026-06-24T12:00:00Z"},
    {"from":"partner","name":"Pat Partner","text":"Great, will relay","at":"2026-06-24T13:00:00Z"}]');
 
--- legacy shares (v1 hash tokens) — brief/pilot for v2 links, note for the request
+-- legacy shares (v1 hash tokens) - brief/pilot for v2 links, note for the request
 insert into shares(token, org_id, project_id, version_seq, kind, payload) values
 ('legacybrief2', 'cccccccc-0000-0000-0000-000000000003', 'p1', 2, 'brief',
  '{"product":"RecordMade","label":"1.1","answers":{"ov_vision":"A record for every family"}}'),

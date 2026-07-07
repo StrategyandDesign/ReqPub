@@ -1,4 +1,4 @@
-/* ReqPub v2 — domain tests (node tests/domain.test.mjs) */
+/* ReqPub v2 - domain tests (node tests/domain.test.mjs) */
 import assert from 'node:assert/strict';
 import {
   Q, SECTIONS, isAnswered, assembleAnswers, buildSections, assemble,

@@ -1,5 +1,5 @@
 /* ============================================================================
-   ReqPub v2 — member views: shell, dashboard, workspace (worksheet + live doc)
+   ReqPub v2 - member views: shell, dashboard, workspace (worksheet + live doc)
    Views are pure functions of APP state; main.js owns events via data-action.
    ============================================================================ */
 
@@ -26,8 +26,8 @@ export function saveChip(APP) {
   const map = {
     saving: '<span class="spin"></span>Saving…',
     saved: ico(IC.check, 'i-sm') + 'Saved',
-    offline: 'Offline — will retry',
-    error: 'Save failed — Retry'
+    offline: 'Offline - will retry',
+    error: 'Save failed - Retry'
   };
   return '<button class="savechip ' + s + '"' + (s === 'error' ? ' data-action="retrysave"' : ' disabled') +
     ' title="Every edit is saved to the shared workspace">' + map[s] + '</button>';
@@ -38,7 +38,7 @@ export function presenceBar(APP) {
   if (!ps.length) return '';
   const cls = ['', '', 'p2', 'p3', 'p4', 'p5'];
   const avs = ps.slice(0, 5).map((p, i) =>
-    '<span class="pav ' + (cls[i + 1] || '') + '" title="' + escA(p.n + (p.f ? ' — editing' : ' — viewing')) + '">' + esc(initials(p.n)) + '</span>').join('');
+    '<span class="pav ' + (cls[i + 1] || '') + '" title="' + escA(p.n + (p.f ? ' - editing' : ' - viewing')) + '">' + esc(initials(p.n)) + '</span>').join('');
   const more = ps.length > 5 ? '<span class="pav" title="' + ps.length + ' people here">+' + (ps.length - 5) + '</span>' : '';
   return '<div class="pres" title="Also in this project now">' + avs + more + '</div>';
 }
@@ -139,7 +139,7 @@ function shareModal(APP) {
     row(IC.link, '#e6f7fb', 'var(--teal)', 'An app tester', latest ? 'Copies the testing link for v' + esc(latest.label) + '. Bug reports land in your Inbox.' : 'Generate a version first.', 'shr-pilot', !latest) +
     row(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'A question for an SME', 'Compose an input request and send its link. Answers thread back to the Inbox.', 'shr-request') +
     '<div class="umsep" style="margin:4px 0"></div>' +
-    row(IC.eye, 'var(--bg-3)', 'var(--ink)', 'Anyone, read-only', latest ? 'Copies a fixed, branded, view-only link of v' + esc(latest.label) + '. No account, no review — just the record.' : 'Generate a version first.', 'copypresent', !latest) +
+    row(IC.eye, 'var(--bg-3)', 'var(--ink)', 'Anyone, read-only', latest ? 'Copies a fixed, branded, view-only link of v' + esc(latest.label) + '. No account, no review - just the record.' : 'Generate a version first.', 'copypresent', !latest) +
     '</div></div></div>';
 }
 
@@ -161,7 +161,7 @@ function generateModal(APP) {
     '<div class="fldlabel">Version</div><div class="choice">' +
     '<button class="chip' + (!g.major ? ' on' : '') + '" data-action="genkind" data-val="minor">Minor · v' + esc(nextMinor) + '</button>' +
     '<button class="chip' + (g.major ? ' on' : '') + '" data-action="genkind" data-val="major">Major · v' + esc(nextMajor) + '</button></div>' +
-    '<div class="fldlabel">Change note (optional — a summary is added automatically)</div>' +
+    '<div class="fldlabel">Change note (optional - a summary is added automatically)</div>' +
     '<input class="input" id="genNote" value="' + escA(g.note || '') + '" placeholder="e.g. Added e-signature requirements after SME review">' +
     (g.error ? '<div style="color:var(--bad);font-size:12.5px;margin-top:10px">' + esc(g.error) + '</div>' : '') +
     '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button class="btn btn-sec" data-action="modalclose">Cancel</button>' +
@@ -247,9 +247,9 @@ function orgModal(APP) {
     }).join('');
     body = '<div class="fldlabel">Invite a teammate</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="invEmail" type="email" placeholder="name@company.com" style="flex:1;min-width:180px">' +
-      '<select class="input" id="invRole" style="width:auto"><option value="manager">Manager — edits documents</option><option value="viewer">Viewer — read + comment</option></select>' +
+      '<select class="input" id="invRole" style="width:auto"><option value="manager">Manager - edits documents</option><option value="viewer">Viewer - read + comment</option></select>' +
       '<button class="btn btn-primary" data-action="invsend">Invite</button></div>' +
-      '<div class="hint" style="margin-top:7px">Managers write; Viewers read everything and can reply in the Inbox. The invite email needs the send-invite function deployed — the invite itself works either way.</div>' +
+      '<div class="hint" style="margin-top:7px">Managers write; Viewers read everything and can reply in the Inbox. The invite email needs the send-invite function deployed - the invite itself works either way.</div>' +
       '<div class="fldlabel" style="margin-top:18px">Members</div>' + (rows || '<div class="hint">Just you so far.</div>') +
       (inv ? '<div class="fldlabel" style="margin-top:14px">Pending invites</div>' + inv : '');
   } else {
@@ -310,7 +310,7 @@ export function viewProjects(APP) {
     const canApprove = APP.role === 'manager' && latest && latest.status !== 'approved';
     const approveCtl = canApprove
       ? '<span style="flex-basis:100%;height:2px"></span>' +
-        '<span data-action="cardapprove" data-id="' + escA(p.id) + '" title="Send for review, then approve — in one click" ' +
+        '<span data-action="cardapprove" data-id="' + escA(p.id) + '" title="Send for review, then approve - in one click" ' +
         'style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:580;color:var(--good);border:1px solid var(--good);border-radius:999px;padding:3px 11px;cursor:pointer;background:transparent">' +
         ico(IC.check, 'i-sm') + 'Approve v' + esc(latest.label) + '</span>' +
         (latest.status === 'draft'
@@ -353,7 +353,7 @@ function onboardBlock(APP) {
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">' +
     step(1, 'Answer the worksheet', 'The guided intake covers users, scope, requirements, data, and AI evaluation. Everyone edits together, live.') +
     step(2, 'Generate a version', 'A numbered, immutable baseline with a change summary and an approval workflow.') +
-    step(3, 'Collect input', 'Share review briefs and request links with SMEs — no account needed on their side. Partners get a portal.') +
+    step(3, 'Collect input', 'Share review briefs and request links with SMEs - no account needed on their side. Partners get a portal.') +
     step(4, 'Hand off', 'Export to Word, PDF, or Markdown with approvals and revision history on the cover.') +
     '</div></div>';
 }
@@ -430,7 +430,7 @@ export function fieldHTML(APP, q, a, editingBy) {
     '<span style="font-size:13.5px;font-weight:600;letter-spacing:-.005em">' + esc(q.prompt) + (q.req ? ' <span style="color:var(--brand)">*</span>' : '') + '</span>' +
     editingChip(editingBy && editingBy[q.id]) + '</div>' +
     (q.help ? '<div style="font-size:12px;color:var(--ink-4);line-height:1.5;margin:-3px 0 8px">' + esc(q.help) + '</div>' : '');
-  const conflictNote = conflict ? '<div class="conflict-note">' + esc((conflict.by || 'A teammate') + ' edited this at the same time — your text was kept. Check theirs in the document pane.') + '</div>' : '';
+  const conflictNote = conflict ? '<div class="conflict-note">' + esc((conflict.by || 'A teammate') + ' edited this at the same time - your text was kept. Check theirs in the document pane.') + '</div>' : '';
 
   let control = '';
   if (q.type === 'short') {
@@ -527,7 +527,7 @@ export function presentOverlay(APP, a) {
 
 function renderDoc(APP, a, ac, total) {
   // Four primary sections + a segmented sub-nav, replacing 11 flat tabs. The
-  // underlying content still keys off APP.docTab, so every view is preserved —
+  // underlying content still keys off APP.docTab, so every view is preserved -
   // just regrouped by job. Activity moves to a toolbar icon (see docActions).
   const NAV = [
     { key: 'document', label: 'Document', subs: [['document', 'Read'], ['summary', 'Summary'], ['changes', 'Changes'], ['versions', 'Versions']] },
@@ -556,8 +556,8 @@ function renderDoc(APP, a, ac, total) {
     '<option value="' + v.seq + '"' + (APP.viewSeq === v.seq ? ' selected' : '') + '>v' + esc(v.label) + '</option>').join('');
   const docActions =
     (APP.role === 'manager' ? '<button class="icobtn" data-action="shareopen" title="Share this project…">' + ico(IC.send) + '</button>' : '') +
-    '<button class="icobtn" data-action="tab" data-val="activity" title="Activity — the append-only audit trail"' + (APP.docTab === 'activity' ? ' style="background:var(--ink);color:var(--bg)"' : '') + '>' + ico(IC.hist) + '</button>' +
-    '<button class="icobtn" data-action="present" title="Presentation mode — show only the document">' + ico(IC.expand) + '</button>' +
+    '<button class="icobtn" data-action="tab" data-val="activity" title="Activity - the append-only audit trail"' + (APP.docTab === 'activity' ? ' style="background:var(--ink);color:var(--bg)"' : '') + '>' + ico(IC.hist) + '</button>' +
+    '<button class="icobtn" data-action="present" title="Presentation mode - show only the document">' + ico(IC.expand) + '</button>' +
     ((APP.docTab === 'document' || APP.docTab === 'summary' || APP.docTab === 'changes')
       ? (APP.versions.length ? '<select class="input" data-action="versionsel" style="height:34px;padding:0 8px;width:auto;font-family:var(--mono);font-size:12px">' + verOptions + '</select>' : '') +
         '<button class="icobtn" data-action="copymd" title="Copy Markdown">' + ico(IC.copy) + '</button>' +

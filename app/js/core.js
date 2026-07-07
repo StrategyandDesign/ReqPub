@@ -1,4 +1,4 @@
-/* ReqPub v2 — core utilities: escaping, formatting, icons, theme, toast. */
+/* ReqPub v2 - core utilities: escaping, formatting, icons, theme, toast. */
 
 export const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -158,7 +158,7 @@ export async function copyText(text) {
 }
 
 /* The public read-only presentation URL for a published brief share. Anyone
-   with it sees the branded PRD as a fixed, read-only page — no account, no
+   with it sees the branded PRD as a fixed, read-only page - no account, no
    review form. It reuses the brief token, so it exposes nothing the brief
    link does not, and is revoked together with it. */
 export const presentUrl = (pid, seq, token) =>

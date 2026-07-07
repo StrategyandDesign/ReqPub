@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub — seed the "Esign API" worked-example PRD (standalone; touches nothing else)
+-- ReqPub - seed the "Esign API" worked-example PRD (standalone; touches nothing else)
 -- ============================================================================
 -- Run ONCE in the Supabase SQL editor, AFTER schema.sql. Re-runnable (idempotent).
 -- It targets the org named exactly 'Collection Ventures'. If your workspace is

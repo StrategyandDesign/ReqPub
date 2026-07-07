@@ -3,7 +3,7 @@
 // stores the bytes in the private 'attachments' bucket, and registers the
 // metadata via attachment_add. Infected files are rejected and never stored.
 //
-// Deploy with "Verify JWT" OFF — SMEs are accountless (they authorize with their
+// Deploy with "Verify JWT" OFF - SMEs are accountless (they authorize with their
 // durable reply_token). Team and partner callers still pass a real JWT, which we
 // verify explicitly below, so turning platform JWT verification off is safe here.
 //
@@ -69,7 +69,7 @@ async function scan(bytes: Uint8Array, name: string): Promise<{ status: string; 
       if (typeof j.clean === "boolean") verdict = j.clean ? "clean" : "infected";
       else if (typeof j.Status === "string") verdict = /ok|clean/i.test(j.Status) ? "clean" : "infected";
       else if (typeof j.status === "string") verdict = /ok|clean/i.test(j.status) ? "clean" : "infected";
-    } catch { /* not JSON — fall through to text parsing */ }
+    } catch { /* not JSON - fall through to text parsing */ }
     if (verdict === null) {
       if (/\b(found|infected|virus|malware|positive)\b/i.test(text)) verdict = "infected";
       else if (/\b(ok|clean|no[\s-]?virus|negative)\b/i.test(text)) verdict = "clean";
@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
   });
   if (!reg?.ok) {
     await admin.storage.from("attachments").remove([path]);
-    return json({ error: reg?.error === "rate_limited" ? "Too many uploads — try again later." : "could not save attachment", detail: reg?.error }, 400);
+    return json({ error: reg?.error === "rate_limited" ? "Too many uploads - try again later." : "could not save attachment", detail: reg?.error }, 400);
   }
 
   return json({ ok: true, id: reg.id, file_name: fileName, size: file.size, scan_status: scanStatus });

@@ -70,7 +70,7 @@ try {
   await asUser(MGR);
   const c = await one(`select id from comms where reply_token=$1`, [tok]);
   await db.query(`insert into messages(org_id,parent_kind,parent_id,author_kind,author_name,body)
-                  values ($1,'comm',$2,'team','Micah','Good question — here is the answer.')`, [ORG, c.id]);
+                  values ($1,'comm',$2,'team','Micah','Good question - here is the answer.')`, [ORG, c.id]);
   await asUser('');
   await one(`select sme_reply($1,'Thanks, follow-up here.') ok`, [tok]);
 

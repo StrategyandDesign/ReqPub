@@ -4,7 +4,7 @@
 -- Run AFTER schema.sql, in the same Supabase project.
 -- Idempotent: every insert is keyed on a primary key or legacy_id and uses
 -- ON CONFLICT DO NOTHING, so re-running never duplicates. v1 tables are only
--- READ — kv, shares, submissions and partner_notes stay intact as a fallback
+-- READ - kv, shares, submissions and partner_notes stay intact as a fallback
 -- until you retire the v1 frontend.
 --
 -- What moves where:
@@ -23,7 +23,7 @@
 begin;
 
 -- ----------------------------------------------------------------------------
--- 1) Projects — from each org's index, plus any orphaned answers blobs
+-- 1) Projects - from each org's index, plus any orphaned answers blobs
 -- ----------------------------------------------------------------------------
 insert into projects (id, org_id, name, created_at, updated_at)
 select p->>'id', kv.org_id,
@@ -96,7 +96,7 @@ where not (jsonb_typeof(item) = 'string' and coalesce(trim(item#>>'{}'), '') = '
 on conflict (project_id, field_id, k) do nothing;
 
 -- ----------------------------------------------------------------------------
--- 3) Versions — metadata + per-version snapshot + build tags + doc status
+-- 3) Versions - metadata + per-version snapshot + build tags + doc status
 -- ----------------------------------------------------------------------------
 with vmeta as (
   select substring(kv.key from '^rm:proj:([^:]+):versions$') as project_id,
@@ -148,7 +148,7 @@ where v.project_id = c.project_id and v.seq = c.maxseq and c.maxseq is not null
   and v.status = 'draft' and c.status <> 'draft';
 
 -- ----------------------------------------------------------------------------
--- 4) Input requests (v1 noteReqs) — adopting legacy share tokens so old
+-- 4) Input requests (v1 noteReqs) - adopting legacy share tokens so old
 --    #note/... links continue to resolve
 -- ----------------------------------------------------------------------------
 with reqs as (

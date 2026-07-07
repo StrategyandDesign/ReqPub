@@ -1,4 +1,4 @@
-/* ReqPub backend config — shared by signup.html and (after Phase B) index.html.
+/* ReqPub backend config - shared by signup.html and (after Phase B) index.html.
    Leave blank to run the app locally with no backend. To go multi-user, paste your
    Supabase Project URL and anon (public) key from Project Settings -> API.
    The anon key is safe to ship in the browser; every table is gated by row-level security.

@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub v2 — post-migration verification
+-- ReqPub v2 - post-migration verification
 -- Run after schema.sql + migrate.sql. Every row should read true (or show
 -- matching v1/v2 counts). Investigate any false before cutting the app over.
 -- ============================================================================

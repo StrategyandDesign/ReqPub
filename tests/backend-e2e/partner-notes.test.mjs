@@ -61,7 +61,7 @@ try {
   check('multi-line note titles from the first line only', l.title === 'Second question.…', l.title);
   check('the third note is PN-3', l.ref === 'PN-3', l.ref);
 
-  // References survive deletion — the next is max+1, never a reused number.
+  // References survive deletion - the next is max+1, never a reused number.
   await asUser('');
   await run(`delete from comms where ref='PN-3'`);
   await asUser(PARTNER);

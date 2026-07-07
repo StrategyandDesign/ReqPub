@@ -1,5 +1,5 @@
 /* ============================================================================
-   ReqPub v2 — data layer
+   ReqPub v2 - data layer
    One Supabase client, one repository object. Every mutation is awaited and
    returns a definite outcome; transient network failures are retried with
    exponential backoff (durable()). Racy structures (fields, rows, versions)
@@ -325,7 +325,7 @@ export function stripInternal(obj) {
 }
 /* Brief payloads are section-scoped: only the answer fields backing the
    selected sections are included, so unshared content is absent from the
-   payload itself — not merely hidden by the page that renders it. */
+   payload itself - not merely hidden by the page that renders it. */
 export function buildSharePayload(project, answers, versionLabel, seq, kind, build, sectionKeys) {
   const filled = (arr) => (arr || []).filter((r) => Object.keys(r || {}).some((c) => c !== '_k' && r[c] && String(r[c]).trim()));
   if (kind === 'pilot') {

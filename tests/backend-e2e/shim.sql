@@ -4,7 +4,7 @@ create role authenticated nologin;
 
 -- Supabase parity: pgcrypto lives in the `extensions` schema there, NOT in
 -- public. Installing it the same way here catches any function that calls
--- gen_random_bytes without `extensions` on its search_path — a bug class
+-- gen_random_bytes without `extensions` on its search_path - a bug class
 -- that passes on plain Postgres and fails in production.
 create schema extensions;
 create extension pgcrypto with schema extensions;

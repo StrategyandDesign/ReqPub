@@ -1,25 +1,41 @@
 // Supabase Edge Function: send-invite
 // Emails a ReqPub workspace invitation via Resend.
 //
+// The caller must be a signed-in manager who has already added the recipient:
+// the function checks, under the caller's own identity, that a matching
+// org_invites or partners row exists. Those tables are manager-scoped by
+// row-level security, so a row is visible only to a manager of the workspace
+// that added the address. This prevents the function from being used to send
+// mail to arbitrary recipients.
+//
 // Set these in Supabase -> Edge Functions -> Secrets:
 //   RESEND_API_KEY  (required)  your Resend API key
-//   INVITE_FROM     (optional)  e.g. "ReqPub <invites@reqpub.com>"  — must be a Resend-verified sender/domain.
+//   INVITE_FROM     (optional)  e.g. "ReqPub <invites@reqpub.com>", a Resend-verified sender/domain.
 //                               Defaults to Resend's test sender, which only delivers to your own Resend email.
 //   APP_URL         (optional)  defaults to https://reqpub.com
+//   SUPABASE_URL, SUPABASE_ANON_KEY   (provided automatically)
 //
 // Keep "Verify JWT" ON when deploying, so only signed-in users can trigger emails.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const INVITE_FROM = Deno.env.get("INVITE_FROM") ?? "ReqPub <onboarding@resend.dev>";
 const APP_URL = Deno.env.get("APP_URL") ?? "https://reqpub.com";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-const json = (o: unknown, status = 200) =>
-  new Response(JSON.stringify(o), { status, headers: { ...cors, "Content-Type": "application/json" } });
+const ALLOWED_ORIGINS = new Set([APP_URL, "https://reqpub.com"]);
+function corsFor(req: Request) {
+  const origin = req.headers.get("Origin") ?? "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : APP_URL,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+const reply = (req: Request, o: unknown, status = 200) =>
+  new Response(JSON.stringify(o), { status, headers: { ...corsFor(req), "Content-Type": "application/json" } });
 
 function esc(s: string) {
   return s.replace(/[&<>"']/g, (c) =>
@@ -27,9 +43,9 @@ function esc(s: string) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (!RESEND_API_KEY) return json({ error: "RESEND_API_KEY is not set in Edge Function secrets" }, 500);
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsFor(req) });
+  if (req.method !== "POST") return reply(req, { error: "POST only" }, 405);
+  if (!RESEND_API_KEY) return reply(req, { error: "RESEND_API_KEY is not set in Edge Function secrets" }, 500);
 
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* ignore */ }
@@ -38,7 +54,26 @@ Deno.serve(async (req) => {
   const role = String(body.role ?? "teammate");
   const workspace = String(body.orgName ?? "").trim() || "a ReqPub workspace";
   const inviter = String(body.inviterEmail ?? "").trim();
-  if (!email) return json({ error: "email required" }, 400);
+  if (!email) return reply(req, { error: "email required" }, 400);
+
+  // Authorize under the caller's identity: they must have already added this
+  // recipient to a workspace they manage. The manager-scoped row-level policy on
+  // org_invites/partners means such a row is visible to them only if that holds.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader || !SUPABASE_URL || !ANON_KEY) return reply(req, { error: "unauthorized" }, 401);
+  const supa = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false },
+  });
+  const { data: who } = await supa.auth.getUser();
+  if (!who?.user) return reply(req, { error: "unauthorized" }, 401);
+  const [inv, prt] = await Promise.all([
+    supa.from("org_invites").select("email").ilike("email", email).limit(1),
+    supa.from("partners").select("email").ilike("email", email).limit(1),
+  ]);
+  if ((inv.data?.length ?? 0) === 0 && (prt.data?.length ?? 0) === 0) {
+    return reply(req, { error: "no pending invite for this email in a workspace you manage" }, 403);
+  }
 
   const signup = `${APP_URL}/signup?invite=${encodeURIComponent(email)}`;
   const intro = inviter ? `${esc(inviter)} invited you` : "You've been invited";
@@ -65,6 +100,6 @@ Deno.serve(async (req) => {
     body: JSON.stringify({ from: INVITE_FROM, to: [email], subject, html, text }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) return json({ error: (data as { message?: string })?.message ?? "send failed", detail: data }, 502);
-  return json({ ok: true, id: (data as { id?: string })?.id ?? null });
+  if (!res.ok) return reply(req, { error: (data as { message?: string })?.message ?? "send failed", detail: data }, 502);
+  return reply(req, { ok: true, id: (data as { id?: string })?.id ?? null });
 });

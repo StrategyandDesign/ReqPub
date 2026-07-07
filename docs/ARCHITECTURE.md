@@ -1,6 +1,6 @@
 # ReqPub v2 architecture
 
-This document explains the design and the reasoning, in the order a reviewer will question it: why the concurrency model looks like this, then the data model, security, realtime, external collaboration, migration, and the residual limits we accept knowingly.
+The design and the reasoning behind it, in dependency order: the concurrency model, the data model, security, realtime, external collaboration, migration, and the limits we accept knowingly.
 
 ## 1. The concurrency model
 
@@ -51,7 +51,7 @@ Row-level security on every table; membership checks run through `SECURITY DEFIN
 - SMEs have no account. Share and reply tokens are 144-bit random URL-safe strings generated server-side (`gen_random_bytes`), not guessable hashes; payloads served to them are curated subsets built by the app (`buildSharePayload`) that never include fit criteria, schedules, or internal notes. Legacy v1 hash tokens continue to resolve because the rows were migrated, but all new tokens are random.
 - Anonymous endpoints are rate limited server-side: 60 submissions per project per origin per hour, 30 per input request per hour, 30 replies per SME thread per hour, and 40 file uploads per project per hour. Publishing a share is fenced to the caller's own org and project, so a colliding or guessed token belonging to another workspace is refused rather than overwritten.
 - Team identity is server-stamped: when a signed-in member writes a team message or team note, the author name is taken from their profile, not from the request. External viewers therefore cannot be shown words under a teammate's forged name.
-- Uploaded files are virus-scanned in an edge function before storage, stored in a private bucket reachable only through short-lived signed URLs, capped at 25 MB and an allow-list of document/image types, and re-validated in the database on insert. Infected files are rejected and never stored.
+- Uploaded files are scanned in an edge function before storage when a scanner is configured (see `docs/ATTACHMENTS.md`), stored in a private bucket reachable only through short-lived signed URLs, capped at 25 MB and an allow-list of document/image types, and re-validated in the database on insert. Infected files are rejected and never stored.
 - Input has ceilings: 256 KB per worksheet answer and 128 KB per row enforced in the RPCs, 20 KB per comm or message body enforced by CHECK constraints on new writes.
 - The frontend ships a CSP with no inline scripts, escapes every interpolation through one `esc()` helper, and holds no secrets beyond the public anon key.
 
@@ -75,7 +75,7 @@ Three tiers, matching how the surveyed tools converge (paid makers, scoped free 
 - **Partners (account):** a portal listing assigned projects with the latest *published* brief, their notes as live threads (each carrying a stable `PN-n` reference), and direct reply. Partner identity is server-derived, never client-asserted.
 - **Team:** managers and viewers, with viewers deliberately able to participate in conversation while remaining unable to touch the document.
 
-Partners and seated SMEs can also attach documents to their threads. Uploads are virus-scanned, stored privately, and land in the team's inbox and a per-PRD file roll-up; see `docs/ATTACHMENTS.md`.
+Partners and seated SMEs can also attach documents to their threads. Uploads are scanned when a scanner is configured, stored privately, and land in the team's inbox and a per-PRD file roll-up; see `docs/ATTACHMENTS.md`.
 
 ## 6. Migration
 

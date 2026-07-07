@@ -1,5 +1,5 @@
 /* ============================================================================
-   ReqPub v2 — external views
+   ReqPub v2 - external views
    Partner portal (account holders managing SMEs) and the accountless SME
    pages: review brief, app feedback form, note-request intake, and the
    tokened two-way thread each submission opens.
@@ -46,7 +46,7 @@ export function smeThreadCard(APP) {
     '<div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;white-space:pre-wrap">' + esc(m.body) + '</div></div>').join('');
   return '<div class="card" style="padding:22px;margin-top:16px">' +
     '<div style="font-size:14px;font-weight:640;margin-bottom:4px">Your conversation with the team</div>' +
-    '<div style="font-size:12px;color:var(--ink-4);margin-bottom:14px">Bookmark this page — replies from the team appear here. No account needed.</div>' +
+    '<div style="font-size:12px;color:var(--ink-4);margin-bottom:14px">Bookmark this page - replies from the team appear here. No account needed.</div>' +
     '<div style="border-top:1px solid var(--line);padding-top:12px;margin-bottom:4px">' +
     '<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--ink-4);margin-bottom:3px;font-weight:600">You · ' + esc(relTime(t.at)) + '</div>' +
     '<div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;white-space:pre-wrap">' + esc(t.body) + '</div></div>' + msgs + '</div>' +
@@ -79,7 +79,7 @@ export function renderBriefView(APP) {
     const vchip = (o) => '<button class="chip' + (f.verdict === o ? ' on' : '') + '" data-action="shareset" data-key="verdict" data-val="' + escA(o) + '">' + esc(o) + '</button>';
     reviewCard = '<div class="card" style="padding:24px;margin-top:18px">' +
       '<div style="font-size:15px;font-weight:620;margin-bottom:4px">Does this capture what you need?</div>' +
-      '<div style="color:var(--ink-4);font-size:12.5px;margin-bottom:16px">Your review opens a two-way thread with the team — no account needed.</div>' +
+      '<div style="color:var(--ink-4);font-size:12.5px;margin-bottom:16px">Your review opens a two-way thread with the team - no account needed.</div>' +
       '<div style="margin-bottom:16px"><div class="eyebrow" style="font-size:9px;margin-bottom:7px">Your read</div><div class="choice">' + vchip('Looks complete') + vchip('Needs changes') + '</div></div>' +
       '<div style="margin-bottom:16px"><div style="font-size:12.5px;font-weight:560;margin-bottom:7px">Your name <span style="color:var(--ink-4);font-weight:440">required</span></div><input class="input" data-share="name" value="' + escA(f.name || '') + '" placeholder="First and last"></div>' +
       '<div style="margin-bottom:16px"><div style="font-size:12.5px;font-weight:560;margin-bottom:7px">Notes</div><textarea class="input" data-share="note" rows="4" placeholder="What is missing, what is off, or what to add" style="resize:vertical;min-height:96px;line-height:1.5">' + esc(f.note || '') + '</textarea></div>' +
@@ -131,12 +131,12 @@ export function renderNoteIntake(APP) {
     return wrap(smeHeader('Request for input', 'Thank you', r.product || '') +
       '<div class="card" style="padding:34px 30px;text-align:center"><div style="width:46px;height:46px;border-radius:50%;background:var(--good);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;color:#fff">' + ico(IC.check) + '</div>' +
       '<div style="font-size:19px;font-weight:660;margin-bottom:6px">Your input reached the team</div>' +
-      '<div style="color:var(--ink-4);font-size:12.5px;line-height:1.55;margin:0 auto 20px;max-width:340px">They review it against the current version and may reply below. Keep this link — you can add more anytime.</div>' +
+      '<div style="color:var(--ink-4);font-size:12.5px;line-height:1.55;margin:0 auto 20px;max-width:340px">They review it against the current version and may reply below. Keep this link - you can add more anytime.</div>' +
       '<button class="btn btn-sec btn-sm" data-action="shareagain">Add more</button></div>' + smeThreadCard(APP), 600);
   }
   if (r.status === 'closed') {
     return wrap(smeHeader('Request for input', r.title || 'Request closed', r.product || '') +
-      '<div class="card" style="padding:30px;text-align:center;color:var(--ink-3);font-size:14px">This request has been closed by the team. Thank you — no further input is needed.</div>', 600);
+      '<div class="card" style="padding:30px;text-align:center;color:var(--ink-3);font-size:14px">This request has been closed by the team. Thank you - no further input is needed.</div>', 600);
   }
   const thread = (r.thread || []).map((t) =>
     '<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--ink-4);margin-bottom:3px;font-weight:600">' + esc(t.name || 'Team') + '</div>' +
@@ -290,7 +290,7 @@ export function renderPartnerProject(APP) {
 
 /* ---------------- read-only presentation of a published PRD ----------------
    A fixed, branded, account-free page. Same section-scoped brief content, shown
-   as a clean document with no review form — the "just look at it" link. */
+   as a clean document with no review form - the "just look at it" link. */
 export function renderPresentShare(APP) {
   const s = APP.share;
   if (!s || !s.payload) return wrap(invalidCard('presentation'), 760);
@@ -335,11 +335,11 @@ export function renderSmeWorkspace(APP) {
     (t.name ? '<div style="font-size:13px;color:var(--ink-4)">Reviewer: ' + esc(t.name) + '</div>' : '') + '</div>';
   const prd = md
     ? '<div class="card" style="padding:26px 30px;margin-bottom:20px">' + mdToHtml(md) + '</div>'
-    : '<div class="card" style="padding:24px;margin-bottom:20px;color:var(--ink-3);font-size:13.5px">The team has not published a brief for this PRD yet. Your conversation with them is below — it stays here as the document takes shape.</div>';
+    : '<div class="card" style="padding:24px;margin-bottom:20px;color:var(--ink-3);font-size:13.5px">The team has not published a brief for this PRD yet. Your conversation with them is below - it stays here as the document takes shape.</div>';
   const myFiles = attachChips(t.attachments || [], {});
   const thread = '<div class="card" style="padding:22px">' +
     '<div style="font-size:14px;font-weight:640;margin-bottom:3px">Your conversation with the team</div>' +
-    '<div style="font-size:12px;color:var(--ink-4);margin-bottom:12px">This link is yours — bookmark it. Everything you and the team exchange stays here, across every version. No account needed. You can attach documents and PDFs too.</div>' +
+    '<div style="font-size:12px;color:var(--ink-4);margin-bottom:12px">This link is yours - bookmark it. Everything you and the team exchange stays here, across every version. No account needed. You can attach documents and PDFs too.</div>' +
     (msgs || '<div class="hint" style="padding:6px 2px">No messages yet. Start the conversation below.</div>') + myFiles +
     '<textarea class="input" id="smeReplyBody" rows="3" placeholder="Write to the team" style="resize:vertical;min-height:64px;line-height:1.55;margin-top:12px"></textarea>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px">' + attachInput({ token: APP.smeReplyToken }) +

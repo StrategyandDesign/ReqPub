@@ -36,15 +36,15 @@ const check = (name, cond, extra) => {
 };
 
 try {
-  console.log('— setting up: shims, v1 schema, v1 data —');
+  console.log('- setting up: shims, v1 schema, v1 data -');
   await run(sql(rel('shim.sql')));
   await run(sql(rel('v1-backend.sql')));
   await run(sql(rel('seed-v1.sql')));
 
-  console.log('— applying v2 schema (twice: fresh install, then as an upgrade) —');
+  console.log('- applying v2 schema (twice: fresh install, then as an upgrade) -');
   await run(sql(rel('../../supabase/schema.sql')));
   await run(sql(rel('../../supabase/schema.sql')));
-  console.log('— running migration (then again, to prove idempotence) —');
+  console.log('- running migration (then again, to prove idempotence) -');
   await asUser('');   // dashboard runs have no auth.uid(); historical names must survive
   await run(sql(rel('../../supabase/migrate.sql')));
   const snap1 = await one(`select
@@ -59,7 +59,7 @@ try {
     (select count(*) from comms) c, (select count(*) from messages) m,
     (select count(*) from input_requests) q, (select count(*) from discovery_entries) d`);
 
-  console.log('\n— migration assertions —');
+  console.log('\n- migration assertions -');
   check('projects migrated (both orgs)', snap1.p === '2', snap1);
   check('scalar fields migrated (5 scalars, __k_* counters dropped)', snap1.f === '5', snap1.f);
   check('rows migrated (2 goals + 2 FR + 1 approver; blank list item skipped)', snap1.r === '5', snap1.r);
@@ -86,7 +86,7 @@ try {
   const orphan = await one(`select origin, title from comms where legacy_id='99999999-0000-0000-0000-000000000007'`);
   check('unseen submission recovered into comms', !!orphan && orphan.origin === 'app', orphan);
 
-  console.log('\n— field save: optimistic concurrency —');
+  console.log('\n- field save: optimistic concurrency -');
   await asUser(MANAGER);
   let r = await one(`select save_field('p1','context','"Used in clinics"'::jsonb, 0) j`);
   check('insert path returns rev 1', r.j.ok === true && r.j.rev === 1, r.j);
@@ -99,7 +99,7 @@ try {
   r = await one(`select save_field('p1','context','"Partner cannot write"'::jsonb, 2) j`);
   check('non-manager save is forbidden', r.j.ok === false && r.j.error === 'forbidden', r.j);
 
-  console.log('\n— rows: permanent ids under insert —');
+  console.log('\n- rows: permanent ids under insert -');
   await asUser(MANAGER);
   r = await one(`select upsert_row('p1','fr',null,'{"stmt":"New concurrent requirement"}'::jsonb) j`);
   check('new FR continues the sequence (k=4 after migrated 1,3)', r.j.ok === true && r.j.k === 4, r.j);
@@ -111,7 +111,7 @@ try {
   r = await one(`select delete_row('p1','${rowId}'::uuid) j`);
   check('soft delete works', r.j === true);
 
-  console.log('\n— versions: allocation + approval gate —');
+  console.log('\n- versions: allocation + approval gate -');
   r = await one(`select create_version('p1', false, 'Test cut', '{"answers":{},"sections":{}}'::jsonb) j`);
   check('server allocates seq 3, label 1.2', r.j.ok === true && r.j.seq === 3 && r.j.label === '1.2', r.j);
   const vid = r.j.id;
@@ -126,7 +126,7 @@ try {
   r = await one(`select version_set_status('${vid}'::uuid, 'approved') j`);
   check('approve succeeds once approvals are decided', r.j.ok === true, r.j);
 
-  console.log('\n— SME accountless flow —');
+  console.log('\n- SME accountless flow -');
   const token = (await one(`select share_put('p1','brief',3,'{"product":"RecordMade","label":"1.2","answers":{}}'::jsonb) t`)).t;
   check('share_put returns a token', typeof token === 'string' && token.length > 10, token);
   await asUser('');   // anon
@@ -147,7 +147,7 @@ try {
   r = await one(`select sme_thread('${reply}') j`);
   check('thread now has both sides', r.j.messages.length === 2, r.j.messages.length);
 
-  console.log('\n— input request flow (legacy link) —');
+  console.log('\n- input request flow (legacy link) -');
   r = await one(`select request_view('legacynote1') j`);
   check('legacy request link resolves with team thread', r.j.ok === true && r.j.title === 'Kickoff input' && r.j.thread.length === 1, r.j);
   r = await one(`select request_submit('legacynote1', 'Dr Y', 'Must-have: full offline mode') j`);
@@ -155,7 +155,7 @@ try {
   const linked = await one(`select c.request_id, ir.legacy_id from comms c join input_requests ir on ir.id = c.request_id where c.author_name='Dr Y'`);
   check('response lands linked to the request', linked.legacy_id === 'r1');
 
-  console.log('\n— partner portal —');
+  console.log('\n- partner portal -');
   await asUser(PARTNER_USER);
   r = await one(`select partner_projects_v2() j`);
   check('partner sees assigned project with latest published brief', r.j.length === 1 && r.j[0].project_id === 'p1' && r.j[0].payload.label === '1.2', r.j);
@@ -169,7 +169,7 @@ try {
   r = await one(`select save_field('p1','ov_vision','"hijack"'::jsonb, 0) j`);
   check('partner still cannot touch the document', r.j.ok === false, r.j);
 
-  console.log('\n— partner profile —');
+  console.log('\n- partner profile -');
   r = await one(`select partner_update_profile('Pat Q. Partner', 'Director of Research', 'Canfield Group') j`);
   check('partner saves own profile', r.j === true);
   const prof = await one(`select name, title, company from partners where user_id = '${PARTNER_USER}'`);
@@ -186,14 +186,14 @@ try {
   check('profile unchanged after that attempt', prof2.name === 'Pat Q. Partner');
   await asUser(PARTNER_USER);
 
-  console.log('\n— read-only presentation link (v2.7) —');
+  console.log('\n- read-only presentation link (v2.7) -');
   // ensure a public brief exists for p1 (share_put as manager)
   await asUser(MANAGER);
   await one(`select share_put('p1','brief',2,'{"product":"RecordMade","label":"1.1","answers":{"ov_vision":"V"}}'::jsonb) t`);
   await asUser(PARTNER_USER);
   let r2 = await one(`select partner_present_token('p1') j`);
   check('assigned partner gets the public present token (latest brief)', r2.j.ok === true && typeof r2.j.token === 'string' && Number.isInteger(r2.j.seq), r2.j);
-  // rival partner (none) — a partner not assigned to p1 gets nothing
+  // rival partner (none) - a partner not assigned to p1 gets nothing
   await asUser(RIVAL);
   r2 = await one(`select partner_present_token('p1') j`);
   check('non-assigned user gets no present token', !r2.j || r2.j.ok === false, r2.j);
@@ -204,7 +204,7 @@ try {
   const pv = await one(`select get_share('${ptok}') p`);
   check('anon can open the presentation payload read-only', pv.p && pv.p.product === 'RecordMade', pv.p && pv.p.product);
 
-  console.log('\n— PRD brand logo (v2.6) —');
+  console.log('\n- PRD brand logo (v2.6) -');
   await asUser(MANAGER);
   await run(`update projects set brand_logo = 'data:image/png;base64,iVBORw0KAAAA', brand_label = 'Northwind Field Services' where id = 'p1'`);
   const brand = await one(`select brand_logo, brand_label from projects where id='p1'`);
@@ -220,7 +220,7 @@ try {
   catch (eb) { brandCapDenied = true; }
   check('oversized brand logo is rejected by the size cap', brandCapDenied);
 
-  console.log('\n— v2.5 hardening —');
+  console.log('\n- v2.5 hardening -');
   // partner_reply now requires current project access (H2)
   await asUser(PARTNER_USER);
   const pcomm = await one(`select id from comms where legacy_id = 'ffffffff-0000-0000-0000-000000000006'`);
@@ -271,7 +271,7 @@ try {
   const sendPol = await one(`select pg_get_expr(polwithcheck, polrelid) w from pg_policy where polname='rt_send'`);
   check('rt_send requires manager on project channels', /is_project_manager/.test(sendPol.w), sendPol.w);
 
-  console.log('\n— side effects —');
+  console.log('\n- side effects -');
   const bcast = await one(`select count(*) n from realtime.messages where topic = 'proj:p1'`);
   check('broadcast triggers emitted project events', +bcast.n > 0, bcast.n);
   const act = await one(`select count(*) n from activity where org_id='${ORG}'`);
@@ -280,7 +280,7 @@ try {
   check('activity covers versions, approvals, status, and inbound comms',
     ['approval.approved', 'comm.received', 'version.created', 'version.status'].every((a) => acts.includes(a)), acts);
 
-  console.log('\n— cross-org fencing —');
+  console.log('\n- cross-org fencing -');
   await asUser(RIVAL);
   r = await one(`select share_put('p2','brief',1,'{"product":"RivalProduct"}'::jsonb, 'legacybrief2') t`);
   check('cross-org share token takeover refused', r.t === null, r.t);
@@ -289,7 +289,7 @@ try {
   r = await one(`select save_field('p1','ov_vision','"hijack"'::jsonb, 0) j`);
   check('rival manager cannot write another org project', r.j.ok === false && r.j.error === 'forbidden', r.j);
 
-  console.log('\n— anonymous rate limiting —');
+  console.log('\n- anonymous rate limiting -');
   await asUser('');
   let tripped = -1;
   for (let i = 0; i < 31; i++) {
@@ -298,20 +298,20 @@ try {
   }
   check('request intake rate limit trips within the hour window', tripped >= 0 && tripped <= 30, tripped);
 
-  console.log('\n— server-stamped team identity —');
+  console.log('\n- server-stamped team identity -');
   await asUser(MANAGER);
   await run(`insert into messages(org_id,parent_kind,parent_id,author_kind,author_name,author_user,body)
              values ('${ORG}','comm','${commId}','team','Totally Fake Name','${MANAGER}','identity check')`);
   const stamped = await one(`select author_name from messages where body='identity check'`);
   check('client-supplied team name is overwritten by the profile', stamped.author_name !== 'Totally Fake Name', stamped.author_name);
 
-  console.log('\n— size ceilings —');
+  console.log('\n- size ceilings -');
   r = await one(`select save_field('p1','huge_field', to_jsonb(repeat('x', 300000)), 0) j`);
   check('oversize worksheet answer rejected', r.j.ok === false && r.j.error === 'too_large', r.j.error);
   r = await one(`select upsert_row('p1','fr', null, jsonb_build_object('stmt', repeat('x', 200000))) j`);
   check('oversize row rejected', r.j.ok === false && r.j.error === 'too_large', r.j.error);
 
-  console.log('\n— viewer RLS under the authenticated role —');
+  console.log('\n- viewer RLS under the authenticated role -');
   await asUser(VIEWER);
   await run('set role authenticated');
   const vread = await one(`select count(*) n from project_fields where project_id='p1'`);
@@ -329,7 +329,7 @@ try {
   check('viewer sees nothing from the rival org', crossDenied);
   await run('reset role');
 
-  console.log('\n— verify.sql runs clean —');
+  console.log('\n- verify.sql runs clean -');
   await asUser(MANAGER);
   await run(sql(rel('../../supabase/verify.sql')));
   check('verify.sql executes without error', true);

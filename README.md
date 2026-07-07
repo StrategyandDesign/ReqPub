@@ -81,4 +81,12 @@ Manager (internal, writes), Viewer (internal, reads everything and can reply), P
 
 ## Enterprise posture
 
-Append-only audit trail written by database triggers; a real approval state machine (a version cannot be Approved while a named approver is pending) with in-app routing (assign an approver to a teammate; they get a dashboard flag and approve their own slot, and only they or a manager can); per-field edit attribution with server-stamped team identity; immutable version baselines; org-scoped RLS on every table; rate-limited anonymous endpoints; input size ceilings; virus-scanned uploads stored in a private bucket. Also a command palette (⌘K), dark mode, and exports that carry status, approvals, and revision history. See `SECURITY.md` for the threat model and accepted residual risks, and `CHANGELOG.md` for release history.
+The controls a security or procurement reviewer looks for:
+
+- Append-only audit trail, written by database triggers.
+- A real approval state machine: a version cannot be Approved while a named approver is pending. Approvals can be routed in-app, where the assigned teammate gets a dashboard flag and signs off their own slot.
+- Per-field edit attribution with server-stamped team identity, and immutable version baselines.
+- Org-scoped row-level security on every table, rate-limited anonymous endpoints, and input size ceilings.
+- Uploads stored in a private bucket and virus-scanned when a scanner is configured (see `docs/ATTACHMENTS.md`).
+
+Also a command palette (⌘K), dark mode, and exports that carry status, approvals, and revision history. See `SECURITY.md` for the threat model and accepted residual risks, and `CHANGELOG.md` for release history.

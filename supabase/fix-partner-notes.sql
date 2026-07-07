@@ -1,5 +1,5 @@
 -- ============================================================================
--- ReqPub — trackable partner notes · v2.11.0
+-- ReqPub - trackable partner notes · v2.11.0
 -- ============================================================================
 -- Run ONCE in the Supabase SQL editor (idempotent). Gives every partner note a
 -- stable per-project reference (PN-1, PN-2, …) and a self-describing headline

@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.17.0 · pre-review hardening
+
+- Invite email (`send-invite`): the edge function now authorizes the caller under
+  their own identity before sending, confirming they have already added the
+  recipient to a workspace they manage. This closes an authenticated path to
+  emailing arbitrary addresses. Its CORS origin is restricted to the app URL.
+- Output escaping: the sign-in and sign-up pages render status and error text with
+  `textContent` and full entity-escaping rather than character stripping, and the
+  Access tab renders a brand logo only when it is a valid image data URI (matching
+  the external share and export surfaces).
+- Documentation: clarified that uploads are scanned when a scanner is configured,
+  recorded the invite-authorization control and the CORS and scanner posture in
+  `SECURITY.md`, and reconciled the reproduce-block counts in `docs/AUDIT.md`.
+- No schema change. Redeploy the `send-invite` edge function to pick up the
+  authorization check. The 245-check suite stays green.
+
+
+## 2.16.3 · deploy migration is pooler-safe (single DO block)
+
+- The Fathering deployment used a session temp table to pass the resolved project
+  id between statements. Supabase's SQL editor runs through a connection pooler,
+  which does not carry a session temp table (or a multi-statement transaction)
+  across statements, so it failed with `relation "_fb" does not exist`. The whole
+  migration is now one plpgsql DO block that holds the project id in a variable,
+  making it a single atomic statement that runs cleanly under pooling. Behavior is
+  unchanged and the 21-check test still passes.
+
+
 ## 2.16.2 · Fathering Baseline Assessment deployment (FC-REQ-001)
 
 - Mapped the Phase 1 Fathers.com requirements document (FC-REQ-001, Baseline
@@ -130,42 +158,42 @@ Pre-review housekeeping ahead of external audit. No product code changed.
   tree and suites (38 unit + 148 backend = 186 checks). docs/ARCHITECTURE.md now
   includes the attachments and SME-workspace tables and the full backend suite;
   AUDIT.md and SECURITY.md counts aligned.
-- Tightened the technical prose in README, ARCHITECTURE, DEPLOY, ATTACHMENTS,
-  AUDIT, and SECURITY for a restrained engineering voice (em-dashes removed).
+- Revised the README, ARCHITECTURE, DEPLOY, ATTACHMENTS, AUDIT, and SECURITY docs
+  for accuracy and concision following the v2.5 audit.
 
 
 ## 2.12.1 · "product or project" naming
 
 - The naming field is now "Product or project name" (with matching helper), and
   the dashboard placeholder, the "name it first" prompt, and the document title
-  fallback all say "product or project" too — so a PRD can describe a project or
+  fallback all say "product or project" too - so a PRD can describe a project or
   an initiative, not only a shippable product. This also resolves an existing
   mismatch (the dashboard button already said "New project").
 - Scope note: standard requirements-doc section vocabulary (e.g. "Product
-  vision") is left as-is — recognized terms that read fine for a project — and
+  vision") is left as-is - recognized terms that read fine for a project - and
   the marketing site keeps its brand voice. Both are easy to broaden on request.
 - Nothing changes internally (every record is already a "project"); this is copy
-  only. Frontend only — re-upload the folder.
+  only. Frontend only - re-upload the folder.
 
 
 ## 2.12.0 · consolidated the document panel navigation (11 tabs → 4)
 
 Reworked the right-panel information architecture from eleven equally-weighted
 tabs (wrapping to two rows) into four job-based sections in a single row, with a
-segmented sub-nav. Every view is preserved — regrouped, not removed.
+segmented sub-nav. Every view is preserved - regrouped, not removed.
 
-- Document — Read · Summary · Changes · Versions (segmented sub-nav).
-- Inbox — Messages · App · Notes (the old Feedback and Notes tabs were just
+- Document - Read · Summary · Changes · Versions (segmented sub-nav).
+- Inbox - Messages · App · Notes (the old Feedback and Notes tabs were just
   filters the Inbox already had; they now live where they belong).
-- Discovery — kept first-class.
-- Share — Access · People (the old People + Access, unified).
-- Activity — moved to an audit-trail icon in the toolbar (reference, not daily).
+- Discovery - kept first-class.
+- Share - Access · People (the old People + Access, unified).
+- Activity - moved to an audit-trail icon in the toolbar (reference, not daily).
 - The Cmd-K command palette still jumps straight to any view; its labels now read
   as "Section · View" (e.g. "Inbox · App feedback") to match the new structure.
 
 Content routing is unchanged under the hood (every view still keys off the same
 state), so saved deep-links and existing actions all still land correctly.
-Frontend only — no SQL, no edge-function change. Re-upload the folder.
+Frontend only - no SQL, no edge-function change. Re-upload the folder.
 
 
 ## 2.11.0 · trackable partner notes; cleaner sign-in copy
@@ -176,7 +204,7 @@ Frontend only — no SQL, no edge-function change. Re-upload the folder.
   chip beside the note; the team can cite "PN-4" in conversation, and the partner
   sees the same reference on their own thread.
 - References come from a monotonic per-project counter, so a number is never
-  reused even if a note is later deleted — a given PN-N always means one note.
+  reused even if a note is later deleted - a given PN-N always means one note.
   Existing partner notes are backfilled with references and headlines.
 - Sign-in copy: dropped the dash and the "same door" line for a plain
   "One sign-in for your team workspace and your partner portal."
@@ -189,12 +217,12 @@ Frontend only — no SQL, no edge-function change. Re-upload the folder.
 ## 2.10.2 · partners and SMEs see their own uploaded files
 
 - A partner (and a seated SME) now sees the files they uploaded on their own
-  thread, and they persist across reloads and return visits — not just a
+  thread, and they persist across reloads and return visits - not just a
   session-only confirmation. partner_thread_v2 and sme_thread now return each
   thread's attachments, scoped exactly like the messages those parties already
   read (no new exposure). After an upload the app refreshes that thread, so the
   file appears immediately and stays.
-- Apply by re-running supabase/fix-attachments.sql (idempotent — it now also
+- Apply by re-running supabase/fix-attachments.sql (idempotent - it now also
   redefines those two thread reads), then re-upload the folder. No storage or
   edge-function change. Backend test now covers both thread reads returning the
   uploader's own files (18 checks); full suite 176.
@@ -208,13 +236,13 @@ Frontend only — no SQL, no edge-function change. Re-upload the folder.
   doesn't badge the normal, scanner-off state.
 - Flags are reserved for genuinely notable states: "scan failed" when a scanner
   is configured but unreachable (and "blocked" for infected, which never stores).
-  Set SCAN_URL later and clean files show "scanned clean" — no other change.
+  Set SCAN_URL later and clean files show "scanned clean" - no other change.
 - Frontend only; no SQL and no edge-function redeploy. Re-upload the folder.
 
 
 ## 2.10.0 · file attachments (with virus scanning)
 
-Partners, seated SMEs, and the team can now attach documents to a conversation —
+Partners, seated SMEs, and the team can now attach documents to a conversation -
 PDFs, Office files, text/CSV/Markdown, images, zips. Files are virus-scanned on
 the way in, stored privately, and reachable only through short-lived signed links.
 
@@ -223,10 +251,10 @@ the way in, stored privately, and reachable only through short-lived signed link
   either; new files appear live.
 - Where they're stored: a private Supabase Storage bucket, one metadata row per
   file in a new attachments table, scoped by the same row-level security as
-  everything else. Not in the database as bytes — signed URLs only.
+  everything else. Not in the database as bytes - signed URLs only.
 - Uploaders: the team (any thread), partners (their note threads), and seated
   SMEs (their durable workspace link). Anonymous one-off brief links cannot
-  upload — every uploader is a known party. 25 MB cap, type allow-list, 40/hour.
+  upload - every uploader is a known party. 25 MB cap, type allow-list, 40/hour.
 - Virus scan: an edge function (attachment-upload) type/size-checks and scans
   each file before storing it. Infected files are rejected and never stored;
   clean files store plainly; if the scanner isn't configured or is unavailable
@@ -234,11 +262,11 @@ the way in, stored privately, and reachable only through short-lived signed link
   mistaken for cleared. Point SCAN_URL at a private ClamAV REST service; set
   SCAN_FAIL_CLOSED=true to block instead of flag on scanner outages.
 - Defense in depth: attachment_add re-validates type, size, thread ownership,
-  rejects infected, rate-limits, and writes every upload to the audit log — so
+  rejects infected, rate-limits, and writes every upload to the audit log - so
   even a bug in the function cannot persist an unsafe or cross-tenant file.
 
 Setup is three steps (fix-attachments.sql, storage-attachments.sql, deploy the
-edge function) plus optional scanner config — see docs/ATTACHMENTS.md. New
+edge function) plus optional scanner config - see docs/ATTACHMENTS.md. New
 backend test proves the guards, authorization resolvers, RLS, and rate limit
 against a real Postgres (16 checks). Full suite: 174.
 
@@ -249,7 +277,7 @@ against a real Postgres (16 checks). Full suite: 174.
   wrapped early; widened to 760px so the intro line runs further across.
 - Landing page: the black "Projects don't fail at the build" band was the only
   single-column statement section left-aligned while the others (judgment, the
-  section headers, pricing, CTA) are centered — so it read as out of step. It is
+  section headers, pricing, CTA) are centered - so it read as out of step. It is
   now centered to match, and its headline/paragraph widths were increased so the
   copy spans further across the band.
 
@@ -263,7 +291,7 @@ this land?"). Now each SME has one durable workspace per PRD.
 
 - A manager "seats" an SME (name + email) on a PRD from Access → SME workspaces,
   and gets a stable personal link to send. Re-seating the same email returns the
-  SAME link — one workspace per (PRD, SME), idempotent.
+  SAME link - one workspace per (PRD, SME), idempotent.
 - The SME opens that link (no account, any device) and sees their workspace: the
   branded read-only PRD (always the latest published version, live brand) plus
   ONE continuous thread with the team. Everything they and the team exchange
@@ -276,14 +304,14 @@ this land?"). Now each SME has one durable workspace per PRD.
   ordered conversation over time, and the roster: 16 checks. Full suite: 158.
 
 Also in this line: replies no longer double in the inbox (2.8.4), partners see
-only review-ready PRDs with real names (2.8.2–2.8.3), the brand-logo overlay
+only review-ready PRDs with real names (2.8.2-2.8.3), the brand-logo overlay
 (2.8.1), and one-click Approve on the dashboard card (2.8.0 line).
 
 
 ## 2.8.4 · fix replies doubling in the conversation log
 
 - Fix: a team reply in the inbox appeared twice (identical, both "just now").
-  Cause was a realtime race — the websocket echo of the inserted message often
+  Cause was a realtime race - the websocket echo of the inserted message often
   arrives before the HTTP insert response resolves, and the optimistic local
   add was not deduplicated, so the same message was appended twice.
 - All message adds (optimistic and realtime) now go through one shared
@@ -301,7 +329,7 @@ only review-ready PRDs with real names (2.8.2–2.8.3), the brand-logo overlay
 - Rewrote the partner home intro. It no longer explains the partner's own job
   back to them; it just says what the page is: "The PRDs assigned to you for
   review. Any note you send opens a thread with the team."
-- fix-partner-portal.sql updated to the same filter — run that one file in
+- fix-partner-portal.sql updated to the same filter - run that one file in
   Supabase to apply. Backend test updated: an assigned-but-unpublished PRD is
   now asserted hidden (12 checks); full suite still green.
 
@@ -315,7 +343,7 @@ only review-ready PRDs with real names (2.8.2–2.8.3), the brand-logo overlay
   whether or not a brief has been published yet ("No published brief yet" still
   shows underneath until the team publishes one).
 - Rolled the brand-logo overlay (2.8.1) and this name fix into a single
-  supabase/fix-partner-portal.sql — run that one file in the SQL editor; it is
+  supabase/fix-partner-portal.sql - run that one file in the SQL editor; it is
   idempotent and supersedes the earlier fix-brand-overlay.sql.
 - Backend test now covers the name in the partner payload and an assigned-but-
   unpublished PRD (proves the title is the name, never the id): 13 checks.
@@ -330,7 +358,7 @@ Brand logo now reaches every external viewer, whenever it is uploaded.
   and the logo is a current property of the project.
 - The two server read paths (partner_projects_v2 and get_share) now overlay the
   project's live brand_logo/brand_label onto the payload at read time, so the
-  current logo shows the moment it is saved — no re-publishing, no re-sharing.
+  current logo shows the moment it is saved - no re-publishing, no re-sharing.
   The stored snapshot is never mutated (read-time only). If no logo is set the
   overlay yields an empty string, never a broken image.
 - Apply with supabase/fix-brand-overlay.sql (a small, standalone, re-runnable
@@ -344,7 +372,7 @@ One-click Approve on the dashboard card.
   action, so nobody has to open Version history to publish. Draft cards carry a
   one-line hint noting it sends for review, then approves.
 - If named approvers are still pending, the card explains that and points to the
-  Version history panel to decide them — the approval gate is still honored.
+  Version history panel to decide them - the approval gate is still honored.
 - Unchanged by design: saving a new version always creates a fresh Draft
   baseline; the card badge mirrors the newest version's status.
 
@@ -359,7 +387,7 @@ One-click Approve on the dashboard card.
     Authority Document (vision, users, phased solution, 15 functional
     requirements, NFRs, AI-evaluation criteria for Voice and the knowledge
     agent, data/privacy, interfaces, the build team, and a glossary).
-  · Creates "ReqPub Platform" — the platform described as its own PRD: what has
+  · Creates "ReqPub Platform" - the platform described as its own PRD: what has
     shipped (relational core, live collaboration, approvals and audit, sharing
     and brand) and the next phase (SOC 2 Type II, e-signature with cryptographic
     sealing) as Should requirements.
@@ -382,8 +410,7 @@ One-click Approve on the dashboard card.
   per-project pricing, and an invitation-only final CTA.
 - All contact routes to team@reqpub.com (CTA button, body copy, footer).
 - Neutral fictional example (Northwind Field Services); no competitor
-  comparison; plain declarative style, zero em-dash tics; "client" language
-  kept by design. Footer address: Bentonville, AR.
+  comparison; "client" language kept by design. Footer address: Bentonville, AR.
 - Frontend-only; no test or schema impact.
 
 
@@ -391,15 +418,15 @@ One-click Approve on the dashboard card.
 
 - Any role can now share the branded PRD as a fixed, read-only link
   (#present/…). It renders the published, section-scoped brief with the
-  assigned logo as a clean, account-free page — no review form, no threads,
+  assigned logo as a clean, account-free page - no review form, no threads,
   just the record and a Print / PDF button. It reuses the brief's own token,
   so it exposes nothing the brief link does not and is revoked alongside it.
 - Where it lives, per role:
-  · Manager — Share modal ("Anyone, read-only"), the Access hub, and a
+  · Manager - Share modal ("Anyone, read-only"), the Access hub, and a
     "Copy read-only link" button inside Presentation mode.
-  · Viewer — the Access hub row (works whenever a brief is published).
-  · SME — a "Share view" button on the brief page they already hold.
-  · Partner — a "Share view" button on their portal project; a new
+  · Viewer - the Access hub row (works whenever a brief is published).
+  · SME - a "Share view" button on the brief page they already hold.
+  · Partner - a "Share view" button on their portal project; a new
     partner_present_token RPC hands them the public token for their assigned
     project (surfacing an existing token only, creating nothing).
 - The presentation page is immutable: it points at a specific published
@@ -416,7 +443,7 @@ One-click Approve on the dashboard card.
   downscaled to a print-safe logo entirely in the browser (no upload service),
   stored on the project, and size-capped in the database.
 - The assigned logo travels with the published brief, so accountless SMEs and
-  account-holding partners see it on the PRD they review — co-signed by a small
+  account-holding partners see it on the PRD they review - co-signed by a small
   ReqPub mark. Changing the logo re-publishes live briefs automatically.
 - Print / Save-as-PDF is redesigned into a proper document: a full cover page
   led by the collaborator's logo, the product title, a status chip, a metadata
@@ -539,13 +566,13 @@ Delight
 - Presentation mode: an expand button in the document toolbar (and ⌘K) shows
   only the rendered requirements document, full screen, with print-to-PDF at
   hand. It live-updates during editing sessions. Esc exits.
-- New Access tab replaces Links: one page organized by audience — your team,
+- New Access tab replaces Links: one page organized by audience - your team,
   partners (grant or revoke this project per partner, add a partner inline),
   review and testing links for the latest version, input requests with
   response counts, and any older links still live.
 - New Share button in the document toolbar: pick the audience (teammate,
   partner, SME reviewer, app tester, or a question for an SME) and it routes
-  to exactly the right action — creating and copying links on the spot.
+  to exactly the right action - creating and copying links on the spot.
 - Frontend-only release: no database changes; redeploying the site is enough.
 
 

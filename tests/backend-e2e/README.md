@@ -10,5 +10,5 @@ npm i            # once, installs embedded-postgres + pg (dev only)
 npm run test:backend
 ```
 
-`shim.sql` and `seed-v1.sql` are test fixtures only — never deploy them.
+`shim.sql` and `seed-v1.sql` are test fixtures only - never deploy them.
 `v1-backend.sql` is a frozen copy of the v1 schema the migration reads from.

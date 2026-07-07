@@ -1,4 +1,4 @@
-/* ReqPub v2 — section-scoped share payload tests (node tests/share.test.mjs)
+/* ReqPub v2 - section-scoped share payload tests (node tests/share.test.mjs)
    The section picker is a security boundary: unselected sections must be
    ABSENT from the payload served to anonymous readers, not merely unrendered. */
 import assert from 'node:assert/strict';
