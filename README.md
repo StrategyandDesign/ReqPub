@@ -33,6 +33,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── verify.sql                       post-migration checks
 │   ├── seed-prds.sql                    optional worked-example PRDs (all three)
 │   ├── seed-<name>.sql                  each example PRD standalone (add one without re-seeding the rest)
+│   ├── deploy-fathering-baseline.sql    rebuild the Fathering project in place from FC-REQ-001 (approved v1.1)
 │   ├── fix-*.sql                        standalone, idempotent feature migrations
 │   ├── storage-attachments.sql          private attachments bucket + policies
 │   └── functions/
@@ -44,14 +45,15 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── share.test.mjs                   10 section-scoped share-payload tests
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
 │   ├── engagement.test.mjs             10 engagement-charter + PRD-invariance tests
-│   └── backend-e2e/                     172 checks against a real embedded Postgres
+│   └── backend-e2e/                     193 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
 │       ├── sme-workspace.test.mjs       durable SME workspace (16)
 │       ├── attachments.test.mjs         attachment guards, authz, RLS, rate limit (18)
 │       ├── partner-notes.test.mjs       partner-note references + backfill (10)
 │       ├── approvals.test.mjs           approver assignment, self-approve authz, gate (18)
-│       └── seed-prds.test.mjs           seed-data integrity, 3 example PRDs + standalone (19)
+│       ├── seed-prds.test.mjs           seed-data integrity, 3 example PRDs + standalone (19)
+│       └── deploy-fathering.test.mjs    rebuild-in-place deploy: erase, replace, approve v1.1 (21)
 ├── tools/                               PRD seed generator (validated against the builders)
 ├── docs/
 │   ├── ARCHITECTURE.md                  design rationale + citations
@@ -66,7 +68,7 @@ Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale
 
 ```bash
 npm test                        # 52 domain + concurrency + dedupe + engagement checks (node only)
-npm i && npm run test:backend   # 172 checks on an embedded Postgres
+npm i && npm run test:backend   # 193 checks on an embedded Postgres
 ```
 
 ## Document types

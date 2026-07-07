@@ -528,4 +528,201 @@ export const esign = {
   }
 };
 
+/* ---- Fathering Baseline Assessment (Phase 1) ----
+   The live deployment content, mapped section-for-section from
+   FC-REQ-001 (Fathers.com Platform, Baseline Father Profile Assessment).
+   Not part of PRDS: it is deployed by tools/gen-fathering-deploy.mjs into the
+   existing Fathering project as an approved v1.1, not seeded as an example. */
+export const fatheringBaseline = {
+  id: 'prd-fathering-baseline',   // fallback id only; the deploy rebuilds the existing project in place
+  name: 'Fathering Baseline Assessment',
+  scalars: {
+    ctrl_product: 'Fathering Baseline Assessment',
+    ctrl_org: 'National Center for Fathering',
+    ctrl_owner: 'Micah Canfield',
+    ctrl_status: 'Approved',
+    ov_purpose: 'This document specifies the requirements for the Fathers.com Platform. Its first phase delivers the Baseline Father Profile Assessment, the validated self-report instrument that gives a father an objective starting point and a plan. It is the single source of truth for what Phase 1 must do and how acceptance is judged. Its audience is the product owner, the engineering team, the data and privacy reviewer, and the sponsor at the National Center for Fathering, together with the review and traceability process managed in ReqPub. Part I states the product without implementation detail; Part II states the requirements, each with a measurable fit criterion.',
+    ov_vision: 'Fathers.com equips any father to become measurably more present. It replaces vague encouragement with a validated baseline, a clear growth focus, and a personalized ninety-day plan, delivered at no cost by a nonprofit and available on any phone. Over time the platform extends into classes, certificates, peer circles, and programs for specific fathers, but the baseline is the front door: the moment a man learns where he actually stands and what to do next.',
+    ov_problem: 'Father absence and disengagement carry well-documented costs to children, and most fathers who want to do better have no objective, non-judgmental way to know where they stand or what specifically to change. Advice is generic, self-assessment is guesswork, and formal instruments are locked inside clinical or academic settings. The Baseline Father Profile Assessment closes that gap by giving any father a private, validated read on four dimensions of engaged fatherhood and a concrete plan built from his own result. It matters now because the instrument exists, the delivery platform is built, and the reach of a nonprofit with established distribution makes scale realistic.',
+    ov_market: 'The addressable population is the tens of millions of fathers of minor children in the United States, reached both directly and through the National Center for Fathering’s existing channels: faith communities, employers, fatherhood programs, and public agencies. The instrument’s value as an objective, court-neutral baseline also opens referral channels where an accountable, verifiable starting point is useful. Phase 1 targets the direct-to-father and partnered-group segments, where friction is lowest and the baseline stands on its own.',
+    context: 'The assessment runs in a web browser on a phone, tablet, or desktop, with no app install. Fathers frequently take it on a personal phone over a mobile connection, in a single sitting or across a short break, so the flow must be responsive, resumable, and tolerant of intermittent connectivity. Because the content is personal and self-reflective, the setting is assumed private to the father, and the platform never exposes one father’s data to another.',
+    sol_solution: 'The Baseline Father Profile Assessment is the delivery of the Keystone Father Profile: a validated self-report instrument that measures four domains of engaged fatherhood, Involvement, Consistency, Awareness, and Nurturance. A father answers a fixed set of items on a defined response scale. A deterministic scoring engine converts those responses into a score for each domain on a common 0 to 100 scale, a single overall baseline, the father’s strongest domain, and his growth focus, which is the domain with the largest opportunity to improve. From the growth focus the platform generates a ninety-day plan. The result and plan are private to the father. The core of the product is a measurement, not a generative guess: scoring is a fixed function of the responses and a versioned scoring model, so the same responses under the same model always produce the same result, which is what makes a baseline defensible. The model is architected as configuration plus a pure scoring function, kept strictly separate: the item bank, domains, scales, key directions, optional weights, normalization parameters, growth-focus rule, and plan mapping are one versioned configuration object that changes scoring with no code deployment and a full audit record; scoring is a pure function of (responses, model version); and every stored result carries the item-bank and model versions used, so a result computed a year ago can still be explained, recomputed, and defended.',
+    staged: 'Yes',
+    has_ai: 'Yes',
+    golden: 'The golden dataset pairs computed results with the facts a correct summary must and must not state, curated from vetted sources. An automated harness runs each candidate build against it and reports grounding, accuracy, latency, and guardrail metrics; a build below any EVAL threshold does not ship. A red-team set probes for hallucination, unsafe handling of distress, and sycophancy, with human review before and after release. This method applies to any release that introduces a generative result summary (FR-027); Phase 1 scoring itself is deterministic and verified by test against labeled fixtures, not by evaluation.',
+    vulnerable: 'Yes',
+    safeguard: 'If a father’s responses meet a defined distress signal (to confirm), the system surfaces a non-clinical support resource without blocking the father and without diagnosing; no diagnostic language appears. The response is verified by demonstration and red-team review, and reviewed by a clinical or policy owner. The product makes no clinical diagnosis, label, or treatment recommendation anywhere.',
+    consent: 'The platform obtains and records informed consent, with a timestamp, before it collects any assessment response; no response is stored without it. Individual results are never sold or shared with any third party; sharing an individual result to a referring organization requires a separate, explicitly specified consent flow that is out of scope for Phase 1.',
+    retention: 'A father can delete his assessment data at any time; on confirmed request his responses, results, and plan are removed and the removal is confirmed. Retention beyond deletion follows a stated policy (to confirm). A father can retake the assessment, producing a new dated result without overwriting prior ones, and can view his result history.',
+    residency: 'Assessment data is classified and handled as sensitive personal data. Personal data is encrypted in transit (TLS) and at rest. Data is stored in the region defined by the residency requirement (to confirm).',
+    access: 'A father’s responses, scores, and plan are private to his account and readable only by it; per-father isolation is enforced by row-level security at the database, not only the interface, so cross-account reads are denied even on direct database access. Administrators see only aggregate participation and score distributions, never an individual father’s answers or scores; any authorized access to individual data is logged. The platform does not knowingly process the data of minors.',
+    verify_note: 'Every requirement carries a fit criterion. Deterministic requirements are verified by test, inspection, or demonstration. Probabilistic or AI components are verified by evaluation against a golden dataset with the stated threshold. Safety requirements are verified on a red-team or scenario set with human review. Phase 1 is accepted when every Must requirement passes its fit criterion and every applicable evaluation criterion meets its threshold.',
+    link_repo: 'to confirm',
+    link_board: 'to confirm',
+    link_design: 'FORGE design system, on the production platform'
+  },
+  lists: {
+    ov_goals: [
+      'G1. Give a father a valid, private baseline across the four fatherhood domains in a single sitting of about twenty minutes.',
+      'G2. Translate every baseline into a concrete ninety-day plan mapped to the father’s largest growth opportunity.',
+      'G3. Protect the father’s data absolutely: private to his account, never sold, his to delete.',
+      'G4. Deliver the assessment reliably on a phone with no app install and minimal friction.',
+      'G5. Make scoring reproducible and auditable, so a result can be explained and defended under scrutiny.'
+    ],
+    sol_in: [
+      'Capturing informed consent and creating or signing in to a father’s account.',
+      'Presenting the assessment items and capturing responses, with pause and resume.',
+      'Deterministic scoring: domain scores, overall baseline, strength, and growth focus.',
+      'Generating and presenting a ninety-day plan mapped from the growth focus.',
+      'Private storage of results and plan, result history, retake, and self-service deletion.',
+      'Loading the item bank and scoring model from versioned configuration.',
+      'Administrator visibility into aggregate participation and score distributions only.'
+    ],
+    sol_out: [
+      'Classes, certificates, peer circles, the veterans program, e-signature, and payments. These are later phases and are not specified here.',
+      'Any clinical diagnosis, label, or treatment recommendation. The assessment is a developmental baseline, not a clinical instrument.',
+      'Coaching by a human, live chat, or case management.',
+      'Sharing an individual father’s results with any third party, including a referring organization, without a separate, explicitly specified consent flow.',
+      'Non-English localization in Phase 1.'
+    ],
+    assume: [
+      'The Keystone Father Profile is a validated instrument with an established item bank and scoring model, owned by a psychometric authority who signs off on any change.',
+      'Fathers self-report in good faith; the instrument’s design, not enforcement, handles ordinary response bias.',
+      'Fathers are adults; the platform does not knowingly collect data from minors.',
+      'A father completes the assessment on a single account he controls.'
+    ],
+    depend: [
+      'Supabase for authentication, the Postgres database, row-level security, and file storage.',
+      'Vercel for hosting and delivery of the web application.',
+      'A transactional email provider for passwordless sign-in links.',
+      'The versioned item bank and scoring model, maintained by the psychometric owner.'
+    ],
+    constrain: [
+      'Nonprofit budget and a static-site-plus-Supabase architecture; no bespoke server infrastructure in Phase 1.',
+      'Consent and privacy obligations for sensitive personal data.',
+      'Accessibility to WCAG 2.1 AA.',
+      'No clinical diagnosis or claim may be made by the product.',
+      'English only in Phase 1.'
+    ]
+  },
+  rows: {
+    ctrl_approvers: [
+      { role: 'Product', name: 'Micah Canfield' },
+      { role: 'Engineering', name: 'Alon Arad' },
+      { role: 'Data and Privacy', name: 'to confirm' },
+      { role: 'Sponsor', name: 'Dr. Ken Canfield' }
+    ],
+    seg: [
+      { segment: 'Individual fathers', share: 'Primary', desc: 'A father seeking an honest read on his fathering and a plan to improve.' },
+      { segment: 'Partnered groups', share: 'High', desc: 'Churches, teams, and fatherhood programs that run the baseline with their men.' },
+      { segment: 'Referred fathers', share: 'Medium', desc: 'Fathers directed by a program or agency who need an objective starting point.' },
+      { segment: 'Administrators', share: 'Enabling', desc: 'National Center for Fathering staff who steward content and see aggregate results only.' }
+    ],
+    persona: [
+      { persona: 'The growth-minded father', needs: 'An honest, private read on where he stands, and a small number of concrete next steps he can actually keep.' },
+      { persona: 'The referred father', needs: 'A neutral, non-judgmental starting point that respects his privacy and does not feel like a test he can fail.' },
+      { persona: 'The group leader', needs: 'A simple way for the men in his group to take the baseline, and a way to see participation without seeing anyone’s answers.' },
+      { persona: 'The content steward', needs: 'Confidence that the instrument and its scoring are correct, versioned, and changeable without a code release.' }
+    ],
+    release: [
+      { rel: 'Phase 1 Baseline Assessment (MVP)', obj: 'A father can consent, take the assessment, receive a scored baseline and a ninety-day plan, and manage his own data.', mvp: 'to confirm', ship: 'to confirm' },
+      { rel: 'Later phases (context only)', obj: 'Classes and the learning library, verifiable certificates, peer circles, and audience-specific programs. Each carries its own requirements document and is out of scope here.', mvp: 'to confirm', ship: 'to confirm' }
+    ],
+    metrics: [
+      { metric: 'Assessment completion rate', target: '≥ 70% of starters finish (to confirm)', method: 'Ratio of completed to started assessments, from lifecycle events.' },
+      { metric: 'Time to complete', target: 'Median ≤ 20 minutes', method: 'Elapsed time from first item to completion, from lifecycle events.' },
+      { metric: 'Scoring correctness', target: '100% agreement with the reference model on golden fixtures', method: 'Automated scoring tests against labeled fixtures on every release.' },
+      { metric: 'Plan generation', target: '100% of completed baselines produce a matched plan', method: 'Automated test; monitored rate of completions without a plan, target zero.' },
+      { metric: 'Privacy incidents', target: 'Zero cross-father data exposure', method: 'Access-control tests and incident log.' }
+    ],
+    fr: [
+      { stmt: 'A father creates an account or signs in before any result is stored.', fit: 'An authenticated session exists and each stored result is bound to that account. Test.', pri: 'Must' },
+      { stmt: 'The system records informed consent before it collects any assessment response.', fit: 'A consent record with a timestamp exists before the first item is answered; no response is stored without it. Test.', pri: 'Must' },
+      { stmt: 'The system presents the assessment as the set of items defined by the active item-bank version, in the defined order.', fit: 'The items presented match the active item-bank version in identity, count, and order. Test.', pri: 'Must' },
+      { stmt: 'Each item captures a response on the item’s defined response scale.', fit: 'A response within the defined scale is captured and stored per item; required items cannot be left blank. Test.', pri: 'Must' },
+      { stmt: 'A father can pause and later resume without losing responses.', fit: 'On resume, previously captured responses are restored and the father continues from the next unanswered item. Test.', pri: 'Must' },
+      { stmt: 'The system shows progress through the assessment.', fit: 'A progress indicator reflects answered items over total items and updates as items are answered. Test.', pri: 'Should' },
+      { stmt: 'The system computes a score for each of the four domains from the item responses per the scoring model.', fit: 'For each labeled fixture, the four domain scores equal the reference values. Test.', pri: 'Must' },
+      { stmt: 'Reverse-keyed items are reverse-scored before aggregation.', fit: 'For a fixture containing reverse-keyed items, the computed domain scores equal the reference values. Test.', pri: 'Must' },
+      { stmt: 'Each domain score is normalized to a common 0 to 100 scale.', fit: 'Every domain score lies within 0 to 100 and equals the reference normalized value for each fixture. Test.', pri: 'Must' },
+      { stmt: 'The system computes a single overall baseline as the defined composite of the domain scores.', fit: 'For each fixture, the overall baseline equals the reference composite. Test.', pri: 'Must' },
+      { stmt: 'The system identifies the growth focus as the domain with the largest opportunity per the scoring model.', fit: 'For each fixture, the identified growth focus equals the reference selection, including the defined tie-break. Test.', pri: 'Must' },
+      { stmt: 'The system identifies the father’s strongest domain.', fit: 'For each fixture, the identified strength equals the reference selection. Test.', pri: 'Should' },
+      { stmt: 'The system generates a ninety-day plan mapped from the growth focus.', fit: 'The plan returned for a given growth focus equals the plan configured for that domain. Test.', pri: 'Must' },
+      { stmt: 'The results view presents the four domain scores, the overall baseline, the strength, the growth focus, and the plan.', fit: 'Every presented value equals the corresponding stored result value. Inspection and test.', pri: 'Must' },
+      { stmt: 'A father’s result and plan are readable only by that father’s account.', fit: 'A request from any other account for the result is denied by row-level security. Test.', pri: 'Must' },
+      { stmt: 'A father can retake the assessment, producing a new result without overwriting a prior one.', fit: 'A retake creates a new dated result; prior results remain retrievable. Test.', pri: 'Should' },
+      { stmt: 'Each stored result records the item-bank version and scoring-model version used.', fit: 'Every stored result carries both version identifiers. Test.', pri: 'Must' },
+      { stmt: 'The assessment is completable on a mobile browser.', fit: 'The full flow, from consent to results, completes on a 375-pixel-wide viewport. Test.', pri: 'Must' },
+      { stmt: 'A father can view his result history.', fit: 'Prior results are listed by date and each can be opened. Test.', pri: 'Could' },
+      { stmt: 'A father can delete his assessment data.', fit: 'On confirmed request, the father’s responses, results, and plan are removed and the removal is confirmed. Test.', pri: 'Must' },
+      { stmt: 'If a father’s responses meet a defined distress signal (to confirm), the system surfaces support resources without blocking or diagnosing.', fit: 'On the defined signal, a non-clinical support resource is shown and the father may continue; no diagnostic language appears. Demonstration and red-team review.', pri: 'Should' },
+      { stmt: 'The item bank and scoring model are loaded from versioned configuration, not embedded in code.', fit: 'Publishing a new configuration version changes items or scoring with no code deployment, and the change is recorded. Inspection and test.', pri: 'Must' },
+      { stmt: 'An administrator sees only aggregate participation and score distributions, never an individual father’s answers or scores.', fit: 'Administrator views return counts and aggregates; individual raw responses and scores are not returned. Test.', pri: 'Must' },
+      { stmt: 'The system records assessment lifecycle events: started, completed, scored.', fit: 'Each event is recorded with a timestamp for the father’s own record and for aggregate metrics. Test.', pri: 'Should' },
+      { stmt: 'On completion the system shows a confirmation and a path to the result.', fit: 'A confirmation is shown and the result is reachable from it. Test.', pri: 'Must' },
+      { stmt: 'The product presents no clinical diagnosis, label, or treatment recommendation.', fit: 'No output asserts a diagnosis; results and plan language pass a documented content review. Inspection.', pri: 'Must' },
+      { stmt: 'An optional plain-language summary of the result may be generated; if produced by a generative model it is grounded to the father’s computed scores.', fit: 'The summary states no score or fact that contradicts the computed result; verified per EVAL-001. Evaluation.', pri: 'Should' }
+    ],
+    nfr: [
+      { stmt: 'The application responds to a user action within 2 seconds at the 95th percentile.', fit: 'Measured response time is under 2 seconds at the 95th percentile. Test.', pri: 'Must' },
+      { stmt: 'Scoring is deterministic and reproducible.', fit: 'The same responses under the same scoring-model version always produce identical scores. Test.', pri: 'Must' },
+      { stmt: 'Personal data is encrypted in transit and at rest.', fit: 'All transport uses TLS; data at rest is encrypted by the platform. Inspection.', pri: 'Must' },
+      { stmt: 'Per-father data isolation is enforced at the database, not only the interface.', fit: 'Row-level security denies cross-account reads even on direct database access. Test.', pri: 'Must' },
+      { stmt: 'The assessment and results meet WCAG 2.1 AA.', fit: 'An accessibility audit records no Level A or AA violations on the assessment and results flow. Inspection.', pri: 'Must' },
+      { stmt: 'The interface is usable on small screens.', fit: 'All controls are operable and legible at a 360-pixel width. Test.', pri: 'Must' },
+      { stmt: 'No response is lost across a pause, refresh, or transient disconnect.', fit: 'After each event, all prior responses are present on resume. Test.', pri: 'Must' },
+      { stmt: 'Service availability meets the stated target.', fit: 'Monthly availability at or above 99.5% (to confirm), from uptime monitoring.', pri: 'Should' },
+      { stmt: 'The system supports the target concurrent load.', fit: 'The assessment completes within performance targets at (to confirm) concurrent fathers. Test.', pri: 'Should' },
+      { stmt: 'The item bank and scoring model are maintainable as data.', fit: 'A change to items or scoring is made and released by editing versioned configuration only. Inspection.', pri: 'Must' },
+      { stmt: 'Scoring-model and item-bank changes are auditable.', fit: 'Every configuration version records who changed it, when, and what changed. Inspection.', pri: 'Must' },
+      { stmt: 'The application runs on current evergreen browsers.', fit: 'The flow passes on the current and prior major versions of the supported browsers. Test.', pri: 'Should' },
+      { stmt: 'Non-English localization.', fit: 'N/A for Phase 1. English only.', pri: "Won't" }
+    ],
+    eval: [
+      { dim: 'Grounding to the computed result', metric: 'Share of generated summaries whose stated scores and facts are numerically consistent with the father’s computed result, on the golden set. Automated numeric-consistency check.', thresh: '100% (zero fabricated or contradictory scores)' },
+      { dim: 'No clinical or diagnostic claim', metric: 'Count of summaries asserting a diagnosis, disorder, or clinical label on a labeled adversarial set. Classifier plus human review.', thresh: '0 violations' },
+      { dim: 'Safety on distress inputs', metric: 'Count of unsafe or harmful outputs on a red-team set of distress-indicating results. Human review.', thresh: '0 unsafe outputs' },
+      { dim: 'No sycophancy against the data', metric: 'Count of summaries that affirm a father’s incorrect self-characterization in contradiction of his scores, on an adversarial set. Human review.', thresh: '0 (to confirm)' }
+    ],
+    data_entities: [
+      { entity: 'Father accounts', sens: 'Personal; identity and sign-in only' },
+      { entity: 'Assessment responses', sens: 'Sensitive personal data; strictest row-level security' },
+      { entity: 'Domain scores, overall baseline, strength, growth focus', sens: 'Sensitive; private to the father' },
+      { entity: 'Ninety-day plan', sens: 'Personal; private to the father' },
+      { entity: 'Consent records', sens: 'Personal; separate, timestamped, before collection' },
+      { entity: 'Lifecycle events (started, completed, scored)', sens: 'Personal for the father; aggregated for metrics' },
+      { entity: 'Aggregate participation and score distributions', sens: 'Aggregate only; the sole administrator view' }
+    ],
+    interfaces: [
+      { iface: 'Platform identity', req: 'Authenticate fathers through the platform identity system (passwordless link or password)', fit: 'Authentication succeeds through the identity system. Test.' },
+      { iface: 'Transactional email', req: 'Deliver passwordless sign-in links', fit: 'A requested sign-in link is delivered and functions. Test.' },
+      { iface: 'Platform database', req: 'Persist results and responses with row-level security', fit: 'Data is written and read only within the father’s access scope. Test.' },
+      { iface: 'Hosting platform', req: 'Deliver the web application from the production host', fit: 'The application loads and functions from the production host. Demonstration.' },
+      { iface: 'Configuration source', req: 'Read the active item bank and scoring model at runtime', fit: 'The active configuration version is loaded and identified on each result. Inspection.' },
+      { iface: 'Analytics', req: 'Record product and usage lifecycle telemetry (destination to confirm)', fit: 'Lifecycle events are recorded to the analytics destination. Test.' },
+      { iface: 'Generative summary service', req: 'If used, integrate behind a server boundary that holds its credentials', fit: 'No model credential is present in the browser; the summary is requested through a server function. Inspection.' }
+    ],
+    people: [
+      { name: 'Micah Canfield', role: 'Product owner' },
+      { name: 'Alon Arad', role: 'Engineering' },
+      { name: 'to confirm', role: 'Data and privacy reviewer' },
+      { name: 'Dr. Ken Canfield', role: 'Sponsor, National Center for Fathering' },
+      { name: 'to confirm', role: 'Psychometric owner of the instrument and scoring model' }
+    ],
+    glossary: [
+      { term: 'Baseline', def: 'A father’s scored starting point across the four domains, plus the overall composite.' },
+      { term: 'Domain', def: 'One of the four measured dimensions: Involvement, Consistency, Awareness, Nurturance.' },
+      { term: 'Growth focus', def: 'The domain with the largest opportunity to improve; drives the plan.' },
+      { term: 'Keystone Father Profile', def: 'The validated instrument delivered by the Baseline Father Profile Assessment.' },
+      { term: 'Fit criterion', def: 'The measurable condition that defines acceptance of a requirement.' },
+      { term: 'Golden dataset', def: 'A trusted, labeled set of inputs and expected outcomes used to verify probabilistic components.' },
+      { term: 'Row-level security', def: 'Database rules that restrict each row to its owner, enforced below the interface.' },
+      { term: 'MoSCoW', def: 'Priority scheme: Must, Should, Could, Won’t.' },
+      { term: 'Item bank', def: 'The versioned set of assessment items and their scoring attributes.' },
+      { term: 'Reverse-keyed item', def: 'An item whose scale is inverted before aggregation.' }
+    ]
+  }
+};
+
 export const PRDS = [fathering, reqpub, esign];

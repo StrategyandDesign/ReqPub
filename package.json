@@ -1,12 +1,12 @@
 {
   "name": "reqpub",
-  "version": "2.16.1",
+  "version": "2.16.2",
   "private": true,
   "type": "module",
   "description": "ReqPub — discovery to versioned, approved, testable requirements. Static frontend (GitHub Pages) + Supabase backend.",
   "scripts": {
     "test": "node tests/domain.test.mjs && node tests/sync.test.mjs && node tests/share.test.mjs && node tests/msgdedup.test.mjs && node tests/engagement.test.mjs",
-    "test:backend": "node tests/backend-e2e/run.mjs && node tests/backend-e2e/brand-overlay.test.mjs && node tests/backend-e2e/sme-workspace.test.mjs && node tests/backend-e2e/attachments.test.mjs && node tests/backend-e2e/partner-notes.test.mjs && node tests/backend-e2e/approvals.test.mjs && node tests/backend-e2e/seed-prds.test.mjs",
+    "test:backend": "node tests/backend-e2e/run.mjs && node tests/backend-e2e/brand-overlay.test.mjs && node tests/backend-e2e/sme-workspace.test.mjs && node tests/backend-e2e/attachments.test.mjs && node tests/backend-e2e/partner-notes.test.mjs && node tests/backend-e2e/approvals.test.mjs && node tests/backend-e2e/seed-prds.test.mjs && node tests/backend-e2e/deploy-fathering.test.mjs",
     "seed:prds": "node tools/gen-prd-seed.mjs"
   },
   "devDependencies": {

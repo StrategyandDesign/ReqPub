@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.16.2 · Fathering Baseline Assessment deployment (FC-REQ-001)
+
+- Mapped the Phase 1 Fathers.com requirements document (FC-REQ-001, Baseline
+  Father Profile Assessment) section-for-section into the ReqPub worksheet: 27
+  functional, 13 non-functional, 4 AI-evaluation, and 7 interface requirements,
+  plus overview, users, solution (with the Appendix C scoring model folded in),
+  metrics, assumptions, data and privacy, people, and glossary. It assembles into
+  the full 17-section document, validated through the real builders.
+- Added `supabase/deploy-fathering-baseline.sql`: a single-transaction migration
+  that rebuilds the existing Fathering project in place. It retitles the project
+  to "Fathering Baseline Assessment", erases every SME/partner interchange
+  (threads, messages, input requests, share links, attachments, and the partner
+  assignments) for a fresh deployment, replaces the worksheet content, clears
+  prior versions, and publishes an APPROVED v1.1 signed off by the document's
+  named approvers (Micah Canfield, Alon Arad, Dr. Ken Canfield). Branding, the
+  audit log, and every other project are left untouched.
+- The stored v1.1 snapshot is the exact { answers, sections } shape the app
+  writes itself, so the approved baseline renders and exports identically. A
+  21-check backend test proves the retitle, the full erase, the content
+  replacement, the approved v1.1 with its three approvers, that a bystander
+  project is untouched, and that a re-run is idempotent. Suite now 245 (52 + 193).
+
+
 ## 2.16.1 · Esign API worked example + landing fix
 
 - Added a third worked-example PRD, Esign API, the API-first e-signature service
