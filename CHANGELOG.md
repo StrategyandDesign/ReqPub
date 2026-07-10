@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.18.1 · inbox threads show their latest activity
+
+- An inbox thread now displays the time of its most recent message, not when the
+  thread was created, and the Inbox, App, and Notes lists sort the most recently
+  active thread first. Previously a thread showed its open time, so a partner or
+  SME whose latest reply landed days after the thread started looked stale and was
+  easy to miss. Pairs with the new-reply flag: the thread both reads by its latest
+  reply and lights up until a teammate opens it. Frontend only, no schema change.
+
+
 ## 2.18.0 · team-level "new reply" notification
 
 - When an SME, partner, or app reviewer posts or replies on a PRD, the thread now

@@ -21,6 +21,15 @@ export function unreadCount(APP) {
 export const isUnseenExternal = (c) =>
   !!c.last_ext_at && (!c.team_seen_at || new Date(c.team_seen_at) < new Date(c.last_ext_at));
 export const newReplyCount = (APP) => (APP.comms || []).filter(isUnseenExternal).length;
+// A thread's latest activity: its own time, or the newest reply on it. A thread
+// with a recent partner or SME reply then reads by that reply, not by when it
+// opened, so recent external engagement is visible and sorts to the top.
+export const lastActivityAt = (APP, it) => {
+  let t = it.created_at;
+  const ms = (APP.msgs && APP.msgs[it.id]) || [];
+  for (const m of ms) if (m && m.created_at && new Date(m.created_at) > new Date(t)) t = m.created_at;
+  return t;
+};
 export function projectStatsOf(comms, reads) {
   let unread = 0, open = 0, newExt = 0;
   (comms || []).forEach((c) => {
@@ -78,7 +87,7 @@ function commCard(APP, it) {
     '<div style="display:flex;gap:10px;min-width:0;align-items:flex-start">' +
     (unr ? '<span style="width:7px;height:7px;border-radius:50%;background:var(--brand);flex:0 0 auto;margin-top:6px"></span>' : '<span style="width:7px;flex:0 0 auto"></span>') +
     '<div style="min-width:0"><div style="font-weight:' + (unr ? '650' : '560') + ';font-size:14px;line-height:1.35' + (open ? '' : ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap') + '">' + (it.ref ? '<span style="font-family:var(--mono);font-size:10px;color:var(--ink-4);border:1px solid var(--line);border-radius:5px;padding:1px 5px;margin-right:6px;vertical-align:1.5px">' + esc(it.ref) + '</span>' : '') + esc(it.title || '(untitled)') + '</div>' +
-    '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">' + esc(it.author_name || 'Anonymous') + ' · ' + esc(relTime(it.created_at)) + (it.version_seq ? ' · ' + verLabel(APP, it.version_seq) : '') + '</div></div></div>' +
+    '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">' + esc(it.author_name || 'Anonymous') + ' · ' + esc(relTime(lastActivityAt(APP, it))) + (it.version_seq ? ' · ' + verLabel(APP, it.version_seq) : '') + '</div></div></div>' +
     '<div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto">' + badges + '</div></div>';
   let body = '';
   if (open) {
@@ -126,7 +135,7 @@ function renderInbox(APP) {
       if (!hay.includes(q)) return false;
     }
     return true;
-  });
+  }).sort((a, b) => new Date(lastActivityAt(APP, b)) - new Date(lastActivityAt(APP, a)));   // most recently active first
   const header = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;gap:10px">' +
     '<div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Inbox</h2>' +
     '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">Every communication on this PRD, live. ' + all.length + ' total' + (unread ? ' · ' + unread + ' unread' : '') + '.</div></div>' +
@@ -175,7 +184,8 @@ function renderFeedback(APP) {
   const verSel = '<select class="input" data-action="fbverfilter" style="height:34px;padding:0 10px;width:auto;font-family:var(--mono);font-size:12px">' +
     '<option value="all"' + (filterAll ? ' selected' : '') + '>All versions</option>' +
     versions.slice().reverse().map((v) => '<option value="' + v.seq + '"' + (!filterAll && v.seq === seq ? ' selected' : '') + '>v' + esc(v.label) + '</option>').join('') + '</select>';
-  const list = (APP.comms || []).filter((c) => (c.origin === 'app' || c.origin === 'brief') && (filterAll || c.version_seq === seq));
+  const list = (APP.comms || []).filter((c) => (c.origin === 'app' || c.origin === 'brief') && (filterAll || c.version_seq === seq))
+    .sort((a, b) => new Date(lastActivityAt(APP, b)) - new Date(lastActivityAt(APP, a)));
   const cur = versions.find((v) => v.seq === seq);
   const share = (!filterAll && cur)
     ? shareRow(APP, 'brief', 'PRD review link · v' + cur.label, 'A plain-language brief for collaborators. Their review lands in the Inbox and opens a two-way thread - no account needed.', seq) +
@@ -210,7 +220,8 @@ const NRTPL = [
 
 function renderNotes(APP) {
   const isMgr = APP.role === 'manager';
-  const notes = (APP.comms || []).filter((c) => c.origin === 'team' || c.origin === 'meeting' || (c.origin === 'sme' && !c.request_id) || c.origin === 'partner');
+  const notes = (APP.comms || []).filter((c) => c.origin === 'team' || c.origin === 'meeting' || (c.origin === 'sme' && !c.request_id) || c.origin === 'partner')
+    .sort((a, b) => new Date(lastActivityAt(APP, b)) - new Date(lastActivityAt(APP, a)));
   const reqs = APP.requests || [];
   const rd = APP.reqDraft || {};
   const base = location.origin + location.pathname;
