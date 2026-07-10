@@ -16,13 +16,19 @@ const COMM_STATUS_LABEL = { new: 'New', in_review: 'In review', actioned: 'Actio
 export function unreadCount(APP) {
   return (APP.comms || []).filter((c) => EXTERNAL[c.origin] && !APP.reads[c.id]).length;
 }
+// Team-level "new reply": an external party posted or replied more recently than
+// any team member has looked. Clears for everyone once one teammate opens it.
+export const isUnseenExternal = (c) =>
+  !!c.last_ext_at && (!c.team_seen_at || new Date(c.team_seen_at) < new Date(c.last_ext_at));
+export const newReplyCount = (APP) => (APP.comms || []).filter(isUnseenExternal).length;
 export function projectStatsOf(comms, reads) {
-  let unread = 0, open = 0;
+  let unread = 0, open = 0, newExt = 0;
   (comms || []).forEach((c) => {
     if (EXTERNAL[c.origin] && !reads[c.id]) unread++;
     if (c.status === 'new' || c.status === 'in_review') open++;
+    if (isUnseenExternal(c)) newExt++;
   });
-  return { unread, open };
+  return { unread, open, newExt };
 }
 
 const srcColor = (o) => o === 'app' ? 'var(--ink)' : o === 'brief' ? 'var(--brand)' : o === 'partner' ? 'var(--purple)' : o === 'sme' ? 'var(--teal)' : 'var(--ink-3)';
@@ -63,7 +69,8 @@ function threadHTML(APP, comm, canReply) {
 function commCard(APP, it) {
   const open = !!APP.openComms[it.id];
   const unr = EXTERNAL[it.origin] && !APP.reads[it.id];
-  const badges = '<span class="pill" style="border-color:' + srcColor(it.origin) + ';color:' + srcColor(it.origin) + '">' + esc(ORIGIN_LABEL[it.origin] || it.origin) + '</span>' +
+  const badges = (isUnseenExternal(it) ? '<span class="pill pill-solid" style="background:var(--brand);border-color:var(--brand);color:#fff">New reply</span>' : '') +
+    '<span class="pill" style="border-color:' + srcColor(it.origin) + ';color:' + srcColor(it.origin) + '">' + esc(ORIGIN_LABEL[it.origin] || it.origin) + '</span>' +
     (it.severity ? '<span class="pill' + (it.severity === 'Critical' ? ' pill-solid' : '') + '">' + esc(it.severity) + '</span>' : '') +
     '<span class="pill' + (it.status === 'new' ? ' pill-solid' : '') + '">' + esc(COMM_STATUS_LABEL[it.status] || it.status) + '</span>' +
     (it.promoted_to ? '<span class="pill">' + esc(it.promoted_to === 'discovery' ? 'In discovery' : 'Promoted to ' + it.promoted_to) + '</span>' : '');

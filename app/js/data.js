@@ -225,6 +225,9 @@ export const repo = {
   async markRead(userId, commId) {
     return durable(() => sb.from('read_marks').upsert({ user_id: userId, comm_id: commId }));
   },
+  // A team member opening a thread: records their read receipt AND clears the
+  // team-level "new reply" flag (comms.team_seen_at) for everyone. Viewers too.
+  commSeen(commId) { return rpc('comm_seen', { p_comm: commId }); },
 
   /* ---- input requests / discovery ---- */
   async addRequest(row) { return durable(() => sb.from('input_requests').insert(row).select().single()); },

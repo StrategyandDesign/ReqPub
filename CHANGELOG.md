@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.18.0 · team-level "new reply" notification
+
+- When an SME, partner, or app reviewer posts or replies on a PRD, the thread now
+  carries a team-level "New reply" flag that stays lit until any team member opens
+  the thread, then clears for everyone. This closes a gap: the previous signal was
+  a per-user, per-thread read receipt, so a reply landing on a thread a teammate
+  had already opened never resurfaced.
+- The flag is two timestamps on each thread: `last_ext_at` advances on an external
+  post or reply (via database triggers, so every path is covered), and
+  `team_seen_at` advances the moment any member opens the thread through the new
+  `comm_seen` RPC (viewers included, since they cannot write the table directly). A
+  thread is unseen while `last_ext_at` is newer than `team_seen_at`. Team notes and
+  the empty SME workspace shell never flag.
+- Surfaced in three places from that one flag: a "New reply" badge on the dashboard
+  project card, a count on the project's Inbox tab, and a "New reply" tag on the
+  specific thread. Opening the thread clears all three. Backend change is two
+  nullable columns, two triggers, and one RPC, shipped as
+  `supabase/fix-new-reply.sql` (idempotent; backfilled so it starts clean). Eleven
+  backend tests added; suite now 256 (52 + 204).
+
+
 ## 2.17.0 · pre-review hardening
 
 - Invite email (`send-invite`): the edge function now authorizes the caller under

@@ -5,7 +5,7 @@
 
 import { esc, escA, ico, IC, brandmark, initials, relTime, themeGet } from './core.js';
 import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
-import { renderTab, unreadCount } from './views-collab.js';
+import { renderTab, newReplyCount } from './views-collab.js';
 import { execSummaryHTML } from './exports.js';
 
 export const STATUS_LABEL = { draft: 'Draft', in_review: 'In review', approved: 'Approved', changes_requested: 'Changes requested' };
@@ -277,10 +277,10 @@ function orgModal(APP) {
 export function viewProjects(APP) {
   const list = APP.projects || [];
   const stats = APP.projectStats || {};
-  let agg = { unread: 0, open: 0 };
-  list.forEach((p) => { const s = stats[p.id]; if (s) { agg.unread += s.unread; agg.open += s.open; } });
+  let agg = { unread: 0, open: 0, newExt: 0 };
+  list.forEach((p) => { const s = stats[p.id]; if (s) { agg.unread += s.unread; agg.open += s.open; agg.newExt += (s.newExt || 0); } });
   const bits = [];
-  if (agg.unread) bits.push(agg.unread + ' new communication' + (agg.unread === 1 ? '' : 's'));
+  if (agg.newExt) bits.push(agg.newExt + ' new repl' + (agg.newExt === 1 ? 'y' : 'ies') + ' from partners or SMEs');
   if (agg.open && APP.role === 'manager') bits.push(agg.open + ' item' + (agg.open === 1 ? '' : 's') + ' awaiting review');
   const banner = bits.length
     ? '<div class="card rise" style="padding:16px 18px;margin-bottom:18px;border:1px solid var(--sky-2);background:var(--sky);display:flex;align-items:center;gap:12px">' +
@@ -302,7 +302,7 @@ export function viewProjects(APP) {
   const cards = list.length ? list.map((p, i) => {
     const s = stats[p.id] || {};
     const latest = s.latest;
-    const cb = (s.unread ? '<span class="pill pill-brand">' + s.unread + ' new</span>' : '') +
+    const cb = (s.newExt ? '<span class="pill pill-brand">' + s.newExt + ' new repl' + (s.newExt === 1 ? 'y' : 'ies') + '</span>' : '') +
       (s.open ? '<span class="pill">' + s.open + ' open</span>' : '');
     // One-click Approve straight from the card: a manager can clear "Draft"
     // without opening Version history. It walks Draft → In review → Approved in
@@ -535,12 +535,12 @@ function renderDoc(APP, a, ac, total) {
     { key: 'discovery', label: 'Discovery', subs: [['discovery', 'Discovery']] },
     { key: 'share', label: 'Share', subs: [['access', 'Access'], ['people', 'People']] }
   ];
-  const unread = unreadCount(APP);
+  const newRep = newReplyCount(APP);   // team-level: unseen external replies on this project
   const activeSection = (NAV.find((g) => g.subs.some((s) => s[0] === APP.docTab)) || {}).key;
   const tabBtns = NAV.map((g) => {
     const on = g.key === activeSection;
-    const badge = (g.key === 'inbox' && unread)
-      ? ' <span style="background:var(--brand);color:#fff;border-radius:999px;padding:0 5px;font-size:10px;font-weight:700;vertical-align:1px">' + unread + '</span>' : '';
+    const badge = (g.key === 'inbox' && newRep)
+      ? ' <span style="background:var(--brand);color:#fff;border-radius:999px;padding:0 5px;font-size:10px;font-weight:700;vertical-align:1px" title="New replies from partners or SMEs">' + newRep + '</span>' : '';
     return '<button class="btn btn-sm" data-action="tab" data-val="' + g.subs[0][0] + '" style="' +
       (on ? 'background:var(--ink);color:var(--bg)' : 'color:var(--ink-3)') + '">' + g.label + badge + '</button>';
   }).join('');

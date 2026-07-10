@@ -311,7 +311,7 @@ function refreshMyApprovals() {
 async function refreshDashboardStats() {
   // One org-wide pass: unread/open per project for the dashboard chips.
   const r = await Promise.all([
-    (async () => { const x = await sbLite('comms', 'id,project_id,origin,status', APP.orgId); return x; })(),
+    (async () => { const x = await sbLite('comms', 'id,project_id,origin,status,last_ext_at,team_seen_at', APP.orgId); return x; })(),
     (async () => { const x = await repoReads(); return x; })()
   ]);
   const comms = r[0], reads = r[1];
@@ -903,16 +903,25 @@ async function handleAction(a, id, t, e) {
     case 'commtoggle': {
       APP.openComms[id] = !APP.openComms[id];
       const comm = APP.comms.find((c) => c.id === id);
-      if (APP.openComms[id] && comm && !APP.reads[id]) {
+      if (APP.openComms[id] && comm) {
+        // Opening a thread clears both my personal unread and the team-level
+        // "new reply" flag (team_seen_at), for everyone.
         APP.reads[id] = true;
-        repo.markRead(APP.user.id, id);
+        comm.team_seen_at = new Date().toISOString();
+        repo.commSeen(id);
       }
       render();
       break;
     }
     case 'ibreadall': {
+      const now = new Date().toISOString();
       APP.comms.forEach((c) => {
-        if (!APP.reads[c.id]) { APP.reads[c.id] = true; repo.markRead(APP.user.id, c.id); }
+        const unseen = c.last_ext_at && (!c.team_seen_at || new Date(c.team_seen_at) < new Date(c.last_ext_at));
+        if (!APP.reads[c.id] || unseen) {
+          APP.reads[c.id] = true;
+          if (unseen) c.team_seen_at = now;
+          repo.commSeen(c.id);
+        }
       });
       render();
       break;

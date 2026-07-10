@@ -302,6 +302,12 @@ create index if not exists comms_req on comms(request_id) where request_id is no
 -- Human-friendly per-project reference for partner notes (PN-1, PN-2, …) so each
 -- is uniquely trackable in the inbox and in conversation.
 alter table comms add column if not exists ref text;
+-- Team-level "new reply" signal: last_ext_at advances on an external post/reply,
+-- team_seen_at advances when any team member opens the thread. A thread is unseen
+-- while last_ext_at > team_seen_at (see the triggers and comm_seen() below).
+alter table comms add column if not exists last_ext_at  timestamptz;
+alter table comms add column if not exists team_seen_at timestamptz;
+create index if not exists comms_newext on comms(project_id) where last_ext_at is not null;
 alter table comms enable row level security;
 
 drop policy if exists comms_member_read on comms;
@@ -396,6 +402,51 @@ alter table read_marks enable row level security;
 drop policy if exists rm_self on read_marks;
 create policy rm_self on read_marks for all
   using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Team-level "new reply" flag (see comms.last_ext_at / team_seen_at above).
+-- A new external thread with content flags itself; the empty SME-workspace shell
+-- (no body, verdict, or steps) does not.
+create or replace function comms_flag_external()
+returns trigger language plpgsql as $$
+begin
+  if new.origin in ('app','brief','sme','partner')
+     and (coalesce(new.body,'') <> '' or coalesce(new.verdict,'') <> '' or coalesce(new.steps,'') <> '') then
+    new.last_ext_at := coalesce(new.last_ext_at, now());
+  end if;
+  return new;
+end; $$;
+drop trigger if exists comms_flag_external_t on comms;
+create trigger comms_flag_external_t before insert on comms
+  for each row execute function comms_flag_external();
+
+-- An external reply (SME or partner) bumps its parent thread; team replies do not.
+create or replace function messages_flag_external()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.parent_kind = 'comm' and new.author_kind in ('sme','partner') then
+    update comms set last_ext_at = now() where id = new.parent_id;
+  end if;
+  return new;
+end; $$;
+drop trigger if exists messages_flag_external_t on messages;
+create trigger messages_flag_external_t after insert on messages
+  for each row execute function messages_flag_external();
+
+-- A team member opening a thread clears the flag for the whole team and records
+-- their personal read receipt. Any project member may call it (viewers too),
+-- so it is SECURITY DEFINER rather than a direct table write.
+create or replace function comm_seen(p_comm uuid)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare c comms%rowtype;
+begin
+  select * into c from comms where id = p_comm;
+  if c.id is null or not is_project_member(c.project_id) then return false; end if;
+  insert into read_marks(user_id, comm_id, read_at) values (auth.uid(), p_comm, now())
+    on conflict (user_id, comm_id) do update set read_at = now();
+  update comms set team_seen_at = now() where id = p_comm;
+  return true;
+end; $$;
+grant execute on function comm_seen(uuid) to authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 6) Input requests (tokened "ask an SME" links) and discovery log
