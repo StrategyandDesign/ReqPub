@@ -30,7 +30,7 @@ function jsonRows(answers) {
 }
 
 function acceptanceMd(answers, meta) {
-  const P = ['# Acceptance checklist — ' + (meta.product || 'Untitled') + ' v' + meta.label,
+  const P = ['# Acceptance checklist - ' + (meta.product || 'Untitled') + ' v' + meta.label,
     ['Baselined ' + day(meta.baselined), meta.approvedAt ? 'Approved ' + day(meta.approvedAt) : null,
       'Fingerprint `' + String(meta.fingerprint || '').slice(0, 16) + '…` (full value and recipe in requirements.json)'
     ].filter(Boolean).join(' · ')];
@@ -38,9 +38,9 @@ function acceptanceMd(answers, meta) {
   const fr = rowsFilled(answers.fr), nfr = rowsFilled(answers.nfr), ir = rowsFilled(answers.interfaces), ev = rowsFilled(answers.eval);
   if (fr.length) P.push('## Functional requirements\n\n' + fr.map((r) => box(id3('FR', r._k), r.stmt || '', r.fit)).join('\n'));
   if (nfr.length) P.push('## Non-functional requirements\n\n' + nfr.map((r) => box(id3('NFR', r._k), r.stmt || '', r.fit)).join('\n'));
-  if (ir.length) P.push('## Interfaces\n\n' + ir.map((r) => box(id3('IR', r._k), (r.iface ? r.iface + ' — ' : '') + (r.req || ''), r.fit)).join('\n'));
+  if (ir.length) P.push('## Interfaces\n\n' + ir.map((r) => box(id3('IR', r._k), (r.iface ? r.iface + ' - ' : '') + (r.req || ''), r.fit)).join('\n'));
   if (ev.length) P.push('## AI acceptance criteria\n\n' + ev.map((r) =>
-    '- [ ] **' + id3('EVAL', r._k) + '** ' + (r.dim || '') + ' — ' + (r.metric || '') + ' — threshold: ' + (r.thresh || 'to confirm')).join('\n') +
+    '- [ ] **' + id3('EVAL', r._k) + '** ' + (r.dim || '') + ' - ' + (r.metric || '') + ' - threshold: ' + (r.thresh || 'to confirm')).join('\n') +
     (answers.golden ? '\n\nGolden dataset and red-team method: ' + answers.golden : ''));
   P.push('_A box is ticked when its fit criterion passes as stated. ' + NOT_A_SIGNATURE + '_');
   return P.join('\n\n');
@@ -49,7 +49,7 @@ function acceptanceMd(answers, meta) {
 function changesMd(answers, meta, prevAnswers, prevLabel) {
   if (!prevAnswers) {
     const j = jsonRows(answers);
-    return '# v' + meta.label + ' — initial baseline\n\n' +
+    return '# v' + meta.label + ' - initial baseline\n\n' +
       [j.fr.length + ' functional', j.nfr.length + ' non-functional', j.eval.length + ' AI acceptance', j.interfaces.length + ' interface']
         .join(' · ') + ' requirements.' + (meta.note ? '\n\n> ' + meta.note : '');
   }
@@ -72,13 +72,13 @@ function changesMd(answers, meta, prevAnswers, prevLabel) {
 }
 
 function readmeMd(meta) {
-  return ['# Implementation package — ' + (meta.product || 'Untitled') + ' v' + meta.label,
+  return ['# Implementation package - ' + (meta.product || 'Untitled') + ' v' + meta.label,
     ['Status: ' + (meta.status || 'draft'), 'Baselined ' + day(meta.baselined), meta.approvedAt ? 'Approved ' + day(meta.approvedAt) : null]
       .filter(Boolean).join(' · '),
-    '**requirements.json** — every requirement row with its permanent id, statement, fit criterion, priority, component, promotion source, and attested recorder.\n' +
-    '**acceptance.md** — the fit criteria and AI thresholds as a testable checklist.\n' +
-    '**CHANGES.md** — what changed against the prior baseline, per column, with before and after.\n' +
-    '**prd.md** — the full assembled document as of this baseline.',
+    '**requirements.json** - every requirement row with its permanent id, statement, fit criterion, priority, component, promotion source, and attested recorder.\n' +
+    '**acceptance.md** - the fit criteria and AI thresholds as a testable checklist.\n' +
+    '**CHANGES.md** - what changed against the prior baseline, per column, with before and after.\n' +
+    '**prd.md** - the full assembled document as of this baseline.',
     '## Fingerprint\n\n`' + (meta.fingerprint || '') + '`\n\nRecipe: ' + RECIPE +
     '\n\nThe client baseline report for v' + meta.label + ' carries this same fingerprint: the document the client signed and this package were produced from byte-identical baselines. ' + NOT_A_SIGNATURE
   ].join('\n\n');

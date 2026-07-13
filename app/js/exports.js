@@ -40,7 +40,7 @@ function coverHTML(meta) {
         const decided = a.status === 'approved';
         return '<div class="rp-appr-row"><span class="rp-appr-mark ' + (decided ? 'yes' : '') + '">' +
           (decided ? '&#10003;' : '&middot;') + '</span>' +
-          '<span class="rp-appr-role">' + esc(a.approver_role || 'Approver') + (a.approver_name ? ' &mdash; ' + esc(a.approver_name) : '') + '</span>' +
+          '<span class="rp-appr-role">' + esc(a.approver_role || 'Approver') + (a.approver_name ? ' - ' + esc(a.approver_name) : '') + '</span>' +
           '<span class="rp-appr-state ' + esc(a.status) + '">' + esc(STATUS_LABEL[a.status] || a.status) + '</span></div>';
       }).join('') + '</div>'
     : '';
@@ -179,7 +179,7 @@ export function clientDocMd(answers, meta, briefAnswers, briefSections, versions
     const lines = [[r.versions + ' version' + (r.versions === 1 ? '' : 's'),
       r.signoffs + ' named sign-off' + (r.signoffs === 1 ? '' : 's'),
       inc.length + ' of your inputs incorporated in this baseline'].join(' · ')];
-    if (inc.length) lines.push(inc.slice(0, 12).map((x) => '- **' + x.id + '** — from ' + x.src).join('\n') +
+    if (inc.length) lines.push(inc.slice(0, 12).map((x) => '- **' + x.id + '** - from ' + x.src).join('\n') +
       (inc.length > 12 ? '\n- …and ' + (inc.length - 12) + ' more' : ''));
     parts.push('## Record of engagement\n\n' + lines.join('\n\n'));
   }
@@ -223,7 +223,7 @@ export function gatePacketMd(meta, curAnswers, prevAnswers, prevLabel) {
   if (Array.isArray(meta.snapHealth)) {
     P.push('## Criteria state at this baseline\n\n' + healthStateLine(meta.snapHealth) +
       (meta.snapHealth.length
-        ? '\n\n' + meta.snapHealth.map((x) => '- ' + (x.level === 'gap' ? 'Gap' : 'Warning') + (x.count > 1 ? ' ×' + x.count : '') + ': ' + x.label + (x.detail ? ' - ' + x.detail : '')).join('\n')
+        ? '\n\n' + meta.snapHealth.map((x) => '- ' + (x.level === 'gap' ? 'Gap' : 'Warning') + (x.count > 1 ? ' ×' + x.count : '') + ': ' + x.label).join('\n')
         : '\n\nNo readiness gaps or warnings were present when this baseline was fixed.'));
   } else {
     P.push('## Criteria state at this baseline\n\n_No readiness evidence stored - this baseline predates evidence capture. Regenerate to carry it._');

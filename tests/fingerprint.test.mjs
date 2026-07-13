@@ -95,7 +95,7 @@ test('record of engagement renders counts and attributed ids, only when provided
   const md = clientDocMd({ ctrl_product: 'P' }, meta, null, null, []);
   assert.ok(md.includes('## Record of engagement'));
   assert.ok(md.includes('3 versions · 4 named sign-offs · 2 of your inputs incorporated in this baseline'));
-  assert.ok(md.includes('- **FR-012** — from Inbox · Dana'));
+  assert.ok(md.includes('- **FR-012** - from Inbox · Dana'));
   const bare = clientDocMd({ ctrl_product: 'P' }, { product: 'P', label: '2.0', fingerprint: 'f'.repeat(64) }, null, null, []);
   assert.ok(!bare.includes('Record of engagement'));
 });
@@ -117,6 +117,7 @@ test('the gate packet composes name, criteria state, per-column changes, and the
   assert.ok(md.includes('**Requirements Baseline** - a named decision on baseline v2.0'));
   assert.ok(md.includes('0 gaps · 1 warning'), 'the line counts signals; the row below carries the ×2');
   assert.ok(md.includes('Warning ×2: Approved versions with no named sign-off'));
+  assert.ok(!md.includes('Version history'), 'in-app remedy copy stays out of the client-facing packet');
   assert.ok(md.includes('## Changes since v1.0'));
   assert.ok(md.includes('- fit criterion: ~~within 5 seconds~~ → within 30 seconds'));
   assert.ok(md.includes('canonical JSON'));

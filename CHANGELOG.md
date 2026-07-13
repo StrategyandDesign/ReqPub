@@ -1,5 +1,56 @@
 # Changelog
 
+## 2.23.2 · the fine-tooth pass
+
+An adversarial audit of 2.23.x before external code review: every button
+against every handler, every role against every surface, every export against
+the house style, every new write path against the schema's guards. Three
+findings, fixed; nine suspicions, cleared with evidence.
+
+**Found and fixed.**
+- The gate packet leaked in-app remedy copy: a stored health signal's detail
+  ("Open that version in Version history and record the sign-off...") printed
+  into the client-facing steering-committee PDF. The packet now carries the
+  evidence line and the signal labels with their ×N only. Regression pinned:
+  the packet test asserts the remedy copy is absent.
+- Twelve em dashes shipped inside client-delivered artifacts - nine across
+  the implementation package's four generated files, two on the printed cover
+  approvals rail and the client report's incorporated list, one in the
+  positioning one-pager. All replaced with the house hyphen. The one em dash
+  in tests/zipstore.test.mjs stays on purpose: it is UTF-8 payload proving
+  byte-exact round-trips, not copy.
+- Neither approval-slot writer had a double-click guard, so a fast double
+  click could record the same signer twice. Both now share a busy flag with
+  try/finally release.
+
+**Verified clean, with the evidence stated.**
+- save_field and upsert_row impose no question-id whitelist, so the gate-plan
+  rows flow through the same rev-checked path as every field; the gated
+  starter cannot be rejected server-side.
+- The gate name is escaped on the printed cover (esc) and everywhere else it
+  travels through the markdown pipeline, which escapes before transforming
+  (inlineMd). No injection path from user-named gates.
+- All 115 rendered data-action controls dispatch: the click switch, the
+  change-event matchers (version selector, feedback filter, member role,
+  discovery export, build stamp), and the palette's programmatic actions.
+  Zero dead buttons.
+- Client portal, SME workspace, and presentation surfaces reference neither
+  snapshot.gate nor snapshot.health; the share payload is built from answers
+  only. Gate names and readiness evidence cannot reach an external audience
+  except on documents a manager deliberately exports.
+- No schema change, no wire-key change, no origin or author-kind change, no
+  payload-shape change anywhere in 2.23.x: existing engagements, threads,
+  briefs, portals, and invite flows are untouched by construction.
+- Zero AI-tell vocabulary in product, docs, or seeds; zero provenance
+  language (the "advisory" hits are Postgres advisory locks); zero debug
+  logging outside deliberate console.warn/error paths.
+- Slot writers are manager-gated in the UI and manager-or-self-gated in the
+  RPC; version generation is manager-only; document exports are read-only
+  under row-level security for every role that can see them.
+- healthSignals guards every context field, and discovery is initialized
+  before any generate, so evidence capture cannot throw mid-baseline.
+- Suites: 154 unit + 231 backend = 385 checks green on a clean copy.
+
 ## 2.23.1 · the warning that named no version
 
 - **Field report investigated: "Approvers added but still shown as gap."**
