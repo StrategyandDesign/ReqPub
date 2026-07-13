@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.23.4 · the anchor is atomic
+
+- **Field report: the Request an introduction button did nothing on the live
+  site.** Reproduced on reqpub.com with a browser, not a theory. The anchor
+  pair was intact (unique ids, target present, both buttons resolving to
+  #intro), the DOM carried no scripts, nothing overlapped the button. The
+  split that cracked it: instant scrolls always landed; smooth scrolls died
+  at frame zero. The page set scroll-behavior: smooth on html, and Chromium
+  cancels an in-flight smooth scroll when layout shifts under it - which a
+  late-loading web font does. One measurement mid-investigation (9.5px) was
+  my own harness racing two hash writes in one task; owned and discarded.
+  The clean protocol proved both halves: with smooth off, the same click
+  path lands at 5607 of a 5643 target, every time.
+- **Fix: the smooth rule is gone.** Fragment jumps are now instant and
+  uncancelable on every engine. The prefers-reduced-motion override stays as
+  a harmless declaration of intent. No markup, copy, or design change.
+- **Deploy drift found while diagnosing:** the served index.html carries a
+  stylesheet link that this repo does not - hand-added on the server,
+  almost certainly a web font, and the very reflow source that exposed the
+  smooth bug. The record and the deploy must match: either the link joins
+  the repo or it comes off the server. Redeploy this file either way.
+- Suites: 154 unit + 231 backend = 385 checks green. One CSS declaration
+  removed; nothing else touched.
+
 ## 2.23.3 · the site tells the story
 
 - **Public site copy refreshed against the 2.21-2.23 record**, adjudicating
