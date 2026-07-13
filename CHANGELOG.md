@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.19.1 · one click, one project
+
+- **Fixed: a fast double-click on New project created two identical projects.**
+  Surfaced in production on 2026-07-13 (two "Test New Version" drafts, seconds
+  apart). Root cause: the create is a network round trip and the dashboard
+  stayed fully live while it ran - no in-flight flag, no disabled state, no
+  visible feedback until the project opened - so a second click (double-click,
+  or a retry after "nothing happened") ran the handler again, and each run
+  generates its own project id. Present since 2.14, unchanged by 2.19.0; a
+  `durable()` retry cannot cause it (the id is fixed per attempt, so a replay
+  hits the primary key), only a second handler run can.
+- The fix is belt and braces: the handler now refuses re-entry while a create
+  is in flight, and the view renders the name field and button disabled with
+  the button reading "Creating…" and refusing pointer events, so a second
+  click has nothing live to land on. Plain Enter in the name field now creates
+  the project too, through the same guarded path, so key auto-repeat and an
+  Enter-then-click pair collapse to one creation - and the "did that work?"
+  moment that invites a second click is gone.
+- Cleanup of the incident: archive either duplicate from its card (trash icon,
+  type the name to confirm); both are drafts with no version, so nothing else
+  references them.
+- New committed suite `tests/views.test.mjs` (8 checks): views are pure string
+  builders, so their contracts pin in Node with no DOM. It locks the busy/dead
+  create state, the template picker and name persistence, the Health tab, the
+  discovery promotion buttons across PRD and engagement modes, the back-link
+  pill retiring the buttons, and the fingerprint chip with the attributed
+  version note. Known class, deliberately not touched here: other direct-insert
+  buttons (add partner, add approver, add discovery entry, replies) share the
+  same unguarded shape; none has produced a duplicate in practice, and each
+  needs its own busy state, so they ship separately if reported. Frontend only,
+  no schema change. Suite now 313 (98 + 215).
+
+
 ## 2.19.0 · record health, template starts, promotion with attribution, fingerprinted client report
 
 - **Health tab (Document · Health).** The record now surfaces its own readiness:

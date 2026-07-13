@@ -50,6 +50,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── health.test.mjs                 15 readiness-signal + record-count tests
 │   ├── templates.test.mjs              10 template validation + RPC-application tests
 │   ├── fingerprint.test.mjs            9 canonical-JSON / SHA-256 / client-report tests
+│   ├── views.test.mjs                  8 view-render contracts (picker, guard, health, promotion)
 │   └── backend-e2e/                     215 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
@@ -74,7 +75,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 90 domain + concurrency + share + health + template + fingerprint checks (node only)
+npm test                        # 98 domain + concurrency + share + health + template + fingerprint checks (node only)
 npm i && npm run test:backend   # 215 checks on an embedded Postgres
 ```
 

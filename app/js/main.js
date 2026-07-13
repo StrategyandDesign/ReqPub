@@ -639,11 +639,20 @@ async function handleAction(a, id, t, e) {
       break;
     }
     case 'new': {
+      // One click, one project. The insert is a network round trip and the
+      // dashboard stays live while it runs, so without a guard a double-click
+      // (or a second click after no visible feedback) fired this handler twice
+      // and two distinct uid()s produced two identical-looking projects. The
+      // flag closes re-entry; the view renders the button disabled as
+      // "Creating…" so the second click has nothing to land on. Present since
+      // 2.14; surfaced in production 2026-07-13.
+      if (APP.creating) break;
       const name = val('newName').trim();
       if (!name) { toast('Name the product or project first'); break; }
+      APP.newName = name; APP.creating = true; render();
       const idNew = uid();
       const r = await repo.createProject(APP.orgId, idNew, name);
-      if (r.error) { toast('Could not create project'); break; }
+      if (r.error) { APP.creating = false; toast('Could not create project'); render(); break; }
       APP.projects.unshift({ id: idNew, org_id: APP.orgId, name, archived: false, disc_export: false, updated_at: new Date().toISOString() });
       // Apply the chosen starter through the same rev-checked RPCs as live
       // editing, BEFORE the project opens, so the bundle loads it complete.
@@ -654,7 +663,7 @@ async function handleAction(a, id, t, e) {
         const applied = await applyTemplate(repo, idNew, tplKey, name);
         if (!applied.ok) toast('Template partially applied (' + applied.failed + ' write' + (applied.failed === 1 ? '' : 's') + ' failed) - check the worksheet');
       }
-      APP.newName = ''; APP.newTpl = 'blank';
+      APP.newName = ''; APP.newTpl = 'blank'; APP.creating = false;
       openProject(idNew);
       break;
     }
@@ -1430,6 +1439,15 @@ document.addEventListener('focusout', (e) => {
 /* keyboard */
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); return; }
+  // Enter in the new-project name field creates the project. It routes through
+  // the same guarded 'new' handler, so key auto-repeat and an Enter-then-click
+  // pair collapse to one creation (part of the one-click-one-project fix).
+  if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.target && e.target.id === 'newName') {
+    e.preventDefault();
+    const btn = document.querySelector('[data-action="new"]');
+    if (btn && !btn.disabled) btn.click();
+    return;
+  }
   // Cmd/Ctrl+Enter sends the message you are writing, wherever you are.
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     const t = e.target;

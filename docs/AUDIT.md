@@ -6,8 +6,8 @@ data leakage, and correctness), conducted against the actual code, not its
 comments. This document records what was found, what was fixed, and what is a
 deliberately accepted residual. Every fix ships with a regression test.
 
-> This records the audit as of v2.5.0. The suite has since grown to 305 checks
-> (90 via `npm test`, 215 via `npm run test:backend`); the figures in this file
+> This records the audit as of v2.5.0. The suite has since grown to 313 checks
+> (98 via `npm test`, 215 via `npm run test:backend`); the figures in this file
 > are the v2.5.0 baseline.
 
 ## Method
@@ -102,6 +102,6 @@ subscribe queries.
 ## Reproduce
 
 ```
-npm test                # 32 unit checks (v2.5.0 baseline; 90 today)
+npm test                # 32 unit checks (v2.5.0 baseline; 98 today)
 npm run test:backend    # 73 checks incl. the adversarial hardening set (v2.5.0 baseline; 215 today)
 ```

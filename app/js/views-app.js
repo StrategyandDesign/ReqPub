@@ -341,8 +341,8 @@ export function viewProjects(APP) {
     (APP.role === 'manager'
       ? '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms">' +
         '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-        '<input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product or project to specify" value="' + escA(APP.newName || '') + '">' +
-        '<button class="btn btn-primary" style="height:46px" data-action="new">' + ico(IC.plus) + 'New project</button></div>' +
+        '<input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product or project to specify" value="' + escA(APP.newName || '') + '"' + (APP.creating ? ' disabled' : '') + '>' +
+        '<button class="btn btn-primary" style="height:46px' + (APP.creating ? ';opacity:.6;pointer-events:none' : '') + '" data-action="new"' + (APP.creating ? ' disabled' : '') + '>' + ico(IC.plus) + (APP.creating ? 'Creating…' : 'New project') + '</button></div>' +
         // Start from a template: validated starter shapes loaded through the
         // same rev-checked RPCs as live editing (see app/js/templates.js).
         '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px">' +
