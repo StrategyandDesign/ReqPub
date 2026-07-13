@@ -3,14 +3,15 @@
    Views are pure string builders; this file owns every state change.
    ============================================================================ */
 
-import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl, pushUnique } from './core.js';
+import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl, pushUnique, versionFingerprint } from './core.js';
 import { assembleAnswers, buildSections, suggestFit, changeNote, qById, mdToHtml, defaultBriefSections } from './domain.js';
 import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace } from './views-external.js';
-import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary } from './exports.js';
+import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc } from './exports.js';
+import { TEMPLATES, templateByKey, applyTemplate } from './templates.js';
 
 /* ---------------- state ---------------- */
 const APP = {
@@ -356,6 +357,7 @@ async function openProject(id, tab) {
   APP.access = { members: [], partners: [] };
   APP.smeSeats = [];
   APP.attachments = [];
+  APP.fingers = {};
   APP.bundleLoading = true;
   render();
 
@@ -629,6 +631,13 @@ async function handleAction(a, id, t, e) {
     }
 
     /* dashboard */
+    case 'tplsel': {
+      // Keep the typed name across the re-render (the input is rebuilt).
+      APP.newName = val('newName');
+      APP.newTpl = t.dataset.val;
+      render();
+      break;
+    }
     case 'new': {
       const name = val('newName').trim();
       if (!name) { toast('Name the product or project first'); break; }
@@ -636,6 +645,16 @@ async function handleAction(a, id, t, e) {
       const r = await repo.createProject(APP.orgId, idNew, name);
       if (r.error) { toast('Could not create project'); break; }
       APP.projects.unshift({ id: idNew, org_id: APP.orgId, name, archived: false, disc_export: false, updated_at: new Date().toISOString() });
+      // Apply the chosen starter through the same rev-checked RPCs as live
+      // editing, BEFORE the project opens, so the bundle loads it complete.
+      const tplKey = APP.newTpl || 'blank';
+      if (tplKey !== 'blank') {
+        const tpl = templateByKey(tplKey);
+        toast('Starting from ' + ((tpl && tpl.label) || 'template') + '…');
+        const applied = await applyTemplate(repo, idNew, tplKey, name);
+        if (!applied.ok) toast('Template partially applied (' + applied.failed + ' write' + (applied.failed === 1 ? '' : 's') + ' failed) - check the worksheet');
+      }
+      APP.newName = ''; APP.newTpl = 'blank';
       openProject(idNew);
       break;
     }
@@ -898,6 +917,46 @@ async function handleAction(a, id, t, e) {
       downloadExecSummary(a, { label: docNow().label });
       break;
     }
+    /* Client baseline report: produced only from a stored baseline, never the
+       working draft, because the fingerprint on its cover must identify an
+       exact immutable snapshot. Client-safe content comes through the SAME
+       payload builder the share system uses, so the share-scoping boundary is
+       the content boundary: fit criteria, schedules, and internal notes are
+       absent, not hidden. */
+    case 'clientprint': {
+      if (!APP.versions.length) { toast('Generate a version first - the client report is produced from a baseline'); break; }
+      const seq = APP.viewSeq != null ? APP.viewSeq : APP.versions[APP.versions.length - 1].seq;
+      await ensureSnapshot(seq);
+      const snap = APP.snapshots[seq];
+      if (!snap) { toast('Could not load that baseline - try again'); break; }
+      const answers = snap.snapshot.answers || {};
+      const fingerprint = await versionFingerprint(snap);
+      const v = APP.versions.find((x) => x.seq === seq);
+      const pay = buildSharePayload(APP.project || {}, answers, snap.label, seq, 'brief', v ? v.build : '', defaultBriefSections());
+      const present = (APP.shares || []).find((s) => s.kind === 'present' && !s.revoked && s.version_seq === seq);
+      printClientDoc(answers, {
+        product: answers.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
+        org: answers.ctrl_org || '', label: snap.label, status: v ? v.status : snap.status,
+        approvals: v ? (APP.approvals[v.id] || []) : [],
+        logo: (APP.project && APP.project.brand_logo) || '',
+        brandLabel: (APP.project && APP.project.brand_label) || '',
+        fingerprint, presentLink: present ? presentUrl(APP.pid, seq, present.token) : ''
+      }, pay.answers, pay.sections, APP.versions.filter((x) => x.seq <= seq));
+      break;
+    }
+    /* Compute, copy, and display a baseline fingerprint from its stored
+       snapshot: SHA-256 over canonical JSON of {label, seq, snapshot}. */
+    case 'vfinger': {
+      const seq = +t.dataset.seq;
+      await ensureSnapshot(seq);
+      const snap = APP.snapshots[seq];
+      if (!snap) { toast('Could not load that baseline - try again'); break; }
+      const hex = await versionFingerprint(snap);
+      (APP.fingers = APP.fingers || {})[t.dataset.id] = hex;
+      if (await copyText(hex)) toast('Fingerprint copied');
+      render();
+      break;
+    }
 
     /* inbox / comms */
     case 'commtoggle': {
@@ -964,12 +1023,56 @@ async function handleAction(a, id, t, e) {
     case 'promreq': {
       const c = APP.comms.find((x) => x.id === id);
       if (!c) break;
-      const row = await sync.addRow('fr', { stmt: (c.body || c.title || '').slice(0, 500), fit: '', pri: 'Should', comp: '' });
+      // `src` travels in the row data (never in share payloads, which map FR
+      // rows to {stmt, comp} only) so the next version note can attribute the
+      // addition to the input that caused it. See changeNote in domain.js.
+      const from = ({ team: 'Notes', meeting: 'Notes' })[c.origin] || 'Inbox';
+      const row = await sync.addRow('fr', {
+        stmt: (c.body || c.title || '').slice(0, 500), fit: '', pri: 'Should', comp: '',
+        src: from + (c.author_name ? ' · ' + c.author_name : '')
+      });
       if (row) {
         const rid = 'FR-' + String(row.k).padStart(3, '0');
         await repo.setCommFields(id, { promoted_to: rid });
         c.promoted_to = rid;
         toast('Created ' + rid + ' - refine it in Section 7');
+        render();
+      }
+      break;
+    }
+    /* discovery: one-click promotion into the numbered record. Same pattern
+       as the inbox (back-link on the source, src on the created row), so the
+       relay loop - input, discovery, requirement or decision - stays on the
+       record end to end. */
+    case 'discfr': {
+      const e = APP.discovery.find((x) => x.id === id);
+      if (!e) break;
+      const row = await sync.addRow('fr', {
+        stmt: (e.takeaway || e.notes || '').slice(0, 500), fit: '', pri: 'Should', comp: '',
+        src: 'Discovery' + (e.who ? ' · ' + e.who : '')
+      });
+      if (row) {
+        const rid = 'FR-' + String(row.k).padStart(3, '0');
+        await repo.updateDiscovery(id, { promoted_to: rid });
+        e.promoted_to = rid;
+        toast('Created ' + rid + ' - refine it in Section 7');
+        render();
+      }
+      break;
+    }
+    case 'discdec': {
+      const e = APP.discovery.find((x) => x.id === id);
+      if (!e) break;
+      const row = await sync.addRow('decisions', {
+        decision: (e.takeaway || '').slice(0, 500), options: '', rationale: e.notes || '',
+        owner: e.who || '', date: new Date().toISOString().slice(0, 7), supersedes: '',
+        src: 'Discovery' + (e.who ? ' · ' + e.who : '')
+      });
+      if (row) {
+        const did = 'DEC-' + String(row.k).padStart(3, '0');
+        await repo.updateDiscovery(id, { promoted_to: did });
+        e.promoted_to = did;
+        toast('Created ' + did + ' - refine it under Decisions and Rationale');
         render();
       }
       break;

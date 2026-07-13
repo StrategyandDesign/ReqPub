@@ -7,6 +7,7 @@ import { esc, escA, ico, IC, brandmark, initials, relTime, themeGet } from './co
 import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
 import { renderTab, newReplyCount } from './views-collab.js';
 import { execSummaryHTML } from './exports.js';
+import { TEMPLATES } from './templates.js';
 
 export const STATUS_LABEL = { draft: 'Draft', in_review: 'In review', approved: 'Approved', changes_requested: 'Changes requested' };
 
@@ -195,7 +196,7 @@ export function paletteItems(APP) {
   (APP.projects || []).forEach((p) => items.push({ label: p.name, hint: 'Open project', ico: IC.doc, action: 'open', id: p.id }));
   if (APP.view === 'workspace') {
     [['document', 'Document · Read'], ['summary', 'Document · Summary'], ['changes', 'Document · Changes'], ['versions', 'Document · Versions'],
-     ['inbox', 'Inbox · Messages'], ['feedback', 'Inbox · App feedback'], ['notes', 'Inbox · Notes'], ['discovery', 'Discovery'],
+     ['health', 'Document · Health'], ['inbox', 'Inbox · Messages'], ['feedback', 'Inbox · App feedback'], ['notes', 'Inbox · Notes'], ['discovery', 'Discovery'],
      ['access', 'Share · Access'], ['people', 'Share · People'], ['activity', 'Activity']]
       .forEach(([t, lbl]) => items.push({ label: 'Go to ' + lbl, hint: 'View', ico: IC.fwd, action: 'tab', id: t }));
     if (APP.role === 'manager') items.push({ label: 'Generate a version', hint: 'Baseline', ico: IC.layers, action: 'genopen' });
@@ -203,6 +204,7 @@ export function paletteItems(APP) {
     items.push({ label: 'Presentation mode', hint: 'Document', ico: IC.expand, action: 'present' });
     items.push({ label: 'Export Word document', hint: 'Export', ico: IC.word, action: 'word' });
     items.push({ label: 'Print / save as PDF', hint: 'Export', ico: IC.print, action: 'print' });
+    items.push({ label: 'Client baseline report (PDF)', hint: 'Export', ico: IC.shield, action: 'clientprint' });
   }
   items.push({ label: 'New project', hint: 'Create', ico: IC.plus, action: 'palnew' });
   items.push({ label: 'Toggle dark mode', hint: 'Theme', ico: IC.moon, action: 'themetoggle' });
@@ -337,9 +339,21 @@ export function viewProjects(APP) {
     '<div class="rise" style="margin-bottom:40px"><h1 style="font-size:38px;line-height:1.08;letter-spacing:-.03em;font-weight:660;margin:0 0 12px">Discovery to Requirements.</h1>' +
     '<p style="color:var(--ink-3);max-width:760px;font-size:15.5px;line-height:1.6;margin:0">One shared workspace from workshop input to a versioned, approved requirements or engagement record.</p></div>' +
     (APP.role === 'manager'
-      ? '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms"><div style="display:flex;gap:10px;flex-wrap:wrap">' +
-        '<input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product or project to specify">' +
-        '<button class="btn btn-primary" style="height:46px" data-action="new">' + ico(IC.plus) + 'New project</button></div></div>'
+      ? '<div class="card rise" style="padding:20px;margin-bottom:34px;animation-delay:60ms">' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+        '<input id="newName" class="input" style="flex:1;min-width:220px;height:46px" placeholder="Name a new product or project to specify" value="' + escA(APP.newName || '') + '">' +
+        '<button class="btn btn-primary" style="height:46px" data-action="new">' + ico(IC.plus) + 'New project</button></div>' +
+        // Start from a template: validated starter shapes loaded through the
+        // same rev-checked RPCs as live editing (see app/js/templates.js).
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px">' +
+        '<span class="eyebrow" style="font-size:9px;margin-right:2px">Start from</span>' +
+        TEMPLATES.map((t) => {
+          const on = (APP.newTpl || 'blank') === t.key;
+          return '<button class="btn btn-sm" data-action="tplsel" data-val="' + escA(t.key) + '" style="height:30px;border-radius:999px;padding:0 12px;font-size:12px;' +
+            (on ? 'background:var(--ink);color:var(--bg)' : 'border:1px solid var(--line);color:var(--ink-3)') + '">' + esc(t.label) + '</button>';
+        }).join('') + '</div>' +
+        '<div style="font-size:11.5px;color:var(--ink-4);line-height:1.5;margin-top:7px">' +
+        esc((TEMPLATES.find((t) => t.key === (APP.newTpl || 'blank')) || TEMPLATES[0]).desc) + '</div></div>'
       : '') +
     apprBanner + banner +
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">' + cards + '</div>' +
@@ -530,7 +544,7 @@ function renderDoc(APP, a, ac, total) {
   // underlying content still keys off APP.docTab, so every view is preserved -
   // just regrouped by job. Activity moves to a toolbar icon (see docActions).
   const NAV = [
-    { key: 'document', label: 'Document', subs: [['document', 'Read'], ['summary', 'Summary'], ['changes', 'Changes'], ['versions', 'Versions']] },
+    { key: 'document', label: 'Document', subs: [['document', 'Read'], ['summary', 'Summary'], ['changes', 'Changes'], ['versions', 'Versions'], ['health', 'Health']] },
     { key: 'inbox', label: 'Inbox', subs: [['inbox', 'Messages'], ['feedback', 'App'], ['notes', 'Notes']] },
     { key: 'discovery', label: 'Discovery', subs: [['discovery', 'Discovery']] },
     { key: 'share', label: 'Share', subs: [['access', 'Access'], ['people', 'People']] }
@@ -573,7 +587,9 @@ function renderDoc(APP, a, ac, total) {
     const d = currentDocMd(APP, a);
     const ans = APP.viewSeq != null && APP.snapshots[APP.viewSeq] ? (APP.snapshots[APP.viewSeq].snapshot.answers || {}) : a;
     content = '<div class="page">' + execSummaryHTML(ans, { label: d.label }) +
-      '<button class="btn btn-sec btn-sm" data-action="execdl" style="margin-top:6px">' + ico(IC.dl, 'i-sm') + 'Download summary (.md)</button></div>';
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
+      '<button class="btn btn-sec btn-sm" data-action="execdl">' + ico(IC.dl, 'i-sm') + 'Download summary (.md)</button>' +
+      '<button class="btn btn-sec btn-sm" data-action="clientprint" title="Executive summary + the client-safe brief content + revision record, behind a fingerprinted cover">' + ico(IC.shield, 'i-sm') + 'Client baseline report (PDF)</button></div></div>';
   } else if (APP.docTab === 'changes') {
     content = renderChanges(APP, a);
   } else {

@@ -50,6 +50,41 @@ export function attachChips(list, opts = {}) {
   }).join('') + '</div>';
 }
 
+/* ---- baseline fingerprint ----
+   A version fingerprint is SHA-256 over the canonical JSON of
+   { label, seq, snapshot }. Canonical means: object keys sorted, arrays in
+   order, strings/numbers/booleans/null exactly as JSON.stringify emits them,
+   UTF-8 bytes hashed. The recipe is deliberately simple enough to restate on
+   the export itself, so anyone holding the stored snapshot can recompute the
+   fingerprint without ReqPub. It identifies the exact baseline an export was
+   produced from; it is NOT a signature or a trusted timestamp (that is the
+   e-signature and sealing phase). */
+export function canonicalJson(v) {
+  if (v === null || typeof v === 'number' || typeof v === 'boolean') return JSON.stringify(v);
+  if (typeof v === 'string') return JSON.stringify(v);
+  if (typeof v === 'undefined') return 'null';        // undefined has no JSON form; pin it
+  if (Array.isArray(v)) return '[' + v.map(canonicalJson).join(',') + ']';
+  if (typeof v === 'object') {
+    const keys = Object.keys(v).filter((k) => v[k] !== undefined).sort();
+    return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalJson(v[k])).join(',') + '}';
+  }
+  return 'null';                                       // functions, symbols: no JSON form
+}
+
+export async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* The fingerprint of one stored version row ({label, seq, snapshot}). */
+export function versionFingerprint(v) {
+  return sha256Hex(canonicalJson({ label: v.label, seq: v.seq, snapshot: v.snapshot }));
+}
+
+/* Display form: sha256:first 16 hex, grouped for reading. Full hex on exports. */
+export const fmtFingerprint = (hex, n = 16) =>
+  'sha256:' + String(hex || '').slice(0, n).replace(/(.{4})(?=.)/g, '$1 ');
+
 export function fmtDate(iso) {
   try {
     return new Date(iso).toLocaleString(undefined,

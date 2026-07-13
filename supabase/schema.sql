@@ -505,6 +505,10 @@ create table if not exists discovery_entries (
   updated_at timestamptz not null default now()
 );
 create index if not exists disc_proj on discovery_entries(project_id, created_at desc);
+-- v2.19: promotion back-link. '' | 'FR-012' | 'DEC-003' - the numbered artifact
+-- this entry became, mirroring comms.promoted_to, so the relay loop closes:
+-- input → discovery → requirement or decision, each step on the record.
+alter table discovery_entries add column if not exists promoted_to text not null default '';
 alter table discovery_entries enable row level security;
 
 drop policy if exists disc_member_read on discovery_entries;

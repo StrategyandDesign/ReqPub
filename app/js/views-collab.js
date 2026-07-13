@@ -3,8 +3,10 @@
    people, links, versions & approvals, activity.
    ============================================================================ */
 
-import { esc, escA, ico, IC, relTime, fmtDate, initials, attachChips, attachInput, fmtBytes } from './core.js';
+import { esc, escA, ico, IC, relTime, fmtDate, initials, attachChips, attachInput, fmtBytes, fmtFingerprint } from './core.js';
 import { STATUS_LABEL } from './views-app.js';
+import { isEngagement } from './domain.js';
+import { healthSignals, recordCounts } from './health.js';
 
 const attachmentsForComm = (APP, commId) => (APP.attachments || []).filter((a) => a.comm_id === commId);
 
@@ -46,11 +48,12 @@ export function renderTab(APP, a) {
   switch (APP.docTab) {
     case 'inbox': return renderInbox(APP);
     case 'feedback': return renderFeedback(APP);
-    case 'discovery': return renderDiscovery(APP);
+    case 'discovery': return renderDiscovery(APP, a);
     case 'notes': return renderNotes(APP);
     case 'people': return renderPeople(APP);
     case 'access': return renderAccess(APP);
     case 'activity': return renderActivity(APP);
+    case 'health': return renderHealth(APP, a);
     case 'versions': default: return renderVersions(APP);
   }
 }
@@ -279,8 +282,9 @@ function renderNotes(APP) {
 }
 
 /* ---------------- discovery ---------------- */
-function renderDiscovery(APP) {
+function renderDiscovery(APP, a) {
   const isMgr = APP.role === 'manager';
+  const eng = isEngagement(a || {});
   const q = (APP.discQ || '').toLowerCase();
   const d = APP.discDraft || {};
   const list = (APP.discovery || []).filter((e) => {
@@ -301,15 +305,25 @@ function renderDiscovery(APP) {
     : '';
   const items = list.length ? list.map((e) => {
     const open = !!APP.openDisc[e.id];
+    // One-click promotion mirrors the inbox: an entry becomes a numbered FR or
+    // DEC, keeps a back-link, and the promote buttons retire. An engagement
+    // has no functional-requirements section, so it offers only the decision.
+    const promote = (isMgr && !e.promoted_to)
+      ? ((eng ? '' : '<button class="btn btn-sec btn-sm" data-action="discfr" data-id="' + escA(e.id) + '">' + ico(IC.arrow, 'i-sm') + 'To requirement</button>') +
+        '<button class="btn btn-sec btn-sm" data-action="discdec" data-id="' + escA(e.id) + '">' + ico(IC.check, 'i-sm') + 'To decision</button>')
+      : '';
     return '<div class="card" style="margin-bottom:8px;padding:0;overflow:hidden">' +
       '<div data-action="disctoggle" data-id="' + escA(e.id) + '" style="cursor:pointer;padding:13px 15px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start">' +
       '<div style="min-width:0"><div style="font-weight:600;font-size:13.5px;line-height:1.4' + (open ? '' : ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap') + '">' + esc(e.takeaway || '(no takeaway)') + '</div>' +
       '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px">' + esc([e.who, e.source, relTime(e.created_at)].filter(Boolean).join(' · ')) + '</div></div>' +
-      (e.tags ? '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + e.tags.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 3).map((t) => '<span class="pill">' + esc(t) + '</span>').join('') + '</div>' : '') + '</div>' +
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' +
+      (e.promoted_to ? '<span class="pill">Promoted to ' + esc(e.promoted_to) + '</span>' : '') +
+      (e.tags ? e.tags.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 3).map((t) => '<span class="pill">' + esc(t) + '</span>').join('') : '') + '</div></div>' +
       (open ? '<div style="padding:0 15px 14px;border-top:1px solid var(--line)">' +
         (e.notes ? '<div style="padding-top:11px;font-size:12.5px;color:var(--ink-2);line-height:1.55;white-space:pre-wrap">' + esc(e.notes) + '</div>' : '') +
         (e.links ? '<div style="margin-top:8px;font-size:12px;color:var(--ink-3)">Links: ' + esc(e.links) + '</div>' : '') +
-        (isMgr ? '<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-ghost btn-sm" data-action="discdel" data-id="' + escA(e.id) + '" style="color:' + (APP.discDel === e.id ? 'var(--bad)' : 'var(--ink-4)') + '">' + (APP.discDel === e.id ? 'Confirm delete' : 'Delete') + '</button></div>' : '') +
+        (isMgr ? '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:10px">' + promote +
+          '<button class="btn btn-ghost btn-sm" data-action="discdel" data-id="' + escA(e.id) + '" style="color:' + (APP.discDel === e.id ? 'var(--bad)' : 'var(--ink-4)') + '">' + (APP.discDel === e.id ? 'Confirm delete' : 'Delete') + '</button></div>' : '') +
         '</div>' : '') +
       '</div>';
   }).join('') : '<div class="empty">' + ico(IC.spark) + '<div style="font-size:14px;color:var(--ink-2);font-weight:560;margin-bottom:4px">No discovery yet</div><div style="font-size:13px;max-width:300px">Interview takeaways, decisions, and open questions live here - the evidence base under the requirements.</div></div>';
@@ -533,6 +547,11 @@ function renderVersions(APP) {
       (on ? '<span class="pill pill-solid">viewing</span>' : '') + '</div>' +
       '<div style="font-size:11.5px;color:var(--ink-3);margin-top:2px">' + esc(fmtDate(v.created_at)) + (v.author_name ? ' · ' + esc(v.author_name) : '') + (v.build ? ' · build ' + esc(v.build) : '') + '</div>' +
       (v.note ? '<div style="font-size:12.5px;color:var(--ink-2);margin-top:2px">' + esc(v.note) + '</div>' : '') + '</button>' +
+      // The baseline fingerprint: computed on demand from the stored snapshot
+      // (SHA-256 over canonical JSON of {label, seq, snapshot}), shown truncated,
+      // full value copied. Identifies the exact baseline; it is not a signature.
+      '<div style="margin-top:6px"><button class="btn btn-ghost btn-sm mono" data-action="vfinger" data-id="' + escA(v.id) + '" data-seq="' + v.seq + '" title="Compute and copy the SHA-256 baseline fingerprint" style="font-size:10.5px;height:24px;padding:0 8px;color:var(--ink-4)">' +
+      ((APP.fingers || {})[v.id] ? esc(fmtFingerprint(APP.fingers[v.id])) + ' · copied' : 'Fingerprint') + '</button></div>' +
       ((apprRows || addAppr || tbtns) ? '<div style="border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:9px;background:var(--bg)">' +
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:' + (apprRows || addAppr ? '7px' : '0') + '"><span class="eyebrow" style="font-size:9px">Approval workflow</span><div style="flex:1"></div>' + tbtns + '</div>' +
         apprRows + addAppr + '</div>' : '') +
@@ -541,6 +560,46 @@ function renderVersions(APP) {
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Version history</h2>' +
     '<p class="hint" style="margin:0 0 18px">Baselines are immutable. Send for review moves a version to In review and lets you add approvers. Assign a teammate and they get a waiting on you flag in the app (no email) and can approve their own sign-off; or record a manual sign-off yourself. A version cannot be marked Approved while any approver is still pending.</p>' +
     '<div class="tl">' + items + '</div></div>';
+}
+
+/* ---------------- record health ----------------
+   Read-only, derived, never stored: readiness signals over the working draft
+   plus counts of what the record already holds. Both computations live in
+   health.js (pure, unit-tested); this view only renders them. */
+function renderHealth(APP, a) {
+  const ctx = { versions: APP.versions, approvalsByVersion: APP.approvals, shares: APP.shares, comms: APP.comms, discovery: APP.discovery };
+  const signals = healthSignals(a, ctx);
+  const counts = recordCounts(a, ctx);
+  const eng = isEngagement(a || {});
+
+  const dot = (lvl) => '<span style="width:8px;height:8px;border-radius:50%;background:' + (lvl === 'gap' ? 'var(--bad)' : 'var(--amber)') + ';flex:0 0 auto;margin-top:5px"></span>';
+  const sigRows = signals.map((s) =>
+    '<div style="display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);align-items:flex-start">' + dot(s.level) +
+    '<div style="min-width:0"><div style="font-size:13px;font-weight:600">' + esc(s.label) +
+    (s.count > 1 ? ' <span class="mono" style="font-size:11px;color:var(--ink-4)">×' + s.count + '</span>' : '') + '</div>' +
+    '<div style="font-size:12px;color:var(--ink-3);line-height:1.5;margin-top:2px">' + esc(s.detail) + '</div></div></div>').join('');
+  const readiness = '<div class="card" style="padding:16px 18px;margin-bottom:14px">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (signals.length ? '4px' : '0') + '">' +
+    '<div style="font-size:14px;font-weight:640">Baseline readiness</div><div style="flex:1"></div>' +
+    (signals.length
+      ? '<span class="pill">' + signals.filter((s) => s.level === 'gap').length + ' gap' + (signals.filter((s) => s.level === 'gap').length === 1 ? '' : 's') + ' · ' + signals.filter((s) => s.level === 'warn').length + ' warning' + (signals.filter((s) => s.level === 'warn').length === 1 ? '' : 's') + '</span>'
+      : '<span class="pill pill-good">' + ico(IC.check, 'i-sm') + 'Nothing blocks this record</span>') + '</div>' +
+    (signals.length ? sigRows : '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.55">Every Must has a fit criterion, every ' + (eng ? 'workstream' : 'component') + ' has an owner, and no placeholder is unresolved.</div>') +
+    '</div>';
+
+  const chip = (n, l) => '<div style="text-align:center;padding:6px 14px"><div class="mono" style="font-size:22px;font-weight:680;letter-spacing:-.02em">' + n + '</div><div class="eyebrow" style="font-size:9px;margin-top:2px">' + esc(l) + '</div></div>';
+  const holds = '<div class="card" style="padding:16px 18px;margin-bottom:14px">' +
+    '<div style="font-size:14px;font-weight:640;margin-bottom:8px">What this record holds</div>' +
+    '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px">' +
+    chip(counts.versions, 'Versions') + chip(counts.signoffs, 'Named sign-offs') +
+    chip(counts.requirements, 'Requirements') + (counts.evals ? chip(counts.evals, 'AI eval criteria') : '') +
+    chip(counts.decisions, 'Decisions') + chip(counts.discovery, 'Discovery entries') +
+    chip(counts.external, 'External inputs') + chip(counts.promoted, 'Promoted to the record') + '</div>' +
+    '<div style="font-size:11.5px;color:var(--ink-4);line-height:1.5;margin-top:10px;text-align:center">Counts, not scores: every number here is defensible by pointing at rows. It all stays inside this workspace.</div></div>';
+
+  return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Record health</h2>' +
+    '<p class="hint" style="margin:0 0 18px">Computed from the working draft every time you open this tab. Nothing here is written to the record, and a signal disappears the moment the gap is fixed.</p>' +
+    readiness + holds + '</div>';
 }
 
 /* ---------------- activity ---------------- */

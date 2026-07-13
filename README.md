@@ -18,13 +18,15 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 ├── app/
 │   ├── index.html  app.css
 │   └── js/
-│       ├── core.js                      utilities, icons, theme, shared helpers
+│       ├── core.js                      utilities, icons, theme, baseline fingerprint, shared helpers
 │       ├── domain.js                    question bank + deterministic PRD builders (pure, tested)
+│       ├── health.js                    record health: readiness signals + counts (pure, tested)
+│       ├── templates.js                 validated project starters applied via the live RPCs (tested)
 │       ├── data.js                      Supabase client + repository (durable, retried writes)
 │       ├── sync.js                      concurrency engine: rev-checked saves, realtime, presence
-│       ├── exports.js                   Word / Markdown / print / executive summary
+│       ├── exports.js                   Word / Markdown / print / executive summary / client baseline report
 │       ├── views-app.js                 shell, dashboard, workspace, command palette
-│       ├── views-collab.js              inbox, discovery, notes, versions + approvals, access, activity
+│       ├── views-collab.js              inbox, discovery, notes, versions + approvals, health, access, activity
 │       ├── views-external.js            partner portal, SME workspace, accountless SME pages
 │       └── main.js                      state, routing, events
 ├── supabase/
@@ -40,12 +42,15 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── send-invite/                 invite email (Resend)
 │       └── attachment-upload/           file upload with virus scan
 ├── tests/
-│   ├── domain.test.mjs                  15 document / diff / brief / decision tests
+│   ├── domain.test.mjs                  19 document / diff / brief / decision / attribution tests
 │   ├── sync.test.mjs                    12 multi-writer concurrency simulations
 │   ├── share.test.mjs                   10 section-scoped share-payload tests
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
 │   ├── engagement.test.mjs             10 engagement-charter + PRD-invariance tests
-│   └── backend-e2e/                     204 checks against a real embedded Postgres
+│   ├── health.test.mjs                 15 readiness-signal + record-count tests
+│   ├── templates.test.mjs              10 template validation + RPC-application tests
+│   ├── fingerprint.test.mjs            9 canonical-JSON / SHA-256 / client-report tests
+│   └── backend-e2e/                     215 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
 │       ├── sme-workspace.test.mjs       durable SME workspace (16)
@@ -54,7 +59,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── approvals.test.mjs           approver assignment, self-approve authz, gate (18)
 │       ├── seed-prds.test.mjs           seed-data integrity, 3 example PRDs + standalone (19)
 │       ├── deploy-fathering.test.mjs    rebuild-in-place deploy: erase, replace, approve v1.1 (21)
-│       └── new-reply.test.mjs           team-level new-reply flag: post/reply flags, any teammate clears (11)
+│       ├── new-reply.test.mjs           team-level new-reply flag: post/reply flags, any teammate clears (11)
+│       └── discovery-promote.test.mjs   discovery promotion back-link: column, fix, RLS, durability (11)
 ├── tools/                               PRD seed generator (validated against the builders)
 ├── docs/
 │   ├── ARCHITECTURE.md                  design rationale + citations
@@ -68,13 +74,19 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 52 domain + concurrency + dedupe + engagement checks (node only)
-npm i && npm run test:backend   # 204 checks on an embedded Postgres
+npm test                        # 90 domain + concurrency + share + health + template + fingerprint checks (node only)
+npm i && npm run test:backend   # 215 checks on an embedded Postgres
 ```
+
+The backend suite runs as a non-root user and needs the `en_US.UTF-8` locale
+(embedded-postgres pins it for `initdb`); on a bare container, `apt-get install
+locales && locale-gen en_US.UTF-8` first. CI runs both suites on every push.
 
 ## Document types
 
 A project is one of two types, chosen in Document Control. A product or project requirements specification (the default, and every existing project) assembles the full two-part PRD. A consulting engagement assembles an engagement record, numbered 1 to 8: objective and context, success metrics, scope and approach with workstreams, assumptions and dependencies and constraints, stakeholders and roles, decisions and rationale, glossary, revision history. It is the same worksheet and the same fields: engagement mode hides the software-specific sections and reuses everything else, so a team can switch a project's framing without re-entering it, and the requirements path is unchanged for every project that carries no type. The mechanism is the same section conditions used for AI sections; see `docs/ARCHITECTURE.md`.
+
+New projects can start from a validated template - product requirements, consulting engagement charter, or baseline assessment - whose starter fields load through the same rev-checked RPCs as live editing (`app/js/templates.js`). Templates are shapes with deliberate `to confirm` placeholders, so a fresh project opens with its own punch list on the Health tab.
 
 ## Roles
 
@@ -84,10 +96,13 @@ Manager (internal, writes), Viewer (internal, reads everything and can reply), P
 
 The controls a security or procurement reviewer looks for:
 
-- Append-only audit trail, written by database triggers.
+- Append-only audit trail, written only by SECURITY DEFINER functions inside the database; no update or delete path exists from the app.
 - A real approval state machine: a version cannot be Approved while a named approver is pending. Approvals can be routed in-app, where the assigned teammate gets a dashboard flag and signs off their own slot.
 - Per-field edit attribution with server-stamped team identity, and immutable version baselines.
 - Org-scoped row-level security on every table, rate-limited anonymous endpoints, and input size ceilings.
 - Uploads stored in a private bucket and virus-scanned when a scanner is configured (see `docs/ATTACHMENTS.md`).
+- A Health tab that computes baseline-readiness signals (a Must without a fit criterion, an approved version with no published brief, unresolved placeholders) from the record itself - derived, never stored.
+- One-click promotion from discovery and the inbox into numbered requirements and decisions, back-linked to their source, with version notes attributing additions to their origin.
+- A client baseline report whose cover carries a SHA-256 fingerprint of the exact baseline (recipe restated on the document); the fingerprint identifies the snapshot, and cryptographic sealing remains the e-signature phase.
 
 Also a command palette (⌘K), dark mode, and exports that carry status, approvals, and revision history. See `SECURITY.md` for the threat model and accepted residual risks, and `CHANGELOG.md` for release history.

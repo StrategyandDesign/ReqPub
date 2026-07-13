@@ -1,7 +1,7 @@
 /* ReqPub v2 - exports: Markdown, Word (.doc), print/PDF, executive summary. */
 
-import { esc, escA, download, copyText } from './core.js';
-import { mdToHtml, execSummaryData } from './domain.js';
+import { esc, escA, download, copyText, fmtFingerprint } from './core.js';
+import { mdToHtml, execSummaryData, bBrief, defaultBriefSections, revisionBody, mdTable } from './domain.js';
 
 const STATUS_LABEL = { draft: 'Draft', in_review: 'In review', approved: 'Approved', changes_requested: 'Changes requested' };
 const ok = (u) => typeof u === 'string' && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(u);
@@ -19,7 +19,10 @@ function coverHTML(meta) {
     ['Version', meta.label ? 'v' + meta.label : 'Working draft'],
     ['Status', STATUS_LABEL[meta.status] || 'Draft'],
     meta.org ? ['Prepared by', meta.org] : null,
-    ['Date', new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })]
+    ['Date', new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })],
+    // The baseline fingerprint identifies the exact snapshot this document was
+    // produced from (full value + recipe in the Verification section).
+    meta.fingerprint ? ['Fingerprint', fmtFingerprint(meta.fingerprint)] : null
   ].filter(Boolean).map(([k, v]) =>
     '<div class="rp-rail-item"><div class="rp-rail-k">' + esc(k) + '</div><div class="rp-rail-v">' + esc(v) + '</div></div>').join('');
   const approvals = (meta.approvals || []).length
@@ -38,7 +41,7 @@ function coverHTML(meta) {
         '<span class="rp-by-brand"><span class="rp-mk"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>ReqPub</span></div>' +
     '</div>' +
     '<div class="rp-cover-mid">' +
-      '<div class="rp-eyebrow">Requirements Baseline</div>' +
+      '<div class="rp-eyebrow">' + esc(meta.eyebrow || 'Requirements Baseline') + '</div>' +
       '<h1 class="rp-title">' + esc(meta.product || 'Untitled') + '</h1>' +
       '<span class="rp-status ' + esc(statusCls) + '">' + esc(STATUS_LABEL[meta.status] || 'Draft') + '</span>' +
     '</div>' +
@@ -125,9 +128,11 @@ export function execSummaryHTML(answers, meta) {
     '</div>';
 }
 
-export function downloadExecSummary(answers, meta) {
+/* The executive summary as Markdown; shared by the .md download and the
+   client baseline report so the two can never drift. */
+export function execSummaryMd(answers, meta) {
   const d = execSummaryData(answers);
-  const md = ['# ' + d.product + ' - Executive Summary', '',
+  return ['# ' + d.product + ' - Executive Summary', '',
     [d.org, meta.label ? 'v' + meta.label : 'Working draft', new Date().toLocaleDateString()].filter(Boolean).join(' · '), '',
     d.vision ? '## Vision\n\n' + d.vision : '', d.problem ? '## Problem\n\n' + d.problem : '',
     '## Goals', ...d.goals.map((g) => '- ' + g), '',
@@ -135,5 +140,44 @@ export function downloadExecSummary(answers, meta) {
     '## Requirements', '- Functional: ' + d.counts.fr, '- Non-functional: ' + d.counts.nfr,
     '- AI evaluation: ' + d.counts.eval, '- Interfaces: ' + d.counts.ir, '- Must-priority: ' + d.counts.musts
   ].filter((x) => x !== '').join('\n');
-  download(fileStem({ product: d.product + '-summary', label: meta.label }) + '.md', 'text/markdown;charset=utf-8', md);
+}
+
+export function downloadExecSummary(answers, meta) {
+  const d = execSummaryData(answers);
+  download(fileStem({ product: d.product + '-summary', label: meta.label }) + '.md', 'text/markdown;charset=utf-8', execSummaryMd(answers, meta));
+}
+
+/* ---- Client baseline report ----
+   One client-grade document: executive summary, then EXACTLY what a published
+   brief may contain (the client-safe sections, built through buildSharePayload
+   upstream so the share-scoping boundary is the content boundary - internal
+   fields are absent, not hidden), then the revision record, then a
+   Verification section carrying the full baseline fingerprint and the recipe
+   to recompute it. `briefAnswers` MUST be a payload's answers (already
+   scoped + stripped); passing raw worksheet answers here would bypass the
+   boundary, so main.js builds the payload first. */
+export function clientDocMd(answers, meta, briefAnswers, briefSections, versions) {
+  const parts = [execSummaryMd(answers, meta)];
+  const brief = briefAnswers ? bBrief(briefAnswers, briefSections || defaultBriefSections()) : '';
+  if (brief) parts.push('## The plan in plain language\n\n_The sections below are exactly what a published review brief contains: the client-safe view of this baseline._\n\n' + brief.replace(/^## /gm, '### '));
+  parts.push('## Revision record\n\n' + revisionBody(versions || []));
+  if (meta.fingerprint) {
+    parts.push('## Verification\n\n' +
+      mdTable(['Field', 'Value'], [
+        ['Baseline', meta.label ? 'v' + meta.label : 'Working draft'],
+        ['Fingerprint (SHA-256)', '`' + meta.fingerprint + '`'],
+        ['Recipe', 'SHA-256 over the canonical JSON (object keys sorted, arrays in order, UTF-8) of {label, seq, snapshot} for this version, as stored.']
+      ]) +
+      '\n\nTwo exports carrying the same fingerprint were produced from byte-identical baselines. ' +
+      'The fingerprint identifies the exact snapshot; it is not a signature or a trusted timestamp.' +
+      (meta.presentLink ? '\n\nRead-only record: ' + meta.presentLink : ''));
+  }
+  return parts.join('\n\n');
+}
+
+/* Print the client baseline report through the same designed cover/print path
+   as the full document; only the eyebrow changes. */
+export function printClientDoc(answers, meta, briefAnswers, briefSections, versions) {
+  printDoc(clientDocMd(answers, meta, briefAnswers, briefSections, versions),
+    { ...meta, eyebrow: 'Client Baseline Report' });
 }

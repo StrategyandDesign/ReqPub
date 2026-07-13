@@ -34,6 +34,12 @@ Full detail lives in `docs/ARCHITECTURE.md` §3. The essentials:
   writable through realtime.
 - The `activity` table is append-only (no update or delete policies exist) and
   is written by SECURITY DEFINER functions.
+- A version's baseline fingerprint is SHA-256 over the canonical JSON (object
+  keys sorted, arrays in order, UTF-8) of `{label, seq, snapshot}` as stored.
+  It identifies the exact baseline an export was produced from and recomputes
+  from the stored row alone; it is NOT a signature or a trusted timestamp -
+  cryptographic sealing is the e-signature phase, and no sealing claim is made
+  before it ships.
 - The frontend ships a CSP with no inline scripts, escapes every interpolation
   through a single helper, and holds no secret beyond the public anon key.
 
@@ -42,7 +48,7 @@ Full detail lives in `docs/ARCHITECTURE.md` §3. The essentials:
 Before external review the code passed two independent adversarial audits (SQL/RLS
 and frontend/XSS) run against the actual code. Findings and fixes are recorded in
 `docs/AUDIT.md`; the hardening fixes ship with regression tests in the backend
-suite (204 checks).
+suite (215 checks).
 
 ## Accepted residual risks
 

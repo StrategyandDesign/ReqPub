@@ -1,5 +1,76 @@
 # Changelog
 
+## 2.19.0 · record health, template starts, promotion with attribution, fingerprinted client report
+
+- **Health tab (Document · Health).** The record now surfaces its own readiness:
+  every Must requirement without a fit criterion, AI declared with no evaluation
+  criteria (or criteria with no golden set), safeguarding declared necessary but
+  not designed, components without owners, requirements untagged once components
+  exist, an empty out-of-scope list, an approved latest version with no published
+  brief, and every unresolved "to confirm" placeholder. Signals are DERIVED
+  predicates over the working draft - computed on open, never stored, gone the
+  moment the gap is fixed - and sort gaps ahead of warnings. Below them, "What
+  this record holds" counts versions, named sign-offs, requirements, decisions,
+  discovery entries, external inputs, and promotions: counts, deliberately not a
+  composite score, because a number that cannot be defended under review has no
+  place on a requirements record. Engagement charters get the same tab with the
+  software-only signals gated off and a warning for an empty decision log. Pure
+  module (`app/js/health.js`), fifteen unit tests, frontend only.
+- **Start from a template.** New projects can start from a validated shape:
+  product requirements, consulting engagement charter, or baseline assessment
+  (Section 9 unlocked with guardrail criteria, data sensitivity, safeguarding
+  on) - or blank, which remains a true no-op. Templates are starter structure
+  with deliberate "to confirm" placeholders, so a fresh project opens with its
+  own punch list on the Health tab; the typed project name lands as
+  `ctrl_product` so the document titles itself immediately. Every template
+  validates against the question bank and assembles through the real builders
+  (the same rule the seed generator enforces), and application flows through the
+  SAME rev-checked RPCs as live editing - scalars first, then rows in authored
+  order, nothing bypassing the server's concurrency or size rules. Ten unit
+  tests; no schema change.
+- **Discovery promotes into the record.** A discovery entry now promotes in one
+  click into a numbered requirement (To requirement → FR-###) or decision (To
+  decision → DEC-###), mirroring the inbox: the entry keeps a back-link pill
+  showing what it became, the promote buttons retire, and an engagement offers
+  only the decision path. Promoted rows carry a `src` note ('Discovery · Jane',
+  'Inbox · SME') that never travels in share payloads (FR rows are still mapped
+  to statement + component only) but lets the next generated version note
+  attribute additions to their origin: "+2 requirements · FR-012 from Discovery
+  · Jane". The relay loop - input, discovery, requirement, baseline - is now on
+  the record end to end. Backend change is one column under the existing
+  manager-only policy, shipped as `supabase/fix-discovery-promote.sql`
+  (idempotent; also in schema.sql for fresh installs). Eleven backend tests
+  added covering the column, the fix path, RLS, and durability across a schema
+  re-apply.
+- **Client baseline report (PDF).** One client-grade export from the Summary tab
+  and the command palette: the executive summary, then exactly what a published
+  brief may contain (built through `buildSharePayload`, so the share-scoping
+  boundary IS the content boundary - fit criteria and internal fields are
+  absent, not hidden), then the revision record, behind the designed cover. The
+  cover and a Verification section carry the baseline fingerprint: SHA-256 over
+  the canonical JSON (keys sorted, arrays in order, UTF-8) of {label, seq,
+  snapshot}, with the recipe restated on the document so anyone holding the
+  stored snapshot recomputes it without ReqPub. Produced only from a stored
+  baseline, never the working draft. Every version row in Version history also
+  gets a compute-and-copy Fingerprint control. Stated plainly on the document
+  and in SECURITY.md: the fingerprint identifies the exact baseline; it is not
+  a signature or trusted timestamp - sealing remains the e-signature phase.
+- **CI now runs everything.** The backend end-to-end suite (embedded Postgres)
+  joins the unit suites on every push and pull request, with a locale guard for
+  the `en_US.UTF-8` requirement embedded-postgres pins for initdb. "215 backend
+  checks green on every change" is now a sentence CI enforces rather than a
+  local habit.
+- **The platform's own PRD caught up with the platform.** The ReqPub Platform
+  worked example now specifies this release as Phase 5 (shipped) with four Must
+  requirements whose fit criteria map one-to-one to the new tests, corrects its
+  verification note to the real suite counts (90 unit, 215 backend - it said 33
+  and 79), and adds Fingerprint and Readiness signal to the glossary. README
+  wording fixed to match SECURITY.md: the audit trail is written by SECURITY
+  DEFINER functions, not triggers.
+- Apply `supabase/fix-discovery-promote.sql` (idempotent; one column, no new
+  grant or policy) or re-run `schema.sql`. Suite now 305 (90 + 215).
+
+
 ## 2.18.1 · inbox threads show their latest activity
 
 - An inbox thread now displays the time of its most recent message, not when the

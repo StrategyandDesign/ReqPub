@@ -173,4 +173,31 @@ test('section conditions gate AI section visibility', () => {
   assert.equal(!!ai.cond({ has_ai: 'No' }), false);
 });
 
+/* ---- changeNote: promoted-input attribution ---- */
+test('changeNote without src keys reads exactly as before', () => {
+  const prev = { answers: { fr: [{ _k: 1, stmt: 'A', fit: 'a' }] } };
+  const cur = { fr: [{ _k: 1, stmt: 'A', fit: 'a' }, { _k: 2, stmt: 'B', fit: 'b' }] };
+  assert.equal(changeNote(prev, cur, false), '+1 requirement');
+  assert.equal(changeNote(prev, { fr: [{ _k: 1, stmt: 'A', fit: 'a' }] }, false), 'Revision');
+});
+
+test('changeNote names the source of a promoted requirement', () => {
+  const prev = { answers: { fr: [{ _k: 1, stmt: 'A', fit: 'a' }] } };
+  const cur = { fr: [{ _k: 1, stmt: 'A', fit: 'a' }, { _k: 2, stmt: 'B', src: 'Discovery · Jane' }] };
+  assert.equal(changeNote(prev, cur, false), '+1 requirement · FR-002 from Discovery · Jane');
+});
+
+test('changeNote caps attribution at three sources and counts the rest', () => {
+  const prev = { answers: { fr: [] } };
+  const cur = { fr: [1, 2, 3, 4, 5].map((k) => ({ _k: k, stmt: 'S' + k, src: 'Inbox · P' + k })) };
+  const note = changeNote(prev, cur, false);
+  assert.ok(note.startsWith('+5 requirements · FR-001 from Inbox · P1; '), note);
+  assert.ok(note.endsWith('; +2 more'), note);
+});
+
+test('a src-only row is bookkeeping, not a requirement (reqDiff ignores it)', () => {
+  const rd = reqDiff({ fr: [] }, { fr: [{ _k: 1, src: 'Discovery · Jane' }] });
+  assert.equal(rd.added.length, 0);
+});
+
 console.log('\ndomain.test: ' + n + '/' + n + ' passed');

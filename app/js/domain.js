@@ -328,7 +328,7 @@ function decisionsBody(a) {
     ['ID', 'Decision', 'Options considered', 'Rationale', 'Decided by', 'Date', 'Supersedes'],
     rows.map((r, i) => [idOf('DEC', r, i), r.decision || '', r.options || '', r.rationale || '', r.owner || '', r.date || '', r.supersedes || '']));
 }
-function revisionBody(versions) {
+export function revisionBody(versions) {
   if (!versions || !versions.length) return '_No baselined version yet. This document is a working draft._';
   const rows = versions.slice().sort((x, y) => x.seq - y.seq)
     .map((v) => [v.label, new Date(v.createdAt || v.created_at).toLocaleDateString(), v.author || v.author_name || '', v.note || (v.seq === 1 ? 'Initial baseline' : 'Revision')]);
@@ -580,7 +580,7 @@ export function mdToHtml(md) {
 export function reqDiff(prev, cur) {
   const groups = [['fr', 'FR'], ['nfr', 'NFR'], ['eval', 'EVAL'], ['interfaces', 'IR']];
   const added = [], modified = [], removed = [];
-  const has = (r) => Object.keys(r || {}).some((k) => k !== '_k' && k !== 'comp' && r[k] && String(r[k]).trim());
+  const has = (r) => Object.keys(r || {}).some((k) => k !== '_k' && k !== 'comp' && k !== 'src' && r[k] && String(r[k]).trim());
   const sig = (r) => {
     const o = {};
     Object.keys(r || {}).sort().forEach((k) => { if (k !== '_k') o[k] = r[k]; });
@@ -600,7 +600,12 @@ export function reqDiff(prev, cur) {
   return { added, modified, removed };
 }
 
-/* ---- Change note for a freshly generated version ---- */
+/* ---- Change note for a freshly generated version ----
+   Rows created by promotion (inbox or discovery) carry a `src` key in their
+   data ('Discovery · Jane', 'Inbox · SME'). When such a row first appears in
+   a baseline, the note names it, so the version record itself attributes the
+   change to the input that caused it. Rows without `src` (the normal case)
+   leave the note exactly as before. */
 export function changeNote(prevSnapshot, curAnswers, isFirst) {
   if (isFirst) return 'Initial baseline';
   const rd = reqDiff((prevSnapshot && prevSnapshot.answers) || {}, curAnswers);
@@ -608,7 +613,17 @@ export function changeNote(prevSnapshot, curAnswers, isFirst) {
   if (rd.added.length) bits.push('+' + rd.added.length + ' requirement' + (rd.added.length === 1 ? '' : 's'));
   if (rd.modified.length) bits.push(rd.modified.length + ' modified');
   if (rd.removed.length) bits.push(rd.removed.length + ' removed');
-  return bits.length ? bits.join(', ') : 'Revision';
+  const srcOf = {};
+  [['fr', 'FR'], ['nfr', 'NFR'], ['eval', 'EVAL'], ['interfaces', 'IR']].forEach(([f, p]) => {
+    (curAnswers[f] || []).forEach((r) => {
+      if (r && r._k != null && r.src) srcOf[p + '-' + String(r._k).padStart(3, '0')] = r.src;
+    });
+  });
+  const attributed = rd.added.filter((id) => srcOf[id]);
+  const attrib = attributed.slice(0, 3).map((id) => id + ' from ' + srcOf[id]).join('; ') +
+    (attributed.length > 3 ? '; +' + (attributed.length - 3) + ' more' : '');
+  const head = bits.length ? bits.join(', ') : 'Revision';
+  return attributed.length ? head + ' · ' + attrib : head;
 }
 
 /* ---- Executive summary data ---- */

@@ -223,7 +223,7 @@ export const reqpub = {
     retention: 'Every project, version, comment, and approval is retained for the life of the workspace. Versions are immutable baselines. The activity log is append-only and written by the database itself. Managers can archive a project; an administrator can restore it. Export to Word, PDF, and Markdown is available at any time.',
     residency: 'Data is stored and processed in the Supabase project region. The public anon key ships in the client by design; all protection rests on row-level security and the rev-checked RPCs.',
     access: 'Row-level security scopes every table to the organization. Managers write; viewers read everything and reply in threads; partners reach only assigned projects through the portal; SMEs reach only tokened briefs. Worksheet fields and rows are writable only through rev-checked SECURITY DEFINER RPCs; write is revoked from the audit-only tables. Approval provenance is stamped from the signed-in user and cannot be forged.',
-    verify_note: 'A capability is accepted when it passes its fit criterion in production and is covered by the automated suite (33 unit tests, 79 backend checks on a real Postgres). The SOC 2 and e-signature requirements are accepted only when independently audited and, for e-signature, when a sealed export verifies against its exact baseline.',
+    verify_note: 'A capability is accepted when it passes its fit criterion in production and is covered by the automated suite (90 unit tests, 215 backend checks on a real Postgres). The SOC 2 and e-signature requirements are accepted only when independently audited and, for e-signature, when a sealed export verifies against its exact baseline.',
     link_repo: 'github.com/StrategyandDesign/ReqPub',
     link_board: 'to confirm',
     link_design: 'reqpub.com'
@@ -243,6 +243,7 @@ export const reqpub = {
       'A real approval state machine with named, server-stamped sign-off and a gate on Approved.',
       'Section-scoped, brand-carrying sharing: SME review links, partner portal, and read-only presentation links.',
       'A designed, co-branded PDF and Word export carrying version, status, approvals, and history.',
+      'Validated template starts, record-health signals, one-click promotion from discovery, and a fingerprinted client baseline report.',
       'An append-only audit trail written by the database.'
     ],
     sol_out: [
@@ -290,14 +291,16 @@ export const reqpub = {
       { rel: 'Phase 2 Live collaboration (shipped)', obj: 'Presence, per-field conflict resolution, durable retried saves, live document follow, presentation mode.', mvp: 'shipped', ship: 'shipped' },
       { rel: 'Phase 3 Approvals & audit (shipped)', obj: 'Approval state machine with named sign-off, append-only activity trail, provenance trigger.', mvp: 'shipped', ship: 'shipped' },
       { rel: 'Phase 4 Sharing & brand (shipped)', obj: 'Section-scoped SME links, partner portal, per-PRD brand logo, designed co-branded PDF, read-only presentation link.', mvp: 'shipped', ship: 'shipped' },
-      { rel: 'Phase 5 SOC 2 Type II (next)', obj: 'Controls, evidence collection, and an independent Type II examination.', mvp: 'to confirm', ship: 'to confirm' },
-      { rel: 'Phase 6 E-signature & sealing (next)', obj: 'Execute sign-off by e-signature and cryptographically seal each export to the exact baseline signed.', mvp: 'to confirm', ship: 'to confirm' }
+      { rel: 'Phase 5 Record health & client deliverable (shipped)', obj: 'Validated template starts, baseline-readiness signals, one-click promotion from discovery with source attribution, fingerprinted client baseline report.', mvp: 'shipped', ship: 'shipped' },
+      { rel: 'Phase 6 SOC 2 Type II (next)', obj: 'Controls, evidence collection, and an independent Type II examination.', mvp: 'to confirm', ship: 'to confirm' },
+      { rel: 'Phase 7 E-signature & sealing (next)', obj: 'Execute sign-off by e-signature and cryptographically seal each export to the exact baseline signed.', mvp: 'to confirm', ship: 'to confirm' }
     ],
     components: [
       { name: 'Relational core', owner: 'Engineering', status: 'Shipped', desc: 'Projects, fields, rows, versions; rev-checked RPCs; RLS; kv migration.' },
       { name: 'Live collaboration', owner: 'Engineering', status: 'Shipped', desc: 'Presence, conflict resolution, durable saves, live doc follow, presentation mode.' },
       { name: 'Approvals & audit', owner: 'Engineering', status: 'Shipped', desc: 'Approval state machine, named sign-off, append-only activity trail.' },
       { name: 'Sharing & brand', owner: 'Engineering', status: 'Shipped', desc: 'Section-scoped links, partner portal, brand logo, designed PDF, presentation link.' },
+      { name: 'Record health & deliverables', owner: 'Engineering', status: 'Shipped', desc: 'Template starts, readiness signals, discovery promotion with attribution, fingerprinted client baseline report.' },
       { name: 'SOC 2 compliance', owner: 'Security / Compliance', status: 'Planned', desc: 'Control set, evidence automation, independent Type II examination.' },
       { name: 'E-signature & sealing', owner: 'Engineering', status: 'Planned', desc: 'E-signature execution and cryptographic sealing of exports to their baseline.' }
     ],
@@ -306,7 +309,7 @@ export const reqpub = {
       { metric: 'Save durability', target: '100% confirmed or visibly failed', method: 'Every write awaited, retried on transient failure, surfaced in the save indicator.' },
       { metric: 'Approval integrity', target: 'no Approved while a sign-off is pending', method: 'Backend check on the version status state machine.' },
       { metric: 'Share scoping', target: 'zero internal fields in any external payload', method: 'Payload-build tests asserting fit criteria never appear.' },
-      { metric: 'Backend regression suite', target: '79 checks green on every change', method: 'Embedded-Postgres end-to-end run in CI.' },
+      { metric: 'Backend regression suite', target: '215 checks green on every change', method: 'Embedded-Postgres end-to-end run in CI.' },
       { metric: 'SOC 2 Type II', target: 'certified (next phase)', method: 'Independent auditor report; published only when live.' },
       { metric: 'Sealed sign-off', target: 'export verifies to its exact baseline (next phase)', method: 'Cryptographic verification independent of the platform.' }
     ],
@@ -320,6 +323,10 @@ export const reqpub = {
       { stmt: 'Sharing is section-scoped and brand-carrying: SME review links, a partner portal, and read-only presentation links, each showing only the sections the team selected and the assigned collaborator logo, never internal fields.', fit: 'An unselected section is absent from the share payload; fit criteria never appear. Test.', pri: 'Must', comp: 'Sharing & brand' },
       { stmt: 'Exports to PDF and Word carry a designed, co-branded cover with version, status, approval history, and revision record.', fit: 'A printed and a Word export both carry the cover metadata and the assigned logo. Demonstration.', pri: 'Must', comp: 'Sharing & brand' },
       { stmt: 'A read-only presentation link renders the branded record with no review form and no account, pointing at a specific published version so what a recipient opens is fixed.', fit: 'Any role can copy a link that opens the record read-only; it cannot be edited. Test.', pri: 'Must', comp: 'Sharing & brand' },
+      { stmt: 'A new project can start from a validated template - product requirements, consulting engagement charter, or baseline assessment - whose fields load through the same rev-checked RPCs as live editing.', fit: 'Every template validates against the question bank, assembles into a well-formed document through the real builders, and applies scalars before rows in authored order. Test.', pri: 'Must', comp: 'Record health & deliverables' },
+      { stmt: 'The record surfaces its own readiness: Must requirements without a fit criterion, missing AI evaluation where AI is declared, safeguarding gaps, unowned components, untagged requirements, an approved version with no published brief, and unresolved placeholders.', fit: 'Each signal is a deterministic predicate over the record, appears exactly when its gap exists, and vanishes when it is fixed. Test.', pri: 'Must', comp: 'Record health & deliverables' },
+      { stmt: 'Discovery entries and inbox submissions promote in one click into numbered requirements or decisions, each back-linked to its source, and the next version note attributes additions to their origin.', fit: 'A promoted entry carries its FR-/DEC- id under the existing manager-only policy, and the generated change note names the source. Test.', pri: 'Must', comp: 'Record health & deliverables' },
+      { stmt: 'A client baseline report composes the executive summary, exactly the client-safe brief content, and the revision record behind a cover carrying a SHA-256 fingerprint of the exact baseline, with the recipe restated on the document.', fit: 'The fingerprint recomputes identically from the stored snapshot, changes if any byte changes, and the report never carries fit criteria or internal fields. Test.', pri: 'Must', comp: 'Record health & deliverables' },
       { stmt: 'The platform earns SOC 2 Type II certification covering security, availability, and confidentiality.', fit: 'An independent auditor issues a Type II report; the claim is published only once the report is in hand. Independent audit.', pri: 'Should', comp: 'SOC 2 compliance' },
       { stmt: 'The platform executes sign-off by e-signature bound to the identity of the approver.', fit: 'An approver signs a version and the signature records identity, intent, and timestamp on the record. Test.', pri: 'Should', comp: 'E-signature & sealing' },
       { stmt: 'Each export is cryptographically sealed to the exact baseline signed, so a sealed document verifies independently even if ReqPub is offline.', fit: 'A sealed export verifies against its baseline hash without the platform; tampering fails verification. Test.', pri: 'Should', comp: 'E-signature & sealing' }
@@ -328,7 +335,7 @@ export const reqpub = {
       { stmt: 'Racy writes flow only through server-side rev-checked RPCs; direct client writes to worksheet tables are revoked.', fit: 'The authenticated role cannot write project_fields or field_rows directly. Test.', pri: 'Must', comp: 'Relational core' },
       { stmt: 'Row-level security scopes every table to the organization, with the strictest policy on approvals and the audit trail.', fit: 'A rival-org user reads and writes nothing; approval provenance cannot be forged. Test.', pri: 'Must', comp: 'Approvals & audit' },
       { stmt: 'The frontend ships a Content Security Policy with no inline scripts and escapes every interpolation.', fit: 'A security review finds no script-injection vector. Inspection.', pri: 'Must', comp: 'Live collaboration' },
-      { stmt: 'Every change ships with regression tests and the suite stays green (33 unit, 79 backend checks).', fit: 'CI runs the suites on every push. Test.', pri: 'Must', comp: 'Relational core' },
+      { stmt: 'Every change ships with regression tests and the suite stays green (90 unit, 215 backend checks).', fit: 'CI runs both suites on every push. Test.', pri: 'Must', comp: 'Relational core' },
       { stmt: 'Anonymous endpoints are rate-limited and input is size-capped.', fit: 'Flooding a share link is throttled; oversized input is rejected. Test.', pri: 'Should', comp: 'Sharing & brand' }
     ],
     interfaces: [
@@ -346,6 +353,8 @@ export const reqpub = {
       { term: 'Rev-checked save', def: 'A write accepted only if it is based on the current revision of a field.' },
       { term: 'Section-scoped share', def: 'A published brief containing only the sections the team selected.' },
       { term: 'Presentation link', def: 'A fixed, read-only, branded view of a published version.' },
+      { term: 'Fingerprint', def: 'SHA-256 over the canonical JSON of {label, seq, snapshot} for a version; identifies the exact baseline an export was produced from. Not a signature or timestamp.' },
+      { term: 'Readiness signal', def: 'A deterministic gap computed from the record itself, such as a Must requirement without a fit criterion. Derived, never stored.' },
       { term: 'Sealed export', def: 'An export cryptographically bound to the exact baseline signed (next phase).' },
       { term: 'SOC 2 Type II', def: 'An independent examination of security controls over a period (next phase).' }
     ]
