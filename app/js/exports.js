@@ -1,7 +1,8 @@
 /* ReqPub v2 - exports: Markdown, Word (.doc), print/PDF, executive summary. */
 
 import { esc, escA, download, copyText, fmtFingerprint } from './core.js';
-import { mdToHtml, execSummaryData, bBrief, defaultBriefSections, revisionBody, mdTable } from './domain.js';
+import { healthStateLine } from './health.js';
+import { mdToHtml, execSummaryData, bBrief, defaultBriefSections, revisionBody, mdTable, reqDiff, reqDiffDetail } from './domain.js';
 
 const STATUS_LABEL = { draft: 'Draft', in_review: 'In review', approved: 'Approved', changes_requested: 'Changes requested' };
 const ok = (u) => typeof u === 'string' && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);/i.test(u);
@@ -26,6 +27,9 @@ function coverHTML(meta) {
     meta.org ? ['Prepared by', meta.org] : null,
     [meta.baselined ? 'Baselined' : 'Date', fmtDay(meta.baselined || new Date())],
     meta.approvedAt ? ['Approved', fmtDay(meta.approvedAt)] : null,
+    // The record's state when it was fixed - stored inside the snapshot at
+    // generation, so two prints of one baseline carry the same evidence.
+    Array.isArray(meta.snapHealth) ? ['Record state', healthStateLine(meta.snapHealth)] : null,
     // The baseline fingerprint identifies the exact snapshot this document was
     // produced from (full value + recipe in the Verification section).
     meta.fingerprint ? ['Fingerprint', fmtFingerprint(meta.fingerprint)] : null
@@ -189,6 +193,10 @@ export function clientDocMd(answers, meta, briefAnswers, briefSections, versions
         ['Fingerprint (SHA-256)', '`' + meta.fingerprint + '`'],
         ['Recipe', 'SHA-256 over the canonical JSON (object keys sorted, arrays in order, UTF-8) of {label, seq, snapshot} for this version, as stored.']
       ]) +
+      (Array.isArray(meta.snapHealth)
+        ? '\n\n**Record state at baseline.** ' + healthStateLine(meta.snapHealth) +
+          (meta.snapHealth.length ? '\n\n' + meta.snapHealth.map((x) => '- ' + (x.level === 'gap' ? 'Gap' : 'Warning') + (x.count > 1 ? ' ×' + x.count : '') + ': ' + x.label).join('\n') : '')
+        : '') +
       '\n\nTwo exports carrying the same fingerprint were produced from byte-identical baselines. ' +
       'The fingerprint identifies the exact snapshot; it is not a signature or a trusted timestamp.' +
       (meta.presentLink ? '\n\nRead-only record: ' + meta.presentLink : ''));
@@ -198,6 +206,55 @@ export function clientDocMd(answers, meta, briefAnswers, briefSections, versions
 
 /* Print the client baseline report through the same designed cover/print path
    as the full document; only the eyebrow changes. */
+/* The gate packet: the artifact that walks into a steering committee. A gate
+   is a named decision, by named deciders, against stated criteria, on a fixed
+   artifact - this composes all four from what already exists: the gate name
+   (cover eyebrow), the record's state when it was fixed (snapshot.health),
+   the per-column evidence diff since the prior baseline (reqDiffDetail), the
+   named approvals (cover rail), and the fingerprint with its recipe. When the
+   committee decides on this packet, the gate decision has moved to the
+   record. Pure composition; the tracker keeps its dashboards. */
+export function gatePacketMd(meta, curAnswers, prevAnswers, prevLabel) {
+  const P = [];
+  P.push('## The decision on the table\n\n' +
+    (meta.eyebrow ? '**' + meta.eyebrow + '** - a named decision on baseline v' + meta.label + '.'
+                  : 'A gate decision on baseline v' + meta.label + '. (This baseline carries no gate name; name the gate when generating to put it on the cover.)') +
+    ' The named deciders and their sign-off state are on the cover; the fingerprint below identifies the exact artifact being decided on.');
+  if (Array.isArray(meta.snapHealth)) {
+    P.push('## Criteria state at this baseline\n\n' + healthStateLine(meta.snapHealth) +
+      (meta.snapHealth.length
+        ? '\n\n' + meta.snapHealth.map((x) => '- ' + (x.level === 'gap' ? 'Gap' : 'Warning') + (x.count > 1 ? ' ×' + x.count : '') + ': ' + x.label + (x.detail ? ' - ' + x.detail : '')).join('\n')
+        : '\n\nNo readiness gaps or warnings were present when this baseline was fixed.'));
+  } else {
+    P.push('## Criteria state at this baseline\n\n_No readiness evidence stored - this baseline predates evidence capture. Regenerate to carry it._');
+  }
+  if (prevAnswers) {
+    const rd = reqDiff(prevAnswers, curAnswers || {});
+    const det = reqDiffDetail(prevAnswers, curAnswers || {});
+    const parts = ['## Changes since v' + prevLabel,
+      rd.added.length + ' added · ' + rd.modified.length + ' modified · ' + rd.removed.length + ' removed, by permanent id.'];
+    if (rd.added.length) parts.push('**Added.** ' + rd.added.join(', '));
+    if (det.length) parts.push(det.map((d) => '**' + d.id + '**\n' + d.changes.map((c) => '- ' + c.label + ': ~~' + (c.from || '(empty)') + '~~ → ' + (c.to || '(empty)')).join('\n')).join('\n\n'));
+    if (rd.removed.length) parts.push('**Removed.** ' + rd.removed.join(', '));
+    if (!rd.added.length && !det.length && !rd.removed.length) parts.push('No requirement-level changes since the prior baseline.');
+    P.push(parts.join('\n\n'));
+  } else {
+    P.push('## Changes\n\nInitial baseline - there is no prior gate to diff against.');
+  }
+  if (meta.fingerprint) {
+    P.push('## Verification\n\n' + mdTable(['Field', 'Value'], [
+      ['Baseline', 'v' + meta.label + (meta.eyebrow ? ' (' + meta.eyebrow + ')' : '')],
+      ['Fingerprint (SHA-256)', '`' + meta.fingerprint + '`'],
+      ['Recipe', 'SHA-256 over the canonical JSON (object keys sorted, arrays in order, UTF-8) of {label, seq, snapshot} for this version, as stored.']
+    ]) + '\n\nThe fingerprint identifies the exact snapshot; it is not a signature or a trusted timestamp.');
+  }
+  return P.join('\n\n');
+}
+export function printGatePacket(meta, curAnswers, prevAnswers, prevLabel) {
+  printDoc(gatePacketMd(meta, curAnswers, prevAnswers, prevLabel),
+    { ...meta, eyebrow: meta.eyebrow || 'Gate Decision' });
+}
+
 export function printClientDoc(answers, meta, briefAnswers, briefSections, versions) {
   printDoc(clientDocMd(answers, meta, briefAnswers, briefSections, versions),
     { ...meta, eyebrow: 'Client Baseline Report' });

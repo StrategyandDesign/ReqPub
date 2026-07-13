@@ -46,14 +46,14 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── sync.test.mjs                    12 multi-writer concurrency simulations
 │   ├── share.test.mjs                   13 section-scoped share-payload tests
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
-│   ├── engagement.test.mjs             15 engagement-charter + AI-acceptance + PRD-invariance tests
-│   ├── health.test.mjs                 21 readiness / accumulation / landing-rule tests
+│   ├── engagement.test.mjs             17 charter + gate-plan + AI-acceptance + PRD-invariance tests
+│   ├── health.test.mjs                 22 readiness / accumulation / evidence-line tests
 │   ├── templates.test.mjs              10 template validation + RPC-application tests
-│   ├── fingerprint.test.mjs            11 canonical-JSON / SHA-256 / client-report tests
+│   ├── fingerprint.test.mjs            14 canonical-JSON / client-report / gate-packet tests
 │   ├── views.test.mjs                  9 view-render contracts (picker, guard, roles, promotion)
 │   ├── projdedup.test.mjs              8 project-list reconciliation + retry-semantics tests
 │   ├── zipstore.test.mjs               8 STORE-zip writer tests (independent reader, CRC, determinism)
-│   ├── implpkg.test.mjs                9 implementation-package tests (spec bundle, fingerprint symmetry)
+│   ├── implpkg.test.mjs                10 implementation-package tests (spec bundle, fingerprint symmetry)
 │   └── backend-e2e/                     231 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
@@ -79,7 +79,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 145 domain + concurrency + share + health + package + fingerprint checks (node only)
+npm test                        # 152 domain + concurrency + share + health + package + fingerprint checks (node only)
 npm i && npm run test:backend   # 231 checks on an embedded Postgres
 ```
 

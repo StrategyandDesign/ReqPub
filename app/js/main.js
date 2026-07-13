@@ -10,8 +10,8 @@ import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace } from './views-external.js';
-import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, fileStem } from './exports.js';
-import { landingTab, incorporatedRows } from './health.js';
+import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, fileStem } from './exports.js';
+import { landingTab, incorporatedRows, healthSignals } from './health.js';
 import { buildImplementationFiles } from './implpkg.js';
 import { zipStore } from './zipstore.js';
 import { TEMPLATES, templateByKey, applyTemplate } from './templates.js';
@@ -419,7 +419,13 @@ async function generateVersion() {
   const auto = changeNote(prevMeta ? (APP.snapshots[prevMeta.seq] || {}).snapshot : null, answers, !prevMeta);
   const note = [g.note && g.note.trim(), auto].filter(Boolean).join(' - ');
 
-  const r = await repo.createVersion(APP.pid, !!g.major, note, { answers, sections });
+  // The gate name and the record's state ride INSIDE the snapshot: a gate is
+  // a named decision on a fixed artifact, and snapshot.health is the evidence
+  // of what was true when the artifact was fixed. create_version stores the
+  // jsonb exactly as sent; no schema change, and the fingerprint covers both.
+  const gate = (g.gate || '').trim().slice(0, 80);
+  const snapHealth = healthSignals(answers, { versions: APP.versions, approvalsByVersion: APP.approvals, shares: APP.shares, comms: APP.comms, discovery: APP.discovery });
+  const r = await repo.createVersion(APP.pid, !!g.major, note, { answers, sections, ...(gate ? { gate } : {}), health: snapHealth });
   const out = r.data;
   if (r.error || !out || !out.ok) {
     g.busy = false; g.error = (out && out.error === 'forbidden') ? 'Your role cannot generate versions.' : 'Could not generate - try again.';
@@ -723,7 +729,7 @@ async function handleAction(a, id, t, e) {
     case 'viewver': APP.viewSeq = +t.dataset.seq; APP.docTab = 'document'; await ensureSnapshot(APP.viewSeq); render(); break;
     case 'genopen': APP.genOpen = true; APP.gen = { major: false, note: '' }; render(); break;
     case 'genkind': APP.gen.major = t.dataset.val === 'major'; APP.gen.note = val('genNote'); render(); break;
-    case 'genconfirm': APP.gen.note = val('genNote'); await generateVersion(); break;
+    case 'genconfirm': APP.gen.note = val('genNote'); APP.gen.gate = val('genGate'); await generateVersion(); break;
 
     /* presentation mode */
     case 'present': APP.present = true; lastRevealedSec = null; render(); break;
@@ -946,6 +952,36 @@ async function handleAction(a, id, t, e) {
        payload builder the share system uses, so the share-scoping boundary is
        the content boundary: fit criteria, schedules, and internal notes are
        absent, not hidden. */
+    case 'gatepacket': {
+      // The SteerCo artifact: gate name, criteria state at baseline, per-column
+      // changes since the prior baseline, approvals, fingerprint. When the
+      // committee decides on this, the gate decision lives in the record.
+      if (!APP.versions.length) { toast('Generate a version first - the gate packet is produced from a baseline'); break; }
+      const seq = APP.viewSeq != null ? APP.viewSeq : APP.versions[APP.versions.length - 1].seq;
+      await ensureSnapshot(seq);
+      const snap = APP.snapshots[seq];
+      if (!snap) { toast('Could not load that baseline - try again'); break; }
+      const idx = APP.versions.findIndex((x) => x.seq === seq);
+      const prevMeta = idx > 0 ? APP.versions[idx - 1] : null;
+      if (prevMeta) await ensureSnapshot(prevMeta.seq);
+      const prevSnap = prevMeta ? APP.snapshots[prevMeta.seq] : null;
+      const v = APP.versions[idx];
+      const fingerprint = await versionFingerprint(snap);
+      const ap = v ? (APP.approvals[v.id] || []) : [];
+      const answers = snap.snapshot.answers || {};
+      printGatePacket({
+        product: answers.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
+        org: answers.ctrl_org || '', label: snap.label, status: v ? v.status : snap.status,
+        eyebrow: snap.snapshot.gate || undefined,
+        snapHealth: Array.isArray(snap.snapshot.health) ? snap.snapshot.health : undefined,
+        baselined: (v && v.created_at) || snap.created_at || '',
+        approvedAt: (v && v.status === 'approved') ? (ap.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '') : '',
+        approvals: ap, fingerprint,
+        logo: (APP.project && APP.project.brand_logo) || '',
+        brandLabel: (APP.project && APP.project.brand_label) || ''
+      }, answers, prevSnap ? (prevSnap.snapshot.answers || null) : null, prevMeta ? prevMeta.label : '');
+      break;
+    }
     case 'implpkg': {
       // The builders' counterpart to the client baseline report: one click on
       // a stored baseline produces the spec bundle, sealed to the SAME
@@ -967,7 +1003,7 @@ async function handleAction(a, id, t, e) {
       const answers = snap.snapshot.answers || {};
       const product = answers.ctrl_product || (APP.project && APP.project.name) || 'Untitled';
       const files = buildImplementationFiles({
-        product, label: snap.label, seq, status: v ? v.status : snap.status,
+        product, label: snap.label, seq, status: v ? v.status : snap.status, gate: snap.snapshot.gate || undefined,
         note: (v && v.note) || snap.note || '', author: (v && v.author_name) || snap.author_name || '',
         baselined: (v && v.created_at) || snap.created_at || '',
         approvedAt: (v && v.status === 'approved') ? (ap.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '') : '',
@@ -995,6 +1031,8 @@ async function handleAction(a, id, t, e) {
       printClientDoc(answers, {
         product: answers.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
         org: answers.ctrl_org || '', label: snap.label, status: v ? v.status : snap.status,
+        eyebrow: snap.snapshot.gate || undefined,
+        snapHealth: Array.isArray(snap.snapshot.health) ? snap.snapshot.health : undefined,
         baselined: (v && v.created_at) || snap.created_at || '',
         approvedAt: (() => { const ap = v ? (APP.approvals[v.id] || []) : []; return (v && v.status === 'approved') ? (ap.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '') : ''; })(),
         record: (() => {
@@ -1587,9 +1625,12 @@ function docMeta(d) {
   const v = APP.viewSeq != null ? APP.versions.find((x) => x.seq === APP.viewSeq) : APP.versions[APP.versions.length - 1];
   const appr = v ? (APP.approvals[v.id] || []) : [];
   const lastDecided = appr.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '';
+  const snap = APP.viewSeq != null ? APP.snapshots[APP.viewSeq] : null;
   return {
     product: a.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
     org: a.ctrl_org || '', label: d.label || '', status: v ? v.status : 'draft',
+    eyebrow: (snap && snap.snapshot.gate) || undefined,
+    snapHealth: (snap && Array.isArray(snap.snapshot.health)) ? snap.snapshot.health : undefined,
     // Evidence dates: printing a stored baseline carries the baseline's own
     // date, and the last sign-off date when fully approved.
     baselined: (APP.viewSeq != null && v) ? v.created_at : '',

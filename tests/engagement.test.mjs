@@ -181,4 +181,29 @@ test('a PRD that declares AI is untouched: Section 9 stays AI Evaluation Criteri
   assert.equal(docSecNum(prd, 'aieval'), 9);
 });
 
+/* ---- the gate plan enters the charter exactly when planned ---- */
+const gateRows = { gates: [{ id: 'gt', k: 1, data: { gate: 'Requirements Baseline', criteria: 'Every Must has a fit criterion', decider: 'Sponsor', target: 'Q3' }, pos: 1, rev: 1 }] };
+const gatedAnswers = base({ ctrl_type: { value: ENGAGEMENT } }, gateRows);
+const gatedDoc = assemble(buildSections(gatedAnswers, '1.0', versions), gatedAnswers);
+
+test('a gate plan renumbers the charter with Gate Plan as section 3', () => {
+  ['## 1. Objective and Context', '## 2. Success Metrics', '## 3. Gate Plan', '## 4. Scope and Approach', '## 9. Revision History']
+    .forEach((h) => assert.ok(gatedDoc.includes(h), 'missing ' + h));
+  assert.ok(gatedDoc.includes('Requirements Baseline'));
+  assert.ok(gatedDoc.includes('Sponsor'));
+  assert.ok(!engDoc.includes('Gate Plan'), 'a plain engagement charter is untouched');
+});
+
+test('gates and AI acceptance stack: plan at 3, the signed numbers at 4, contiguous to 10', () => {
+  const both = base(
+    { ctrl_type: { value: ENGAGEMENT }, has_ai: { value: 'Yes' } },
+    { ...gateRows, eval: [{ id: 'e', k: 1, data: { dim: 'Guardrail', metric: 'Rate', thresh: '95%' }, pos: 1, rev: 1 }] }
+  );
+  const doc = assemble(buildSections(both, '1.0', versions), both);
+  ['## 3. Gate Plan', '## 4. AI Acceptance Criteria', '## 5. Scope and Approach', '## 10. Revision History']
+    .forEach((h) => assert.ok(doc.includes(h), 'missing ' + h));
+  assert.equal(docSecNum(both, 'gates'), 3);
+  assert.equal(docSecNum(both, 'aieval'), 4);
+});
+
 console.log('\nengagement.test: ' + n + '/' + n + ' passed');

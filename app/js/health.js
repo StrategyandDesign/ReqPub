@@ -63,6 +63,18 @@ const briefFor = (shares, seq) =>
    Order is severity-first, then worksheet order, so the list reads as a
    punch list. An empty array means: nothing blocks this record.
    --------------------------------------------------------------------------- */
+/* Signals are DERIVED, never stored - with one deliberate exception that is
+   not an exception: at version generation, main.js runs healthSignals and
+   stores the RESULT inside the snapshot. That is not a live signal; it is the
+   state of the record at the moment it was fixed, inside an already-immutable
+   baseline. Evidence, not a score. "Approved with two known warnings, named"
+   is the most defensible sentence in the product. */
+export const healthStateLine = (sigs) => {
+  const sum = (lvl) => (sigs || []).filter((s) => s.level === lvl).reduce((t, s) => t + (s.count || 1), 0);
+  const g = sum('gap'), w = sum('warn');
+  return g + ' gap' + (g === 1 ? '' : 's') + ' · ' + w + ' warning' + (w === 1 ? '' : 's');
+};
+
 export function healthSignals(a, ctx = {}) {
   a = a || {};
   const eng = isEngagement(a);

@@ -6,7 +6,7 @@
    share payload, so the scoping boundary is the content boundary. */
 import assert from 'node:assert/strict';
 import { canonicalJson, sha256Hex, versionFingerprint, fmtFingerprint } from '../app/js/core.js';
-import { clientDocMd } from '../app/js/exports.js';
+import { clientDocMd, gatePacketMd } from '../app/js/exports.js';
 import { buildSharePayload } from '../app/js/data.js';
 import { defaultBriefSections } from '../app/js/domain.js';
 
@@ -105,6 +105,36 @@ test('the incorporated list caps at twelve and counts the rest', () => {
   const md = clientDocMd({}, { product: 'P', label: '1.0', record: { versions: 1, signoffs: 1, incorporated: inc } }, null, null, []);
   assert.ok(md.includes('- …and 3 more'));
   assert.ok(!md.includes('FR-013'));
+});
+
+test('the gate packet composes name, criteria state, per-column changes, and the recipe', () => {
+  const meta = { product: 'P', org: 'CV', label: '2.0', status: 'in_review', eyebrow: 'Requirements Baseline',
+    fingerprint: 'c'.repeat(64),
+    snapHealth: [{ level: 'warn', count: 2, label: 'Approved versions with no named sign-off', detail: 'Add named approvers.' }] };
+  const cur = { fr: [{ _k: 1, stmt: 'Records a session', fit: 'within 30 seconds', pri: 'Must' }] };
+  const prev = { fr: [{ _k: 1, stmt: 'Records a session', fit: 'within 5 seconds', pri: 'Must' }] };
+  const md = gatePacketMd(meta, cur, prev, '1.0');
+  assert.ok(md.includes('**Requirements Baseline** - a named decision on baseline v2.0'));
+  assert.ok(md.includes('0 gaps · 2 warnings'));
+  assert.ok(md.includes('Warning ×2: Approved versions with no named sign-off'));
+  assert.ok(md.includes('## Changes since v1.0'));
+  assert.ok(md.includes('- fit criterion: ~~within 5 seconds~~ → within 30 seconds'));
+  assert.ok(md.includes('canonical JSON'));
+  assert.ok(md.includes('not a signature or a trusted timestamp'));
+});
+
+test('the packet is honest when the gate is unnamed or the evidence predates capture', () => {
+  const md = gatePacketMd({ product: 'P', label: '1.0', fingerprint: 'c'.repeat(64) }, { }, null, '');
+  assert.ok(md.includes('carries no gate name'));
+  assert.ok(md.includes('No readiness evidence stored'));
+  assert.ok(md.includes('Initial baseline - there is no prior gate'));
+});
+
+test('the client report Verification section lists the stored record state', () => {
+  const md = clientDocMd({ ctrl_product: 'P' }, { product: 'P', label: '2.0', fingerprint: 'f'.repeat(64),
+    snapHealth: [{ level: 'gap', count: 1, label: 'Must requirement without a fit criterion' }] }, null, null, []);
+  assert.ok(md.includes('**Record state at baseline.** 1 gap · 0 warnings'));
+  assert.ok(md.includes('- Gap: Must requirement without a fit criterion'));
 });
 
 console.log('\nfingerprint.test: ' + n + '/' + n + ' passed');

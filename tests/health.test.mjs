@@ -3,7 +3,7 @@
    deterministic, must appear exactly when its gap exists, and must vanish
    the moment the gap is fixed. Counts must be plain, defensible tallies. */
 import assert from 'node:assert/strict';
-import { healthSignals, recordCounts, countToConfirm, landingTab, incorporatedRows } from '../app/js/health.js';
+import { healthSignals, recordCounts, countToConfirm, landingTab, incorporatedRows, healthStateLine } from '../app/js/health.js';
 import { ENGAGEMENT } from '../app/js/domain.js';
 
 let n = 0;
@@ -190,6 +190,12 @@ test('an approved version with zero sign-off slots warns; drafts never trip it',
   ], approvalsByVersion: {} });
   const hit = sigs.find((s) => s.key === 'approved_no_signoff');
   assert.ok(hit && hit.level === 'warn' && hit.count === 1);
+});
+
+test('healthStateLine sums signal counts into the evidence sentence', () => {
+  assert.equal(healthStateLine([]), '0 gaps · 0 warnings');
+  assert.equal(healthStateLine([{ level: 'gap', count: 1 }, { level: 'warn', count: 2 }]), '1 gap · 2 warnings');
+  assert.equal(healthStateLine([{ level: 'warn', count: 1 }, { level: 'warn' }]), '0 gaps · 2 warnings', 'a countless signal counts once');
 });
 
 console.log('\nhealth.test: ' + n + '/' + n + ' passed');

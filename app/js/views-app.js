@@ -165,6 +165,8 @@ function generateModal(APP) {
     '<button class="chip' + (g.major ? ' on' : '') + '" data-action="genkind" data-val="major">Major · v' + esc(nextMajor) + '</button></div>' +
     '<div class="fldlabel">Change note (optional - a summary is added automatically)</div>' +
     '<input class="input" id="genNote" value="' + escA(g.note || '') + '" placeholder="e.g. Added e-signature requirements after SME review">' +
+    '<div class="fldlabel">Gate (optional - names this baseline as a stage-gate decision point)</div>' +
+    '<input class="input" id="genGate" value="' + escA(g.gate || '') + '" placeholder="e.g. Requirements Baseline, Design Baseline, Go-Live">' +
     (g.error ? '<div style="color:var(--bad);font-size:12.5px;margin-top:10px">' + esc(g.error) + '</div>' : '') +
     '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button class="btn btn-sec" data-action="modalclose">Cancel</button>' +
     '<button class="btn btn-primary" data-action="genconfirm"' + (g.busy ? ' disabled' : '') + '>' + (g.busy ? 'Generating…' : 'Generate v' + esc(g.major ? nextMajor : nextMinor)) + '</button></div>' +
@@ -207,6 +209,7 @@ export function paletteItems(APP) {
     items.push({ label: 'Print / save as PDF', hint: 'Export', ico: IC.print, action: 'print' });
     items.push({ label: 'Client baseline report (PDF)', hint: 'Export', ico: IC.shield, action: 'clientprint' });
     items.push({ label: 'Implementation package (ZIP)', hint: 'Export', ico: IC.download, action: 'implpkg' });
+    items.push({ label: 'Gate packet (PDF)', hint: 'Export', ico: IC.check, action: 'gatepacket' });
   }
   items.push({ label: 'New project', hint: 'Create', ico: IC.plus, action: 'palnew' });
   items.push({ label: 'Toggle dark mode', hint: 'Theme', ico: IC.moon, action: 'themetoggle' });
@@ -585,6 +588,8 @@ function renderDoc(APP, a, ac, total) {
       '</div></div>'
     : '';
 
+  const gateOfView = APP.viewSeq != null && APP.snapshots[APP.viewSeq] && APP.snapshots[APP.viewSeq].snapshot.gate;
+  const gatePill = gateOfView ? '<span class="pill pill-solid" title="This baseline is a named stage gate" style="align-self:center">' + esc(gateOfView) + '</span>' : '';
   const verOptions = '<option value="">Working draft</option>' + APP.versions.slice().reverse().map((v) =>
     '<option value="' + v.seq + '"' + (APP.viewSeq === v.seq ? ' selected' : '') + '>v' + esc(v.label) + '</option>').join('');
   const docActions =
@@ -592,7 +597,7 @@ function renderDoc(APP, a, ac, total) {
     '<button class="icobtn" data-action="tab" data-val="activity" title="Activity - the append-only audit trail"' + (APP.docTab === 'activity' ? ' style="background:var(--ink);color:var(--bg)"' : '') + '>' + ico(IC.hist) + '</button>' +
     '<button class="icobtn" data-action="present" title="Presentation mode - show only the document">' + ico(IC.expand) + '</button>' +
     ((APP.docTab === 'document' || APP.docTab === 'summary' || APP.docTab === 'changes')
-      ? (APP.versions.length ? '<select class="input" data-action="versionsel" style="height:34px;padding:0 8px;width:auto;font-family:var(--mono);font-size:12px">' + verOptions + '</select>' : '') +
+      ? (APP.versions.length ? '<select class="input" data-action="versionsel" style="height:34px;padding:0 8px;width:auto;font-family:var(--mono);font-size:12px">' + verOptions + '</select>' + gatePill : '') +
         '<button class="icobtn" data-action="copymd" title="Copy Markdown">' + ico(IC.copy) + '</button>' +
         '<button class="icobtn" data-action="word" title="Download for Word (.doc)">' + ico(IC.word) + '</button>' +
         '<button class="icobtn" data-action="print" title="Save as PDF (print)">' + ico(IC.print) + '</button>' +
@@ -609,7 +614,8 @@ function renderDoc(APP, a, ac, total) {
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
       '<button class="btn btn-sec btn-sm" data-action="execdl">' + ico(IC.dl, 'i-sm') + 'Download summary (.md)</button>' +
       '<button class="btn btn-sec btn-sm" data-action="clientprint" title="Executive summary + the client-safe brief content + revision record, behind a fingerprinted cover">' + ico(IC.shield, 'i-sm') + 'Client baseline report (PDF)</button>' +
-      '<button class="btn btn-sec btn-sm" data-action="implpkg" title="For the build team: requirements.json + acceptance checklist + per-column changes + full PRD, sealed to the same fingerprint as the client report">' + ico(IC.download, 'i-sm') + 'Implementation package (ZIP)</button></div></div>';
+      '<button class="btn btn-sec btn-sm" data-action="implpkg" title="For the build team: requirements.json + acceptance checklist + per-column changes + full PRD, sealed to the same fingerprint as the client report">' + ico(IC.download, 'i-sm') + 'Implementation package (ZIP)</button>' +
+      '<button class="btn btn-sec btn-sm" data-action="gatepacket" title="The steering-committee artifact: gate name, criteria state at baseline, per-column changes since the prior baseline, approvals, fingerprint">' + ico(IC.check, 'i-sm') + 'Gate packet (PDF)</button></div></div>';
   } else if (APP.docTab === 'changes') {
     content = renderChanges(APP, a);
   } else {

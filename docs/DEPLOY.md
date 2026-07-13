@@ -63,11 +63,20 @@ Copy only; no identifier changed.
 ## The lane next to the program tracker
 
 Large consulting firms already run collaborative work-management platforms
-across engagements (Kearney, for example, is a founding partner of Sensei
-Labs' Conductor and deploys it with clients for milestones, dashboards,
-stage gates, and benefits tracking). ReqPub does not compete for that lane
-and must not grow program-status surfaces. The tracker tells a program
-manager where the program is. ReqPub proves what was agreed, by whom, in
-which version, with what changes since the client last saw it. Complementary
-layers: the initiative lives in the tracker; the requirements record that
-initiatives are judged against lives here, immutable and fingerprinted.
+across engagements. The reference example: Kearney's NEXT partners with
+Sensei Labs' Conductor - and precisely: Conductor is Sensei Labs' product (a
+Klick subsidiary), shared infrastructure also allied with other
+consultancies, not the firm's own platform. It has role-based approvals,
+configurable stage gates, audit trails, and time-based locking; do not claim
+otherwise. The honest line sits one level deeper: a gate review on a
+dashboard is a meeting; a gate on an immutable, fingerprinted baseline is
+evidence. The tracker's audit trail lives inside the tracker; the record
+verifies outside it, by design. Its objects are projects, tasks, and status -
+nothing there owns requirements, fit criteria, or acceptance evidence. That
+ground is uncontested and it is this product's. Full doctrine, per-audience
+lines, and the one-page visual: `docs/POSITIONING.md` and
+`docs/positioning.svg`. Externally, never name the tracker or its vendor.
+
+Never build, on any pull: Gantt, RAG rollups, RAID logs, timelines,
+notification engines, auto-advancing workflows, portfolio dashboards. Each
+converts the record into a tracker.

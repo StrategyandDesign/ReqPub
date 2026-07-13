@@ -112,6 +112,14 @@ test('README.md states the symmetry: one fingerprint across client report and pa
   assert.ok(md.includes('not a signature or a trusted timestamp'));
 });
 
+test('a gate name rides in requirements.json when the baseline carries one', () => {
+  const gated = buildImplementationFiles({ ...meta, gate: 'Requirements Baseline' });
+  const j = JSON.parse(Object.fromEntries(gated.map((f) => [f.name, f.text]))['requirements.json']);
+  assert.equal(j.version.gate, 'Requirements Baseline');
+  const plain = JSON.parse(byName['requirements.json']);
+  assert.equal(plain.version.gate, undefined, 'absent gates are omitted, not empty');
+});
+
 test('the package is deterministic for a given baseline', () => {
   const again = buildImplementationFiles(meta);
   assert.deepEqual(again, files);

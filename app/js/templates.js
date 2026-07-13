@@ -75,6 +75,36 @@ export const TEMPLATES = [
       ],
       decisions: [{ decision: 'to confirm - the first material decision', options: 'to confirm', rationale: 'to confirm', owner: 'to confirm', date: '', supersedes: '' }]
     }
+  },  {
+    key: 'gated',
+    label: 'Stage-gated engagement',
+    tag: 'Gated',
+    desc: 'The engagement charter plus a gate plan - each gate a named decision with criteria, a deciding role, and a target date. Name the gate on the baseline; the gate packet carries the evidence into the room.',
+    scalars: { ctrl_type: ENGAGEMENT, ctrl_status: 'Draft' },
+    lists: {
+      ov_goals: ['to confirm - what this engagement must achieve, measurable where possible'],
+      assume: ['to confirm - a condition assumed true; if it proves false it becomes a risk'],
+      constrain: ['to confirm - a fixed limit the approach must respect']
+    },
+    rows: {
+      gates: [
+        { gate: 'Discovery Complete', criteria: 'Discovery log promoted; open questions dispositioned', decider: 'Engagement lead', target: 'to confirm' },
+        { gate: 'Requirements Baseline', criteria: 'Every Must has a fit criterion; named approvers assigned', decider: 'Sponsor', target: 'to confirm' },
+        { gate: 'Design Baseline', criteria: 'Workstreams owned; interfaces stated with fit criteria', decider: 'Steering committee', target: 'to confirm' },
+        { gate: 'Go-Live', criteria: 'Acceptance checklist green; approvals recorded on the baseline', decider: 'Sponsor', target: 'to confirm' }
+      ],
+      ctrl_approvers: [
+        { role: 'Engagement lead', name: 'to confirm' },
+        { role: 'Client sponsor', name: 'to confirm' }
+      ],
+      components: [{ name: 'Workstream 1', owner: 'to confirm', status: 'Planned', desc: 'to confirm' }],
+      metrics: [{ metric: 'to confirm', target: 'to confirm', method: 'to confirm' }],
+      people: [
+        { name: 'to confirm', role: 'Engagement lead' },
+        { name: 'to confirm', role: 'Client sponsor' }
+      ],
+      decisions: [{ decision: 'to confirm - the first material decision', options: 'to confirm', rationale: 'to confirm', owner: 'to confirm', date: '', supersedes: '' }]
+    }
   },
   {
     key: 'baseline',

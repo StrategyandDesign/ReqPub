@@ -29,6 +29,11 @@ export const SECTIONS = [
   { key: 'functional', num: 7, title: 'Functional Requirements', cond: reqOnly },
   { key: 'nonfunctional', num: 8, title: 'Non-Functional Requirements', cond: reqOnly },
   { key: 'aieval', num: 9, title: 'AI Evaluation Criteria', cond: (a) => a.has_ai === 'Yes' },
+  // Engagement-only: the stage-gate plan. A gate is a named decision, by named
+  // deciders, against stated criteria, on a fixed artifact - versions are the
+  // artifact, approvers the deciders, the state machine the decision; this
+  // table is the plan. Content, so it prints, diffs, and versions like content.
+  { key: 'gates', num: null, title: 'Gate Plan', cond: (a) => isEngagement(a) },
   { key: 'data', num: 10, title: 'Data, Privacy, and Safeguarding', cond: reqOnly },
   { key: 'interfaces', num: 11, title: 'Interfaces and Integrations', cond: reqOnly },
   { key: 'verification', num: 12, title: 'Verification and Acceptance', cond: reqOnly },
@@ -64,14 +69,23 @@ export const ENG_SECTIONS = [
 // exactly the buyer who needs a signed numeric threshold; hiding Section 9
 // from engagement mode hid the platform's sharpest asset from them.
 const ENG_AIEVAL = { key: 'aieval', title: 'AI Acceptance Criteria' };
+const ENG_GATES = { key: 'gates', title: 'Gate Plan' };
 export const engSections = (a) => {
-  if (!a || a.has_ai !== 'Yes') return ENG_SECTIONS;
-  return [ENG_SECTIONS[0], ENG_SECTIONS[1], ENG_AIEVAL, ...ENG_SECTIONS.slice(2)]
+  const hasAI = a && a.has_ai === 'Yes';
+  const hasGates = a && rowsFilled(a.gates).length > 0;
+  if (!hasAI && !hasGates) return ENG_SECTIONS;
+  // Order: objective, metrics, then the gate plan (the schedule of decisions),
+  // then AI acceptance (the numbers those decisions sign), then everything
+  // else - contiguous in every shape, so charters without either are
+  // byte-identical to before.
+  const mid = [...(hasGates ? [ENG_GATES] : []), ...(hasAI ? [ENG_AIEVAL] : [])];
+  return [ENG_SECTIONS[0], ENG_SECTIONS[1], ...mid, ...ENG_SECTIONS.slice(2)]
     .map((s, i) => ({ ...s, num: i + 1 }));
 };
 const ENG_TITLE2KEY = {};
 ENG_SECTIONS.forEach((s) => { ENG_TITLE2KEY[s.title] = s.key; });
 ENG_TITLE2KEY[ENG_AIEVAL.title] = ENG_AIEVAL.key;
+ENG_TITLE2KEY[ENG_GATES.title] = ENG_GATES.key;
 
 // The section number to display for a section key, given the document type. PRD
 // keeps its fixed numbering; an engagement renders contiguously from its layout.
@@ -128,6 +142,7 @@ export const Q = [
   { id: 'has_ai', sec: 'aieval', type: 'choice', prompt: 'Does the product include AI, probabilistic, or generative components?', options: ['Yes', 'No'], help: 'Such components cannot be verified by a single expected output. They need evaluation criteria against a golden dataset. This unlocks Section 9.', req: true },
   { id: 'eval', sec: 'aieval', type: 'rows', prompt: 'AI evaluation criteria', help: 'For each quality dimension, state the metric, the method, and a numeric threshold against a golden dataset. Always include a grounding or hallucination guardrail and a safety threshold.', add: 'Add criterion', cond: (a) => a.has_ai === 'Yes', cols: [{ k: 'dim', l: 'Quality dimension', ph: 'e.g. Hallucination guardrail' }, { k: 'metric', l: 'Metric and method', ph: 'What is measured and how' }, { k: 'thresh', l: 'Threshold', ph: 'e.g. at least 95%' }, { k: 'comp', l: 'Component', dyn: 'components' }] },
   { id: 'golden', sec: 'aieval', type: 'long', prompt: 'Golden dataset and red-team approach', help: 'What the labeled benchmark set covers, and how you probe for hallucination and sycophancy.', cond: (a) => a.has_ai === 'Yes' },
+  { id: 'gates', sec: 'gates', type: 'rows', prompt: 'Stage gates', help: 'Each gate: what must be true, who decides, by when. Name the gate on the baseline when you generate it, and the gate packet carries the evidence into the room.', add: 'Add gate', cond: (a) => isEngagement(a), cols: [{ k: 'gate', l: 'Gate', ph: 'e.g. Requirements Baseline' }, { k: 'criteria', l: 'Criteria', ph: 'What must be true to pass' }, { k: 'decider', l: 'Deciding role', ph: 'e.g. Sponsor' }, { k: 'target', l: 'Target date', ph: 'to confirm' }] },
 
   { id: 'data_entities', sec: 'data', type: 'rows', prompt: 'Data entities held', help: 'Each data entity the product holds and its sensitivity.', add: 'Add entity', cols: [{ k: 'entity', l: 'Data entity', ph: 'e.g. Assessment responses' }, { k: 'sens', l: 'Sensitivity', ph: 'e.g. Personal and sensitive' }] },
   { id: 'vulnerable', sec: 'data', type: 'choice', prompt: 'Does the product serve vulnerable users or collect sensitive data?', options: ['Yes', 'No'], help: 'If yes, a safeguarding response is required and needs clinical or policy sign-off.' },
@@ -435,6 +450,12 @@ function engStakeholders(a, n) {
   p.push('### ' + n + '.2 Links\n\n- Repository: ' + (a.link_repo || 'to confirm') + '\n- Project board: ' + (a.link_board || 'to confirm') + '\n- Design: ' + (a.link_design || 'to confirm'));
   return p.join('\n\n');
 }
+function engGates(a, n) {
+  const g = rowsFilled(a.gates);
+  if (!g.length) return null;
+  return '## ' + n + '. Gate Plan\n\n' + mdTable(['Gate', 'Criteria', 'Deciding Role', 'Target'],
+    g.map((r) => [r.gate || '', r.criteria || '', r.decider || 'to confirm', r.target || 'to confirm']));
+}
 function engEval(a, n) {
   if (a.has_ai !== 'Yes') return null;
   const ev = rowsFilled(a.eval);
@@ -454,6 +475,7 @@ export function assembleEngagement(sections, a) {
     switch (sec.key) {
       case 'overview': b = engObjective(a, sec.num); break;
       case 'metrics': b = engMetrics(a, sec.num); break;
+      case 'gates': b = engGates(a, sec.num); break;
       case 'aieval': b = engEval(a, sec.num); break;
       case 'solution': b = engScope(a, sec.num); break;
       case 'adc': b = engADC(a, sec.num); break;

@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.23.0 · the gate moves to the record
+
+- **Positioning corrected with facts, then written down.** The program
+  platform the reference firm champions is shared infrastructure (built and
+  owned by a third party, allied with other consultancies too), and it HAS
+  approvals, stage gates, audit trails, and time-based locking - claiming
+  otherwise would die in the first demo. The honest line sits one level
+  deeper: a gate review on a dashboard is a meeting; a gate on an immutable,
+  fingerprinted baseline is evidence. The tracker's truth requires the
+  tracker; the record verifies outside it. Its objects are projects and
+  tasks; nothing there owns what "done" means. Doctrine, per-audience lines,
+  the four-phase path, and the never-build list live in
+  `docs/POSITIONING.md`; the one-page, names-nobody visual for the room is
+  `docs/positioning.svg`; `docs/DEPLOY.md` sharpened to match.
+- **A gate is a named decision, by named deciders, against stated criteria,
+  on a fixed artifact.** Three of the four already existed (versions,
+  approvers, the state machine). Now the fourth: Generate version gains an
+  optional gate name, free text so every firm's methodology fits, stored as
+  `snapshot.gate` inside the jsonb `create_version` stores verbatim - no
+  schema change - rendered as the cover eyebrow and a workspace pill when
+  viewing that baseline.
+- **Criteria evidence at the gate.** At generation, the record's readiness
+  signals are computed and stored as `snapshot.health`: not a live signal
+  (those stay derived, never stored) but the state of the record at the
+  moment it was fixed, inside an already-immutable baseline. The cover rail
+  carries "Record state: 0 gaps · 2 warnings"; the Verification section
+  names each one. Soft gate, never a hard block: "approved with two known
+  warnings, named" is the most defensible sentence in the product.
+- **The gate packet.** One click produces the steering-committee artifact:
+  gate name, criteria state at the baseline, the per-column evidence diff
+  since the prior baseline, the approvals rail, and the fingerprint with its
+  recipe - pure composition of tested functions, honest fallbacks when the
+  gate is unnamed or the baseline predates evidence capture. When the
+  committee decides on the packet, the gate decision has moved to the record.
+- **The gate plan is content.** A Stage-gated engagement starter ships four
+  classic gates (gate, criteria, deciding role, target date) through the same
+  validated-template path as everything else; the plan enters the charter as
+  a numbered Gate Plan section with contiguous renumbering (gates at 3, AI
+  acceptance at 4 when both are present), and plain charters stay
+  byte-identical. The gate deciders were already built: approver roles,
+  manual sign-off slots, and the 2.22 named-approvers signal do the
+  enforcing.
+- Never built, restated: Gantt, RAG rollups, RAID logs, timelines,
+  notification engines, auto-advancing workflows, portfolio dashboards.
+- Suites: 152 unit + 231 backend = 383 checks green. No schema change.
+
 ## 2.22.1 · the sweep behind the rename
 
 - **Full-platform audit of the word "Partner," every occurrence classified.**

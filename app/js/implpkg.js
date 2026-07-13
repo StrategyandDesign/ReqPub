@@ -91,7 +91,7 @@ export function buildImplementationFiles(input) {
   const answers = meta.answers || {};
   const spec = {
     product: meta.product || '',
-    version: clean({ label: meta.label, seq: meta.seq, status: meta.status, baselined: meta.baselined, approvedAt: meta.approvedAt, note: meta.note, author: meta.author }),
+    version: clean({ label: meta.label, seq: meta.seq, status: meta.status, gate: meta.gate, baselined: meta.baselined, approvedAt: meta.approvedAt, note: meta.note, author: meta.author }),
     fingerprint: { algorithm: 'SHA-256', value: meta.fingerprint || '', recipe: RECIPE },
     requirements: jsonRows(answers),
     components: rowsFilled(answers.components).map((c) => clean({ name: c.name, owner: c.owner, status: c.status, description: c.desc }))
