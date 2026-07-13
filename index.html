@@ -4,10 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ReqPub · The record your client approves</title>
-<meta name="description" content="Versioned baselines, named approvals, decisions on the record. ReqPub turns discovery into a requirements or engagement record that defends itself." />
+<meta name="description" content="One immutable, fingerprinted record from discovery to approved baseline. Named sign-offs, exact diffs, and exports that prove what was agreed." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='7' fill='%232563FF'/%3E%3Cpolyline points='14 11 19 16 14 21' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
 <meta property="og:title" content="ReqPub · The record your client approves" />
-<meta property="og:description" content="Versioned baselines, named approvals, decisions on the record. A requirements or engagement record that defends itself." />
+<meta property="og:description" content="One immutable, fingerprinted record from discovery to approved baseline. Exports that prove what was agreed." />
 <meta property="og:type" content="website" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -214,16 +214,18 @@
     <div class="record" aria-hidden="true">
       <div class="record-top">
         <span class="mark" style="width:22px;height:22px"><svg viewBox="0 0 40 40" width="22" height="22"><rect x="3.5" y="3.5" width="33" height="33" rx="9" fill="#2563FF"/><polyline points="17 13 24 20 17 27" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        <span class="word">RecordMade</span>
+        <span class="word">Northwind</span>
         <span class="stchip appr" style="margin-left:auto">Approved</span>
       </div>
       <div class="record-body">
-        <div class="rb-eyebrow">Requirements Baseline</div>
+        <div class="rb-eyebrow">Gate &middot; Requirements Baseline</div>
         <div class="rb-title">Northwind Field Services</div>
         <div class="rb-rail">
           <div><div class="rb-k">Version</div><div class="rb-v">v2.0</div></div>
           <div><div class="rb-k">Status</div><div class="rb-v">Approved</div></div>
           <div><div class="rb-k">Requirements</div><div class="rb-v">47 · 12 Must</div></div>
+          <div><div class="rb-k">Fingerprint</div><div class="rb-v" style="font-family:var(--mono);font-weight:500">a3f2&hellip;9c41</div></div>
+          <div><div class="rb-k">Record state</div><div class="rb-v">0 gaps · 2 warnings</div></div>
         </div>
         <div class="rb-appr"><span class="rb-check">&#10003;</span><span class="who"><b>Product</b> · J. Okafor</span><span class="st">Approved</span></div>
         <div class="rb-appr"><span class="rb-check">&#10003;</span><span class="who"><b>Engineering</b> · L. Two Bulls</span><span class="st">Approved</span></div>
@@ -259,12 +261,12 @@
       <div class="step">
         <div class="step-ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
         <h3>Gate</h3>
-        <p>Nothing reads Approved while a sign-off is pending. The system enforces the gate, so the status line means what it says.</p>
+        <p>A gate is a named decision on a fixed baseline. Name it what your method calls it: Discovery Complete, Design Baseline, Go-Live. The record stores its own readiness at that moment, gaps and warnings named, and nothing reads Approved while a sign-off is pending. One click builds the committee packet: the diff, the sign-offs, the fingerprint.</p>
       </div>
       <div class="step">
         <div class="step-ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></div>
         <h3>Export</h3>
-        <p>Every export carries version, status, approval history, and revision record on the cover. The document arrives with its own receipts.</p>
+        <p>Every export carries version, status, approvals, and the revision record on the cover. Three artifacts add a SHA-256 fingerprint of the exact baseline with its recipe printed on the page: the client report, the gate packet, and the implementation package. The document arrives with its own receipts.</p>
       </div>
     </div>
   </div>
@@ -274,6 +276,35 @@
   <div class="wrap">
     <h2>The platform enforces the structure. Your team supplies the judgment.</h2>
     <p>ReqPub doesn't write requirements and doesn't replace the people who do. It converts their judgment into a record that holds up.</p>
+  </div>
+</section>
+
+<section class="block" id="beside">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">Works beside your platform</span>
+      <h2 style="margin-top:12px">Your program platform reports progress. ReqPub proves agreement.</h2>
+      <p>Trackers govern activity: milestones, status, dashboards. They are good at it, and we build none of it. No Gantt, no RAG rollups, no portfolio dashboards. On purpose.</p>
+      <p>What a tracker cannot own is what "done" means: requirements with fit criteria, decisions with owners, baselines with named sign-offs. That is the record. It feeds your tracker and your build tools, and there is nothing to migrate.</p>
+      <p>A gate review on a dashboard is a meeting. A gate on a fingerprinted baseline is evidence.</p>
+    </div>
+    <div aria-hidden="true">
+      <svg viewBox="0 0 520 320" width="100%" xmlns="http://www.w3.org/2000/svg" style="display:block">
+        <rect x="10" y="14" width="500" height="92" rx="14" fill="var(--bg-2)" stroke="var(--line-2)"/>
+        <text x="34" y="46" font-family="var(--mono)" font-size="9" letter-spacing="2" fill="var(--ink-4)">PROGRAM TRACKER &middot; GOVERNS ACTIVITY</text>
+        <text x="34" y="72" font-size="13.5" fill="var(--ink-3)">Milestones, status, dashboards. Its audit trail lives inside it.</text>
+        <path d="M 150 210 L 150 118" stroke="var(--brand)" stroke-width="2" fill="none"/>
+        <path d="M 144 126 L 150 116 L 156 126" stroke="var(--brand)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="164" y="158" font-family="var(--mono)" font-size="11" fill="var(--brand)">requirements.json</text>
+        <text x="164" y="174" font-size="11" fill="var(--ink-4)">the plan imports from the record</text>
+        <path d="M 396 118 L 396 206" stroke="var(--ink-4)" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+        <path d="M 390 198 L 396 208 L 402 198" stroke="var(--ink-4)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="388" y="158" font-size="11" fill="var(--ink-4)" text-anchor="end">measures against</text>
+        <rect x="10" y="214" width="500" height="92" rx="14" fill="var(--ink)" stroke="var(--brand)" stroke-width="1.5"/>
+        <text x="34" y="246" font-family="var(--mono)" font-size="9" letter-spacing="2" fill="#7ea4ff">THE RECORD &middot; GOVERNS AGREEMENT</text>
+        <text x="34" y="272" font-size="13.5" fill="#e9edf3">Baselines, named sign-offs, fit criteria, one fingerprint.</text>
+      </svg>
+    </div>
   </div>
 </section>
 
@@ -308,6 +339,24 @@
   </div>
 </section>
 
+<section class="block" id="fingerprint" style="padding-top:0">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">Proof</span>
+      <h2 style="margin-top:12px">One baseline. Two audiences. One fingerprint.</h2>
+      <p>One click on an approved baseline produces two artifacts. The client baseline report: the executive summary, the client-safe brief, the revision record, behind a designed cover. Only what a published brief may contain. Internal fields are absent, not hidden.</p>
+      <p>The implementation package: requirements.json with every requirement's permanent ID, statement, fit criterion, priority, and origin; the acceptance checklist; the exact diff since the last baseline; the full document.</p>
+      <p>The same SHA-256 sits on both. The document the client signed and the package the builders received are provably the same baseline.</p>
+    </div>
+    <div class="diffcard" aria-hidden="true">
+      <div class="rb-eyebrow" style="margin-bottom:12px">One fingerprint</div>
+      <div class="diff-row"><b style="color:var(--ink-2)">Client baseline report</b><span style="margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--ink-3)">SHA-256 &middot; a3f2&hellip;9c41</span></div>
+      <div class="diff-row"><b style="color:var(--ink-2)">Implementation package</b><span style="margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--ink-3)">SHA-256 &middot; a3f2&hellip;9c41</span></div>
+      <div class="diff-row" style="color:var(--good);font-weight:640;font-size:12.5px">&#10003;&nbsp; Provably the same baseline</div>
+    </div>
+  </div>
+</section>
+
 <section class="block" id="audiences" style="background:var(--bg-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
   <div class="wrap">
     <div class="sec-head">
@@ -328,7 +377,7 @@
       <div class="aud-card">
         <span class="aud-tag" style="background:#f1ebfd;color:var(--purple)">The builders downstream</span>
         <h3>Build against the baseline.</h3>
-        <p>Approved, testable requirements with fit criteria and permanent IDs. Build against the record, not an interpretation of a deck.</p>
+        <p>Approved, testable requirements with fit criteria and permanent IDs, delivered as requirements.json and an acceptance checklist. Feed the approved baseline to your tools, your tests, or your agents. Build against the record, not an interpretation of a deck.</p>
       </div>
     </div>
   </div>
@@ -344,6 +393,8 @@
       <div class="sec-claims">
         <div class="claim"><span class="claim-ic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><p>Isolated project data and role-based access, enforced in the database on every read and write.</p></div>
         <div class="claim"><span class="claim-ic"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span><p>An append-only audit log of every version, approval, and inbound submission - and server-stamped attribution on every field and row.</p></div>
+        <div class="claim"><span class="claim-ic"><svg viewBox="0 0 24 24"><path d="M12 11c1.66 0 3 1.34 3 3v4"/><path d="M9 18v-4a3 3 0 0 1 .35-1.41"/><path d="M6.6 15.3A6 6 0 0 1 18 14v3"/><path d="M4.7 12A8.5 8.5 0 0 1 20.3 14"/></svg></span><p>Every baseline carries a SHA-256 fingerprint with its recipe printed on the exported document, so anyone holding the record can recompute it. It identifies the exact baseline. It is not a signature or a trusted timestamp; cryptographic sealing ships with the e-signature phase.</p></div>
+        <div class="claim"><span class="claim-ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><p>385 automated checks run on every change, 231 of them against a real Postgres database (as of v2.23.2). Audit findings and fixes are published in the repo and the changelog.</p></div>
         <div class="claim"><span class="claim-ic"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span><p>Export everything, any time. Your record is yours.</p></div>
       </div>
       <div class="roadmap">

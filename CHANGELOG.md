@@ -1,5 +1,40 @@
 # Changelog
 
+## 2.23.3 · the site tells the story
+
+- **Public site copy refreshed against the 2.21-2.23 record**, adjudicating
+  two advisor memos. Adopted from the copy deck: the gate card now carries
+  named gates, stored readiness, and the one-click committee packet; a new
+  section answers the first silent objection ("Your program platform reports
+  progress. ReqPub proves agreement") with the two-layer visual and the
+  never-build list; a new proof section tells the one-fingerprint story
+  (client report and implementation package, same SHA-256); the builders card
+  carries the entire agentic story in one sentence; the security section
+  gains the fingerprint claim with its honest boundary and the verified
+  numbers, version-stamped so they cannot rot; meta descriptions rewritten.
+- **Rejected from the first memo, on the record:** "single source of truth"
+  (the tracker category's own phrase; claiming it files ReqPub in their
+  category), "the record defends itself even if the platform disappears"
+  (true at sealing, not today), the AI-era essay (the 2.23.2 audit certifies
+  zero AI-tell vocabulary; the site holds the same line), and a bare
+  homepage check-count (it lives on the security section with a version
+  stamp instead).
+- **Corrected in the second memo's own deck, from the code:** the export
+  card claimed every export carries the fingerprint. docMeta computes no
+  hash; the fingerprint lives on the client report, the gate packet, and the
+  implementation package. The shipped copy scopes the claim to exactly those
+  three. And "two independent adversarial audits" became "audit findings and
+  fixes are published in the repo and the changelog," which is the sentence
+  the evidence supports.
+- Also fixed: the hero mock's brand chip read RecordMade, a sister venture's
+  name on the ReqPub hero. It now reads Northwind, matching the fictional
+  client on the card, which is what the brand-overlay slot demonstrates. The
+  mock card also gained the gate eyebrow, the fingerprint row, and the
+  record-state row, so the marketing card looks like a real 2.23 export.
+- Copy only. No schema, product, or payload change. Banned-language sweep
+  clean (no em dashes, no tracker-category phrases, no AI-tell vocabulary);
+  HTML tag balance and attribute uniqueness validated.
+
 ## 2.23.2 · the fine-tooth pass
 
 An adversarial audit of 2.23.x before external code review: every button
