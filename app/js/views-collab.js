@@ -11,7 +11,7 @@ import { healthSignals, recordCounts } from './health.js';
 const attachmentsForComm = (APP, commId) => (APP.attachments || []).filter((a) => a.comm_id === commId);
 
 const EXTERNAL = { app: 1, brief: 1, sme: 1, partner: 1 };
-const ORIGIN_LABEL = { app: 'App', brief: 'Reviewer', sme: 'SME', partner: 'Partner', team: 'Team', meeting: 'Meeting' };
+const ORIGIN_LABEL = { app: 'App', brief: 'Reviewer', sme: 'SME', partner: 'Client contact', team: 'Team', meeting: 'Meeting' };
 const COMM_STATUS = ['new', 'in_review', 'actioned', 'closed'];
 const COMM_STATUS_LABEL = { new: 'New', in_review: 'In review', actioned: 'Actioned', closed: 'Closed' };
 
@@ -478,7 +478,7 @@ function renderAccess(APP) {
         '<div style="font-size:11px;color:var(--ink-4)">' + esc(a.uploader_name || a.uploader_kind) + ' · ' + fmtBytes(a.size_bytes) + ' · ' + esc(relTime(a.created_at)) +
         (a.scan_status === 'error' ? ' · <span style="color:var(--amber)">scan failed</span>' : '') + '</div></div>' +
         '<button class="btn btn-sec btn-sm" data-action="dlattach" data-path="' + escA(a.storage_path) + '">' + ico(IC.download, 'i-sm') + 'Download</button></div>').join('')
-    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">No files yet. Partners and seated SMEs can attach documents to their notes - virus-scanned on the way in, they land here and on the thread.</span></div>';
+    : '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">No files yet. Client contacts and seated SMEs can attach documents to their notes - virus-scanned on the way in, they land here and on the thread.</span></div>';
 
   return '<div class="page" style="max-width:640px">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:16px">' +
@@ -491,7 +491,7 @@ function renderAccess(APP) {
       '<button class="btn btn-sec btn-sm" data-action="copypresent"' + (latest ? '' : ' disabled') + '>' + ico(IC.link, 'i-sm') + 'Copy link</button></div>') +
     section(IC.doc, 'var(--bg-3)', 'var(--ink)', 'Brand on the shared PRD', 'Assign the collaborator’s logo to this PRD. It appears when a partner or SME views the brief, and on the printed and Word exports.', brandBody) +
     section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
-    section(IC.user, '#f1ebfd', 'var(--purple)', 'Partners', 'Manage SMEs on the client side. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
+    section(IC.user, '#f1ebfd', 'var(--purple)', 'Client contacts', 'The client-side portal role. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
     section(IC.msg, '#e6f7fb', 'var(--teal)', 'SME workspaces', 'A durable personal link per expert: the branded PRD plus one continuous thread that stays put across every version. No account, no lost bookmarks - the same link always reopens their conversation.', smeBody) +
     section(IC.clip, 'var(--bg-3)', 'var(--ink)', 'Files from reviewers', 'Documents partners and SMEs attach to their notes. Download here or from the thread. Files are virus-scanned when a scanner is configured; a “scan failed” flag means one was set but unreachable.', filesBody) +
     section(IC.send, '#e6f7fb', 'var(--teal)', 'Review &amp; testing links', 'No account needed. Each recipient gets a private thread back to your inbox. Anyone with the link can respond, so share deliberately.', guestBody) +

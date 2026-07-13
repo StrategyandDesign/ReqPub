@@ -47,7 +47,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── share.test.mjs                   13 section-scoped share-payload tests
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
 │   ├── engagement.test.mjs             15 engagement-charter + AI-acceptance + PRD-invariance tests
-│   ├── health.test.mjs                 19 readiness / accumulation / landing-rule tests
+│   ├── health.test.mjs                 21 readiness / accumulation / landing-rule tests
 │   ├── templates.test.mjs              10 template validation + RPC-application tests
 │   ├── fingerprint.test.mjs            11 canonical-JSON / SHA-256 / client-report tests
 │   ├── views.test.mjs                  9 view-render contracts (picker, guard, roles, promotion)
@@ -79,7 +79,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 143 domain + concurrency + share + health + package + fingerprint checks (node only)
+npm test                        # 145 domain + concurrency + share + health + package + fingerprint checks (node only)
 npm i && npm run test:backend   # 231 checks on an embedded Postgres
 ```
 
@@ -95,7 +95,7 @@ New projects can start from a validated template - product requirements, consult
 
 ## Roles
 
-Manager (internal, writes), Viewer (internal, reads everything and can reply), Partner (external account, assigned projects only, threads and file uploads with the team), SME (accountless tokened links for briefs, app testing, and input requests, plus a durable per-PRD workspace, each opening a two-way thread).
+Manager (internal, writes), Viewer (internal, reads everything and can reply), Client contact (UI label for the `partner` schema role: external account, assigned projects only, threads and file uploads with the team), SME (accountless tokened links for briefs, app testing, and input requests, plus a durable per-PRD workspace, each opening a two-way thread). Deployment doctrine - one workspace per client account, role-to-surface map, operating rules - lives in `docs/DEPLOY.md`.
 
 ## Enterprise posture
 

@@ -175,4 +175,21 @@ test('incorporatedRows names the promotion-sourced rows by permanent id', () => 
   assert.deepEqual(incorporatedRows(null), []);
 });
 
+test('a version in review with zero named approvers is a gap; slots clear it', () => {
+  const versions = [{ id: 'v1', seq: 1, status: 'in_review', created_at: '2026-07-01T00:00:00Z' }];
+  const bare = healthSignals({}, { versions, approvalsByVersion: {} });
+  assert.ok(bare.some((s) => s.key === 'review_no_approvers' && s.level === 'gap'));
+  const named = healthSignals({}, { versions, approvalsByVersion: { v1: [{ status: 'pending' }] } });
+  assert.ok(!named.some((s) => s.key === 'review_no_approvers'));
+});
+
+test('an approved version with zero sign-off slots warns; drafts never trip it', () => {
+  const sigs = healthSignals({}, { versions: [
+    { id: 'v1', seq: 1, status: 'approved', created_at: '2026-07-01T00:00:00Z' },
+    { id: 'v2', seq: 2, status: 'draft', created_at: '2026-07-02T00:00:00Z' }
+  ], approvalsByVersion: {} });
+  const hit = sigs.find((s) => s.key === 'approved_no_signoff');
+  assert.ok(hit && hit.level === 'warn' && hit.count === 1);
+});
+
 console.log('\nhealth.test: ' + n + '/' + n + ' passed');

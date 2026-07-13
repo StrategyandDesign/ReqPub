@@ -128,6 +128,21 @@ export function healthSignals(a, ctx = {}) {
   }
 
   // Latest version approved, but no live brief published for it: the team
+  // Every version gets named approvers before it goes to review. The state
+  // machine blocks Approved while a sign-off is PENDING, but a version with
+  // zero slots sails through the gate - one manager, alone, no names on the
+  // cover. The operational rule, made visible instead of made a new
+  // permission tier.
+  const slotsOf = (v) => ((ctx.approvalsByVersion || {})[v.id] || []).length;
+  const inReviewNoAppr = (ctx.versions || []).filter((v) => v.status === 'in_review' && !slotsOf(v)).length;
+  add('review_no_approvers', 'gap', inReviewNoAppr,
+    'Version' + (inReviewNoAppr === 1 ? '' : 's') + ' in review with no named approvers',
+    'The approvals gate only protects versions that have sign-off slots. Name the approvers, then send it to review.');
+  const approvedNoAppr = (ctx.versions || []).filter((v) => v.status === 'approved' && !slotsOf(v)).length;
+  add('approved_no_signoff', 'warn', approvedNoAppr,
+    'Approved version' + (approvedNoAppr === 1 ? '' : 's') + ' with no named sign-off',
+    'The record shows approval by state alone - no name on the cover. Add named approvers to future baselines.');
+
   // signed a baseline the client-facing surface does not yet reflect.
   const lv = latestVersion(ctx.versions);
   if (lv && lv.status === 'approved') {

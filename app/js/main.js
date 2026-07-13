@@ -878,7 +878,7 @@ async function handleAction(a, id, t, e) {
       if (r.error || !r.data) { toast('Could not add partner'); break; }
       await repo.grantPartner(r.data.id, APP.pid);
       repo.sendInviteEmail(email, 'partner', APP.org, APP.user.email);
-      toast('Partner added with access to this project');
+      toast('Client contact added with access to this project');
       loadAccessData();
       break;
     }

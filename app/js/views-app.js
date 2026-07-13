@@ -63,7 +63,7 @@ export function overlays(APP) {
     out += '<div class="umback" data-action="menuclose"></div><div class="umpop">' +
       '<div class="umhead"><span class="umav lg">' + esc(initials(name || email)) + '</span><div style="min-width:0">' +
       '<div class="umname">' + esc(name || 'Set your name') + '</div><div class="umsub">' + esc(email) + '</div>' +
-      '<span class="umrole" style="margin-top:5px">' + esc(APP.role === 'manager' ? 'Manager' : APP.role === 'viewer' ? 'Viewer' : 'Partner') + '</span></div></div>' +
+      '<span class="umrole" style="margin-top:5px">' + esc(APP.role === 'manager' ? 'Manager' : APP.role === 'viewer' ? 'Viewer' : 'Client contact') + '</span></div></div>' +
       '<div class="umsep"></div>' + orgRows +
       '<button class="umitem" data-action="profileopen">' + ico(IC.user) + 'Profile &amp; display name</button>' +
       (APP.role === 'manager' ? '<button class="umitem" data-action="orgopen">' + ico(IC.users) + 'Organization &amp; people</button>' : '') +
@@ -269,12 +269,12 @@ function orgModal(APP) {
     }).join('');
     body = '<div class="fldlabel">Add a partner</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="pName" placeholder="Name" style="flex:1;min-width:120px"><input class="input" id="pEmail" type="email" placeholder="email" style="flex:1.4;min-width:170px"><button class="btn btn-primary" data-action="paddnew">Add</button></div>' +
-      '<div class="hint" style="margin-top:7px">Partners manage SMEs on the client side. They sign in with this email, see only the published brief of assigned projects, and exchange threads with your team.</div>' +
-      '<div class="fldlabel" style="margin-top:18px">Partners &amp; project access</div>' + (rows || '<div class="hint">No partners yet.</div>');
+      '<div class="hint" style="margin-top:7px">Client contacts manage SMEs on the client side. They sign in with this email, see only the published brief of assigned projects, and exchange threads with your team.</div>' +
+      '<div class="fldlabel" style="margin-top:18px">Client contacts &amp; project access</div>' + (rows || '<div class="hint">No client contacts yet.</div>');
   }
   return '<div class="modal-back" data-action="modalback"><div class="modal-card" role="dialog" aria-modal="true" style="max-width:560px" data-stop="1">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>' + esc(APP.org || 'Organization') + '</h3><button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
-    '<div class="seg" style="margin:14px 0 4px">' + tabBtn('members', 'Team') + tabBtn('partners', 'Partners') + '</div>' + body + '</div></div>';
+    '<div class="seg" style="margin:14px 0 4px">' + tabBtn('members', 'Team') + tabBtn('partners', 'Client contacts') + '</div>' + body + '</div></div>';
 }
 
 /* ---------------- dashboard ---------------- */
@@ -378,7 +378,7 @@ function onboardBlock(APP) {
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">' +
     step(1, 'Answer the worksheet', 'The guided intake covers users, scope, requirements, data, and AI evaluation. Everyone edits together, live.') +
     step(2, 'Generate a version', 'A numbered, immutable baseline with a change summary and an approval workflow.') +
-    step(3, 'Collect input', 'Share review briefs and request links with SMEs - no account needed on their side. Partners get a portal.') +
+    step(3, 'Collect input', 'Share review briefs and request links with SMEs - no account needed on their side. Client contacts get a portal.') +
     step(4, 'Hand off', 'Export to Word, PDF, or Markdown with approvals and revision history on the cover.') +
     '</div></div>';
 }

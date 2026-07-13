@@ -72,7 +72,7 @@ Trigger failure safety: every broadcast call is wrapped so a realtime outage can
 Three tiers, matching how the surveyed tools converge (paid makers, scoped free collaborators, zero-friction reviewers), plus the partner layer none of them model:
 
 - **SMEs (no account):** brief review, app testing, and input-request pages served by token. Every submission returns a private reply token, so the SME bookmarks the page and has a two-way thread with the team (`sme_thread` / `sme_reply`), no login ever. A seated SME also gets a durable per-PRD workspace reached by one stable link that resumes the same thread across versions and devices. v1 SMEs fired feedback into a void.
-- **Partners (account):** a portal listing assigned projects with the latest *published* brief, their notes as live threads (each carrying a stable `PN-n` reference), and direct reply. Partner identity is server-derived, never client-asserted.
+- **Client contacts (account; schema role `partner`):** a portal listing assigned projects with the latest *published* brief, their notes as live threads (each carrying a stable `PN-n` reference), and direct reply. Partner identity is server-derived, never client-asserted.
 - **Team:** managers and viewers, with viewers deliberately able to participate in conversation while remaining unable to touch the document.
 
 Partners and seated SMEs can also attach documents to their threads. Uploads are scanned when a scanner is configured, stored privately, and land in the team's inbox and a per-PRD file roll-up; see `docs/ATTACHMENTS.md`.

@@ -1,5 +1,46 @@
 # Changelog
 
+## 2.22.0 · the right names in the room
+
+- **Independently verified before building:** the buyer's reference firm
+  already runs a program-management platform across engagements (Kearney is a
+  founding partner of Sensei Labs' Conductor - milestones, dashboards, stage
+  gates, benefits tracking). Consequence, adopted as doctrine: ReqPub does not
+  grow program-status surfaces. The tracker says where the program is; ReqPub
+  proves what was agreed, by whom, in which version. Written into
+  `docs/DEPLOY.md`.
+- **"Partner" leaves the user interface.** The buyer's firm reserves that
+  word for its owners; "give the client a Partner login" misfires in the
+  room. Every user-visible string now says **Client contact** and **Client
+  portal** - role badges, the access tab, share copy, the portal header,
+  toasts, onboarding, docs, and the meta-PRD. The schema role stays `partner`
+  permanently: tables, RPCs, policies, and tests are untouched. Copy only.
+- **Workspace-per-client is now written doctrine.** Internal roles are
+  workspace-wide by construction (`is_project_member` = org membership);
+  external access is per-project by construction (`partner_access`, tokens).
+  So the confidentiality wall is the workspace: one workspace per client
+  account, never one spanning clients. A consultant at three clients belongs
+  to three workspaces. `docs/DEPLOY.md` carries the rule and the full
+  persona-to-surface map; nobody in a standard engagement structure needs a
+  surface that does not already exist. The sponsor signs with zero accounts:
+  manual approval slots (`approver_user_id` null) with server-stamped
+  recording provenance, already shipped.
+- **The procedural approver rule became a signal.** "Every version gets named
+  approvers before review" was advice; now it is a deterministic gap. A
+  version in review with zero sign-off slots flags as a gap (the approvals
+  gate only protects versions that have slots); an approved version with no
+  named sign-off warns. Rides the health panel and the workspace gaps pill
+  automatically. This is the control that lets analysts hold write access
+  without a new permission tier.
+- Deferred with reasons on the record: a true Editor role (writes, cannot
+  approve or manage access - schema change, wait for the pull); a
+  cross-workspace rollup for senior stakeholders (new server surface, wait
+  for the ask); "recorded by" on the cover for manually recorded sign-offs
+  (`decided_by` is a bare uuid today - stamping the name is a schema change,
+  same class as Editor).
+- Suites: 145 unit + 231 backend = 376 checks green. No schema change; copy,
+  one signal, and doctrine.
+
 ## 2.21.0 · one baseline, two audiences, one fingerprint
 
 - **The implementation package.** The client baseline report gains its

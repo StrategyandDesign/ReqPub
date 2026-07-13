@@ -1,6 +1,6 @@
 /* ============================================================================
    ReqPub v2 - external views
-   Partner portal (account holders managing SMEs) and the accountless SME
+   Client portal (schema role: partner - account holders managing SMEs) and the accountless SME
    pages: review brief, app feedback form, note-request intake, and the
    tokened two-way thread each submission opens.
    ============================================================================ */
@@ -175,7 +175,7 @@ function partnerMenu(APP) {
     '<div class="umhead"><span class="umav lg" style="background:var(--purple)">' + esc(initials(pr.name || pr.email || 'P')) + '</span>' +
     '<div style="min-width:0"><div class="umname">' + esc(pr.name || 'Add your name') + '</div>' +
     '<div class="umsub">' + esc([pr.title, pr.company].filter(Boolean).join(' · ') || pr.email || '') + '</div>' +
-    '<span class="umrole" style="margin-top:5px;color:var(--purple);background:#f1ebfd;border-color:#e4d9fb">Partner</span></div></div>' +
+    '<span class="umrole" style="margin-top:5px;color:var(--purple);background:#f1ebfd;border-color:#e4d9fb">Client contact</span></div></div>' +
     '<div class="umsep"></div>' +
     '<button class="umitem" data-action="pprofopen">' + ico(IC.user) + 'Profile &amp; name</button>' +
     '<div class="umsep"></div><button class="umitem danger" data-action="signout">' + ico(IC.signout) + 'Sign out</button></div>';
@@ -197,8 +197,8 @@ export function partnerProfileModal(APP) {
 function partnerTopbar(APP) {
   const pr = partnerOf(APP);
   return '<div class="topbar"><div style="display:flex;align-items:center;gap:11px">' + brandmark() +
-    '<div><div style="font-weight:660;letter-spacing:-.02em;font-size:15px">ReqPub</div><div class="eyebrow" style="font-size:9.5px;letter-spacing:.18em;margin-top:1px">Partner portal</div></div></div>' +
-    '<div style="display:flex;align-items:center;gap:8px"><span class="pill" style="color:var(--purple);border-color:var(--purple)">Partner</span>' +
+    '<div><div style="font-weight:660;letter-spacing:-.02em;font-size:15px">ReqPub</div><div class="eyebrow" style="font-size:9.5px;letter-spacing:.18em;margin-top:1px">Client portal</div></div></div>' +
+    '<div style="display:flex;align-items:center;gap:8px"><span class="pill" style="color:var(--purple);border-color:var(--purple)">Client contact</span>' +
     '<button class="umbtn" data-action="usermenu" title="Account"><span class="umav" style="background:var(--purple)">' + esc(initials(pr.name || pr.email || (APP.user && APP.user.email) || 'P')) + '</span></button></div></div>';
 }
 
