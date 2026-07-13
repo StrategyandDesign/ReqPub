@@ -16,6 +16,27 @@ export const pushUnique = (list, item, keyOf = (x) => x && x.id) => {
   return list;
 };
 
+/* Reconcile a record into a list by id: replace in place if present, insert at
+   the front if not, drop it if archived, keep newest-first when a sort key is
+   given. One code path for BOTH the optimistic local write and its realtime
+   echo, in either arrival order - the 2026-07-13 duplicate-project incident
+   was a blind unshift racing the org-channel insert echo into the same array,
+   yielding one row rendered as two identical cards. */
+export const upsertById = (list, rec, sortKey) => {
+  if (!rec || rec.id == null) return list;
+  const i = list.findIndex((x) => x && x.id === rec.id);
+  if (rec.archived) { if (i >= 0) list.splice(i, 1); return list; }
+  if (i < 0) list.unshift(rec); else list[i] = rec;
+  if (sortKey) list.sort((a, b) => new Date(b[sortKey]) - new Date(a[sortKey]));
+  return list;
+};
+
+/* A unique-violation from Postgres (code 23505). durable() retries a lost
+   response; if the first attempt committed, the retry trips the primary key.
+   That means the write EXISTS - treat it as success, never as failure, or the
+   person retries by hand and creates a real second row. */
+export const isDupKey = (e) => !!e && (e.code === '23505' || /duplicate key/i.test(e.message || ''));
+
 /* ---- attachments (files on a conversation) ---- */
 export const ACCEPT_FILES = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.png,.jpg,.jpeg,.gif,.webp,.heic,.zip';
 export const fmtBytes = (n) => {

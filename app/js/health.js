@@ -166,9 +166,22 @@ export function recordCounts(a, ctx = {}) {
     comms.filter((c) => c.promoted_to).length +
     discovery.filter((d) => d.promoted_to).length;
 
+  // Two accumulation facts a client relationship stands on, both derived:
+  // how many promoted inputs made it INTO an approved baseline (rows in the
+  // latest approved snapshot carrying a promotion src), and when the client
+  // last saw the record move (the latest approved baseline's date).
+  const approvedSnap = ctx.latestApprovedAnswers || null;
+  const incorporated = approvedSnap
+    ? ['fr', 'nfr', 'eval', 'interfaces'].reduce((t, k) => t + (approvedSnap[k] || []).filter((r) => r && r.src).length, 0)
+    : 0;
+  const approvedDates = versions.filter((v) => v.status === 'approved' && v.created_at).map((v) => v.created_at).sort();
+  const lastClientVisible = approvedDates.length ? approvedDates[approvedDates.length - 1] : '';
+
   return {
     versions: versions.length,
     approvedVersions: versions.filter((v) => v.status === 'approved').length,
+    incorporated,
+    lastClientVisible,
     signoffs,
     decisions: filled(a.decisions).length,
     requirements: filled(a.fr).length + filled(a.nfr).length,

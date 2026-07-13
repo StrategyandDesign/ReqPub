@@ -567,7 +567,13 @@ function renderVersions(APP) {
    plus counts of what the record already holds. Both computations live in
    health.js (pure, unit-tested); this view only renders them. */
 function renderHealth(APP, a) {
-  const ctx = { versions: APP.versions, approvalsByVersion: APP.approvals, shares: APP.shares, comms: APP.comms, discovery: APP.discovery };
+  // The latest approved baseline's answers, when its snapshot happens to be
+  // loaded (snapshots load lazily per version). Absent, the incorporated
+  // count simply stays quiet - never guessed from the working draft.
+  const lastApproved = [...APP.versions].filter((v) => v.status === 'approved').sort((x, y) => x.seq - y.seq).pop();
+  const approvedSnap = lastApproved && APP.snapshots && APP.snapshots[lastApproved.seq];
+  const ctx = { versions: APP.versions, approvalsByVersion: APP.approvals, shares: APP.shares, comms: APP.comms, discovery: APP.discovery,
+    latestApprovedAnswers: approvedSnap ? (approvedSnap.snapshot.answers || null) : null };
   const signals = healthSignals(a, ctx);
   const counts = recordCounts(a, ctx);
   const eng = isEngagement(a || {});
@@ -594,7 +600,9 @@ function renderHealth(APP, a) {
     chip(counts.versions, 'Versions') + chip(counts.signoffs, 'Named sign-offs') +
     chip(counts.requirements, 'Requirements') + (counts.evals ? chip(counts.evals, 'AI eval criteria') : '') +
     chip(counts.decisions, 'Decisions') + chip(counts.discovery, 'Discovery entries') +
-    chip(counts.external, 'External inputs') + chip(counts.promoted, 'Promoted to the record') + '</div>' +
+    chip(counts.external, 'External inputs') + chip(counts.promoted, 'Promoted to the record') +
+    (counts.incorporated ? chip(counts.incorporated, 'Client inputs in the approved baseline') : '') + '</div>' +
+    (counts.lastClientVisible ? '<div style="font-size:11.5px;color:var(--ink-3);margin-top:8px;text-align:center">Last client-visible change: ' + esc(new Date(counts.lastClientVisible).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })) + '</div>' : '') +
     '<div style="font-size:11.5px;color:var(--ink-4);line-height:1.5;margin-top:10px;text-align:center">Counts, not scores: every number here is defensible by pointing at rows. It all stays inside this workspace.</div></div>';
 
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Record health</h2>' +

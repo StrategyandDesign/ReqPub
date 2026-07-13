@@ -3,7 +3,7 @@
    Views are pure string builders; this file owns every state change.
    ============================================================================ */
 
-import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl, pushUnique, versionFingerprint } from './core.js';
+import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl, pushUnique, upsertById, isDupKey, versionFingerprint } from './core.js';
 import { assembleAnswers, buildSections, suggestFit, changeNote, qById, mdToHtml, defaultBriefSections } from './domain.js';
 import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
@@ -652,8 +652,16 @@ async function handleAction(a, id, t, e) {
       APP.newName = name; APP.creating = true; render();
       const idNew = uid();
       const r = await repo.createProject(APP.orgId, idNew, name);
-      if (r.error) { APP.creating = false; toast('Could not create project'); render(); break; }
-      APP.projects.unshift({ id: idNew, org_id: APP.orgId, name, archived: false, disc_export: false, updated_at: new Date().toISOString() });
+      // A duplicate-key error means a retried attempt already landed this very
+      // id - the project exists. Failing here made people click again and mint
+      // a real second project.
+      if (r.error && !isDupKey(r.error)) { APP.creating = false; toast('Could not create project'); render(); break; }
+      // Reconcile, never blind-unshift: the org-channel insert echo can arrive
+      // while the insert above is still awaited, and the engine adds the row
+      // to this same array. Two unshifts of one id rendered as two identical
+      // cards (2026-07-13, worst on templates, which hold the dashboard open
+      // for seconds of update echoes).
+      upsertById(APP.projects, { id: idNew, org_id: APP.orgId, name, archived: false, disc_export: false, updated_at: new Date().toISOString() }, 'updated_at');
       // Apply the chosen starter through the same rev-checked RPCs as live
       // editing, BEFORE the project opens, so the bundle loads it complete.
       const tplKey = APP.newTpl || 'blank';
@@ -946,6 +954,8 @@ async function handleAction(a, id, t, e) {
       printClientDoc(answers, {
         product: answers.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
         org: answers.ctrl_org || '', label: snap.label, status: v ? v.status : snap.status,
+        baselined: (v && v.created_at) || snap.created_at || '',
+        approvedAt: (() => { const ap = v ? (APP.approvals[v.id] || []) : []; return (v && v.status === 'approved') ? (ap.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '') : ''; })(),
         approvals: v ? (APP.approvals[v.id] || []) : [],
         logo: (APP.project && APP.project.brand_logo) || '',
         brandLabel: (APP.project && APP.project.brand_label) || '',
@@ -1528,10 +1538,16 @@ function docNow() {
 function docMeta(d) {
   const a = APP.viewSeq != null && APP.snapshots[APP.viewSeq] ? (APP.snapshots[APP.viewSeq].snapshot.answers || {}) : assembleAnswers(APP.fields, APP.rows);
   const v = APP.viewSeq != null ? APP.versions.find((x) => x.seq === APP.viewSeq) : APP.versions[APP.versions.length - 1];
+  const appr = v ? (APP.approvals[v.id] || []) : [];
+  const lastDecided = appr.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '';
   return {
     product: a.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
     org: a.ctrl_org || '', label: d.label || '', status: v ? v.status : 'draft',
-    approvals: v ? (APP.approvals[v.id] || []) : [],
+    // Evidence dates: printing a stored baseline carries the baseline's own
+    // date, and the last sign-off date when fully approved.
+    baselined: (APP.viewSeq != null && v) ? v.created_at : '',
+    approvedAt: (v && v.status === 'approved') ? lastDecided : '',
+    approvals: appr,
     logo: (APP.project && APP.project.brand_logo) || '',
     brandLabel: (APP.project && APP.project.brand_label) || ''
   };

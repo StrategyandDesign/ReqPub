@@ -135,4 +135,28 @@ test('empty context contributes nothing and never throws', () => {
   assert.deepEqual(keys(healthSignals({}, {})).includes('no_out_of_scope'), true);
 });
 
+/* ---- accumulation facts: derived only from the approved baseline ---- */
+test('incorporated counts promotion-sourced rows in the latest approved snapshot only', () => {
+  const ctx = {
+    versions: [{ seq: 1, status: 'approved', created_at: '2026-07-01T00:00:00Z' }],
+    latestApprovedAnswers: {
+      fr: [{ _k: 1, stmt: 'From client', src: 'Discovery · Jane' }, { _k: 2, stmt: 'In-house' }],
+      nfr: [{ _k: 1, stmt: 'Promoted too', src: 'Inbox · SME' }]
+    }
+  };
+  assert.equal(recordCounts({}, ctx).incorporated, 2);
+  // No snapshot loaded → stays quiet at zero, never guessed from the draft.
+  assert.equal(recordCounts({ fr: [{ _k: 9, stmt: 'Draft only', src: 'Discovery · X' }] }, { versions: [] }).incorporated, 0);
+});
+
+test('lastClientVisible is the latest approved baseline date, absent when nothing is approved', () => {
+  const c = recordCounts({}, { versions: [
+    { seq: 1, status: 'approved', created_at: '2026-06-01T00:00:00Z' },
+    { seq: 2, status: 'draft', created_at: '2026-07-10T00:00:00Z' },
+    { seq: 3, status: 'approved', created_at: '2026-07-05T00:00:00Z' }
+  ] });
+  assert.equal(c.lastClientVisible, '2026-07-05T00:00:00Z');
+  assert.equal(recordCounts({}, { versions: [{ seq: 1, status: 'draft', created_at: '2026-07-01T00:00:00Z' }] }).lastClientVisible, '');
+});
+
 console.log('\nhealth.test: ' + n + '/' + n + ' passed');

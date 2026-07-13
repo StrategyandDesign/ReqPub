@@ -13,7 +13,7 @@ import {
 let n = 0;
 const test = (name, fn) => { fn(); n++; console.log('  ✓ ' + name); };
 
-const base = (extra = {}) => assembleAnswers(
+const base = (extra = {}, rows = {}) => assembleAnswers(
   {
     ctrl_product: { value: 'Northwind Migration' }, ctrl_org: { value: 'Collection Ventures' },
     ov_vision: { value: 'Stand up the new platform' }, ov_problem: { value: 'The legacy system is failing' },
@@ -33,7 +33,8 @@ const base = (extra = {}) => assembleAnswers(
     decisions: [{ id: 'dec', k: 1, data: { decision: 'Use Postgres', options: 'Postgres vs Dynamo', rationale: 'Relational fit', owner: 'Tim', date: '2026-07' }, pos: 1, rev: 1 }],
     glossary: [{ id: 'gl', k: 1, data: { term: 'ETL', def: 'Extract, transform, load' }, pos: 1, rev: 1 }],
     // A functional requirement is present but must never surface in a charter.
-    fr: [{ id: 'r', k: 1, data: { stmt: 'SOFTWARE ONLY requirement', fit: 'SECRET FIT' }, pos: 1, rev: 1 }]
+    fr: [{ id: 'r', k: 1, data: { stmt: 'SOFTWARE ONLY requirement', fit: 'SECRET FIT' }, pos: 1, rev: 1 }],
+    ...rows
   }
 );
 
@@ -132,6 +133,52 @@ test('engagement headings anchor to their worksheet section, PRD anchors unchang
   // The PRD still maps its numbered headings by number.
   const prdHtml = mdToHtml('## 7. Functional Requirements\n\ntext');
   assert.ok(prdHtml.includes('id="docsec-functional"'));
+});
+
+/* ---- AI acceptance enters the charter exactly when declared ---- */
+const aiAnswers = base(
+  { ctrl_type: { value: ENGAGEMENT }, has_ai: { value: 'Yes' }, golden: { value: 'Labeled set of 500 transcripts; monthly red-team pass.' } },
+  { eval: [{ id: 'e', k: 1, data: { dim: 'Hallucination guardrail', metric: 'Grounded-answer rate vs golden set', thresh: 'at least 95%', comp: 'Discovery' }, pos: 1, rev: 1 }] }
+);
+const aiDoc = assemble(buildSections(aiAnswers, '1.0', versions), aiAnswers);
+
+test('declaring AI renumbers the charter contiguously 1..9 with acceptance as section 3', () => {
+  ['## 1. Objective and Context', '## 2. Success Metrics', '## 3. AI Acceptance Criteria',
+   '## 4. Scope and Approach', '## 5. Assumptions, Dependencies, and Constraints',
+   '## 6. Stakeholders and Roles', '## 7. Decisions and Rationale', '## 8. Glossary',
+   '## 9. Revision History'
+  ].forEach((h) => assert.ok(aiDoc.includes(h), 'missing ' + h));
+  assert.ok(!aiDoc.includes('## 3. Scope'), 'scope moved below acceptance');
+});
+
+test('the signed number is on the charter; the FR fit doctrine still holds', () => {
+  assert.ok(aiDoc.includes('EVAL-001'));
+  assert.ok(aiDoc.includes('at least 95%'));
+  assert.ok(aiDoc.includes('Golden dataset and red-team method.'));
+  assert.ok(!aiDoc.includes('SECRET FIT'));
+  assert.ok(!aiDoc.includes('## Part I'));
+});
+
+test('subsection numbering follows the shifted layout', () => {
+  assert.ok(aiDoc.includes('### 4.1 Approach'));
+  assert.ok(aiDoc.includes('### 6.2 Links'));
+});
+
+test('docSecNum and docSecTitle track the dynamic layout in both shapes', () => {
+  assert.equal(docSecNum(aiAnswers, 'aieval'), 3);
+  assert.equal(docSecNum(aiAnswers, 'solution'), 4);
+  assert.equal(docSecNum(aiAnswers, 'revision'), 9);
+  assert.equal(docSecTitle(aiAnswers, 'aieval'), 'AI Acceptance Criteria');
+  assert.equal(docSecNum(engAnswers, 'aieval'), null);
+  assert.equal(docSecNum(engAnswers, 'solution'), 3);
+});
+
+test('a PRD that declares AI is untouched: Section 9 stays AI Evaluation Criteria', () => {
+  const prd = base({ has_ai: { value: 'Yes' } }, { eval: [{ id: 'e', k: 1, data: { dim: 'Guardrail', metric: 'Rate', thresh: '95%' }, pos: 1, rev: 1 }] });
+  const prdDoc = assemble(buildSections(prd, '1.0', versions), prd);
+  assert.ok(prdDoc.includes('## 9. AI Evaluation Criteria'));
+  assert.ok(prdDoc.includes('## Part II'));
+  assert.equal(docSecNum(prd, 'aieval'), 9);
 });
 
 console.log('\nengagement.test: ' + n + '/' + n + ' passed');

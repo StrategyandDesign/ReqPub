@@ -198,7 +198,11 @@ export const repo = {
   },
   async removeApprover(id) { return durable(() => sb.from('version_approvals').delete().eq('id', id)); },
   async setBuild(versionId, build) {
-    return durable(() => sb.from('versions').update({ build }).eq('id', versionId));
+    // Versions are immutable at the table (write revoked); the build tag moves
+    // only through this definer RPC, which also logs the change.
+    const r = await rpc('version_set_build', { p_version: versionId, p_build: build || '' });
+    if (r.error) return r;
+    return r.data === true ? r : { error: new Error('refused') };
   },
 
   /* ---- comms / messages ---- */
@@ -321,7 +325,7 @@ export function stripInternal(obj) {
   if (Array.isArray(obj)) return obj.map(stripInternal);
   if (obj && typeof obj === 'object') {
     const o = {};
-    for (const k of Object.keys(obj)) { if (k !== '_k') o[k] = stripInternal(obj[k]); }
+    for (const k of Object.keys(obj)) { if (k[0] !== '_') o[k] = stripInternal(obj[k]); }   // every _-prefixed key is internal bookkeeping
     return o;
   }
   return obj;
@@ -330,7 +334,7 @@ export function stripInternal(obj) {
    selected sections are included, so unshared content is absent from the
    payload itself - not merely hidden by the page that renders it. */
 export function buildSharePayload(project, answers, versionLabel, seq, kind, build, sectionKeys) {
-  const filled = (arr) => (arr || []).filter((r) => Object.keys(r || {}).some((c) => c !== '_k' && r[c] && String(r[c]).trim()));
+  const filled = (arr) => (arr || []).filter((r) => Object.keys(r || {}).some((c) => c[0] !== '_' && r[c] && String(r[c]).trim()));
   if (kind === 'pilot') {
     return {
       product: project.name || '', label: versionLabel || '', build: build || '',
@@ -350,6 +354,10 @@ export function buildSharePayload(project, answers, versionLabel, seq, kind, bui
   // Shaping for the two structured sections: components carry name + description;
   // requirement grouping needs component names even when components is not shared.
   if (secs.includes('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name, desc: c.desc }));
+  // AI acceptance is deliberate disclosure: the client signs {dimension,
+  // metric, threshold}. Component tags do not ride along, and the FR fit
+  // doctrine is untouched - fit criteria never appear in any payload.
+  if (secs.includes('aieval')) ca.eval = filled(answers.eval).map((r) => ({ dim: r.dim || '', metric: r.metric || '', thresh: r.thresh || '' }));
   if (secs.includes('willdo')) {
     ca.fr = (answers.fr || []).map((x) => ({ stmt: x.stmt || '', comp: x.comp || '' }));
     if (!secs.includes('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name }));

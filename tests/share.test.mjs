@@ -19,19 +19,23 @@ const answers = {
   sol_in: ['CAP-A'], sol_out: ['EXCLUDED-Z'],
   components: [{ _k: 1, name: 'Recorder', desc: 'COMPONENT DESC' }],
   fr: [{ _k: 1, stmt: 'Records a session', fit: 'INTERNAL FIT', pri: 'Must', comp: 'Recorder' }],
-  metrics: [{ _k: 1, metric: 'Completion', target: '75%', method: 'Analytics' }]
+  metrics: [{ _k: 1, metric: 'Completion', target: '75%', method: 'Analytics' }],
+  has_ai: 'Yes',
+  eval: [{ _k: 1, dim: 'Hallucination guardrail', metric: 'Grounded-answer rate vs golden set', thresh: 'at least 95%', comp: 'Recorder' }],
+  golden: 'GOLDEN SET METHOD'
 };
 const project = { name: 'RecordMade' };
 
 test('default selection matches the preselected set', () => {
   const d = defaultBriefSections();
   assert.deepEqual(d, ['building', 'goals', 'who', 'solution', 'willdo', 'oos']);
-  assert.equal(BRIEF_SECTIONS.length, 9);
+  assert.equal(BRIEF_SECTIONS.length, 10);
+  assert.ok(!d.includes('aieval'), 'AI acceptance is deliberate disclosure, never a default');
 });
 
 test('unscoped payload (legacy path) includes every section and says so', () => {
   const p = buildSharePayload(project, answers, '1.0', 1, 'brief', '', null);
-  assert.equal(p.sections.length, 9);
+  assert.equal(p.sections.length, 10);
   assert.equal(p.answers.ov_vision, 'THE VISION');
   assert.equal(p.answers.metrics[0].metric, 'Completion');
 });
@@ -122,6 +126,35 @@ test('a new registry section is shareable with no change to data.js, and stays h
     BRIEF_SECTIONS.length = before;   // restore the shared registry
     delete answers.roadmap;
   }
+});
+
+test('AI acceptance never travels in a default brief', () => {
+  const p = buildSharePayload(project, answers, '1.0', 1, 'brief', '', defaultBriefSections());
+  const json = JSON.stringify(p);
+  assert.equal(p.answers.eval, undefined);
+  assert.ok(!json.includes('GOLDEN SET METHOD'));
+  assert.ok(!json.includes('at least 95%'));
+});
+
+test('opting in shares the signed number, shaped: dimension, metric, threshold - nothing else', () => {
+  const p = buildSharePayload(project, answers, '1.0', 1, 'brief', '', ['aieval']);
+  assert.deepEqual(p.answers.eval, [{ dim: 'Hallucination guardrail', metric: 'Grounded-answer rate vs golden set', thresh: 'at least 95%' }]);
+  assert.equal(p.answers.golden, 'GOLDEN SET METHOD');
+  const json = JSON.stringify(p);
+  assert.ok(!json.includes('INTERNAL FIT'), 'FR fit doctrine is absolute');
+  assert.ok(!json.includes('"comp"'), 'component tags do not ride along');
+  assert.ok(!json.includes('"_k"'));
+});
+
+test('the brief renders the acceptance block only when opted in', () => {
+  const opted = buildSharePayload(project, answers, '1.0', 1, 'brief', '', ['aieval']);
+  const md = bBrief(opted.answers, opted.sections);
+  assert.ok(md.includes('## AI acceptance criteria'));
+  assert.ok(md.includes('EVAL-001 Hallucination guardrail'));
+  assert.ok(md.includes('threshold at least 95%'));
+  assert.ok(md.includes('GOLDEN SET METHOD'));
+  const def = buildSharePayload(project, answers, '1.0', 1, 'brief', '', defaultBriefSections());
+  assert.ok(!bBrief(def.answers, def.sections).includes('AI acceptance'));
 });
 
 console.log('\nshare.test: ' + n + '/' + n + ' passed');

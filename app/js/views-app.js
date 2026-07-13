@@ -4,7 +4,7 @@
    ============================================================================ */
 
 import { esc, escA, ico, IC, brandmark, initials, relTime, themeGet } from './core.js';
-import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
+import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, reqDiffDetail, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
 import { renderTab, newReplyCount } from './views-collab.js';
 import { execSummaryHTML } from './exports.js';
 import { TEMPLATES } from './templates.js';
@@ -638,9 +638,21 @@ function renderChanges(APP, a) {
       '<span class="pill' + (strong ? ' pill-solid' : '') + '">' + st + '</span></div>';
   }).join('');
   const rd = reqDiff((prev && prev.snapshot && prev.snapshot.answers) || {}, (cur.snapshot && cur.snapshot.answers) || {});
+  const detail = reqDiffDetail((prev && prev.snapshot && prev.snapshot.answers) || {}, (cur.snapshot && cur.snapshot.answers) || {});
   const chip = (label, ids, solid) => ids.length ? '<div style="margin-bottom:10px"><span class="eyebrow" style="font-size:9.5px">' + label + '</span><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' + ids.map((id) => '<span class="pill' + (solid ? ' pill-solid' : '') + '"><span class="mono">' + esc(id) + '</span></span>').join('') + '</div></div>' : '';
+  // "FR-014 modified" is a changelog; the exact before and after is evidence.
+  const clip = (t) => { const x = String(t || '').trim(); return x.length > 140 ? x.slice(0, 139) + '…' : (x || '(empty)'); };
+  const detailBlock = detail.length
+    ? '<div style="margin-bottom:2px"><span class="eyebrow" style="font-size:9.5px">What changed</span>' + detail.map((d) =>
+        '<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg);margin-top:6px">' +
+        '<span class="mono" style="font-size:11.5px;font-weight:620">' + esc(d.id) + '</span>' +
+        d.changes.map((c) =>
+          '<div style="font-size:12.5px;margin-top:5px;line-height:1.45"><span style="color:var(--ink-3)">' + esc(c.label) + ':</span> ' +
+          '<span style="color:var(--ink-3);text-decoration:line-through">' + esc(clip(c.from)) + '</span> → <span>' + esc(clip(c.to)) + '</span></div>'
+        ).join('') + '</div>').join('') + '</div>'
+    : '';
   const reqBlock = (rd.added.length || rd.modified.length || rd.removed.length)
-    ? '<div style="border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--bg-2);margin-bottom:18px"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Requirement-level changes</div>' + chip('Added', rd.added, true) + chip('Modified', rd.modified, false) + chip('Removed', rd.removed, false) + '</div>' : '';
+    ? '<div style="border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--bg-2);margin-bottom:18px"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Requirement-level changes</div>' + chip('Added', rd.added, true) + chip('Modified', rd.modified, false) + chip('Removed', rd.removed, false) + detailBlock + '</div>' : '';
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 4px">Changes in v' + esc(meta.label) + '</h2>' +
     '<p class="hint" style="margin:0 0 18px">' + (prevMeta ? 'Compared to v' + esc(prevMeta.label) + ', by ' + esc(meta.author_name || 'an unnamed editor') + '.' : 'Initial baseline. Every section is new.') + '</p>' +
     reqBlock + '<div class="eyebrow" style="font-size:9.5px;margin-bottom:8px">By section</div>' + rows + '</div>';

@@ -211,10 +211,14 @@ alter table versions enable row level security;
 
 drop policy if exists ver_read on versions;
 create policy ver_read on versions for select using (is_project_member(project_id));
+-- Baselines are immutable at the table, not just at the RPC. No write policy
+-- exists and write is revoked below (v2.20): status moves only through
+-- version_set_status (transition whitelist + approvals gate), the build tag
+-- only through version_set_build, and inserts only through create_version so
+-- seq/label allocation cannot race. The pre-2.20 ver_update policy let a
+-- manager rewrite snapshot/status/label/created_at directly, bypassing the
+-- gate and the audit trail; it is dropped here and must never return.
 drop policy if exists ver_update on versions;
-create policy ver_update on versions for update               -- build tag + status edits
-  using (is_project_manager(project_id)) with check (is_project_manager(project_id));
--- Inserts via create_version() so seq/label allocation cannot race.
 
 create table if not exists version_approvals (
   id uuid primary key default gen_random_uuid(),
@@ -526,7 +530,7 @@ create table if not exists activity (
   project_id text,
   actor uuid,
   actor_name text not null default '',
-  action text not null,                     -- e.g. field.saved, version.created
+  action text not null,                     -- e.g. version.created, approval.approved, comm.received
   entity_kind text not null default '',
   entity_id text not null default '',
   summary text not null default '',
@@ -837,6 +841,25 @@ begin
   return jsonb_build_object('ok', true, 'status', p_status);
 end; $$;
 grant execute on function version_set_status(uuid, text) to authenticated;
+
+-- The build tag is the ONE mutable column on a version (which deployed build a
+-- baseline was tested against). Everything else on the row is immutable: with
+-- direct write revoked (v2.20), this definer function is the only path, so a
+-- build-tag edit cannot be widened into rewriting snapshot, status, label, or
+-- dates, and it lands on the audit trail like every other version event.
+create or replace function version_set_build(p_version uuid, p_build text)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare v versions%rowtype;
+begin
+  select * into v from versions where id = p_version;
+  if v.id is null or not is_project_manager(v.project_id) then return false; end if;
+  if length(coalesce(p_build, '')) > 120 then return false; end if;
+  update versions set build = coalesce(p_build, '') where id = p_version;
+  perform log_activity(project_org(v.project_id), v.project_id, 'version.build', 'version',
+    p_version::text, 'v' || v.label || ' build tag set', jsonb_build_object('build', coalesce(p_build, '')));
+  return true;
+end; $$;
+grant execute on function version_set_build(uuid, text) to authenticated;
 
 -- A manager may decide any slot; the ASSIGNED team member may decide their own
 -- (in-app approval routing). Everyone else is refused. The provenance trigger
@@ -1419,16 +1442,17 @@ grant execute on function v2_context() to authenticated;
 -- 13) Grants (RLS still gates every row)
 -- ----------------------------------------------------------------------------
 grant select, insert, update, delete on projects, comms, messages, read_marks,
-  input_requests, discovery_entries, versions, version_approvals, user_profiles to authenticated;
-grant select on project_fields, field_rows, activity to authenticated;
+  input_requests, discovery_entries, version_approvals, user_profiles to authenticated;
+grant select on project_fields, field_rows, activity, versions to authenticated;
 
 -- Defense in depth: this schema shares a project with v1, whose setup ran a
 -- blanket `grant ... on all tables to authenticated`. Revoke write on the
--- three tables that must only ever be written by their SECURITY DEFINER RPCs,
+-- four tables that must only ever be written by their SECURITY DEFINER RPCs,
 -- so their protection does not rest on the absence of an RLS policy alone.
 -- (project_fields/field_rows → save_field/upsert_row/delete_row; activity is
---  the append-only audit trail, written only by log_activity.)
-revoke insert, update, delete on project_fields, field_rows, activity from authenticated;
+--  the append-only audit trail, written only by log_activity; versions are
+--  immutable baselines → create_version/version_set_status/version_set_build.)
+revoke insert, update, delete on project_fields, field_rows, activity, versions from authenticated;
 revoke insert, update, delete on activity from anon;
 
 -- New foreign-key / RLS-subquery indexes (partner paths run on every partner

@@ -28,7 +28,7 @@ export const SECTIONS = [
   { key: 'adc', num: 6, title: 'Assumptions, Dependencies, and Constraints' },
   { key: 'functional', num: 7, title: 'Functional Requirements', cond: reqOnly },
   { key: 'nonfunctional', num: 8, title: 'Non-Functional Requirements', cond: reqOnly },
-  { key: 'aieval', num: 9, title: 'AI Evaluation Criteria', cond: (a) => a.has_ai === 'Yes' && reqOnly(a) },
+  { key: 'aieval', num: 9, title: 'AI Evaluation Criteria', cond: (a) => a.has_ai === 'Yes' },
   { key: 'data', num: 10, title: 'Data, Privacy, and Safeguarding', cond: reqOnly },
   { key: 'interfaces', num: 11, title: 'Interfaces and Integrations', cond: reqOnly },
   { key: 'verification', num: 12, title: 'Verification and Acceptance', cond: reqOnly },
@@ -57,17 +57,37 @@ export const ENG_SECTIONS = [
   { num: 7, key: 'glossary', title: 'Glossary' },
   { num: 8, key: 'revision', title: 'Revision History' }
 ];
-const ENG_NUM = {}, ENG_TITLE = {}, ENG_TITLE2KEY = {};
-ENG_SECTIONS.forEach((s) => { ENG_NUM[s.key] = s.num; ENG_TITLE[s.key] = s.title; ENG_TITLE2KEY[s.title] = s.key; });
+// When the engagement declares AI, acceptance criteria enter the charter as
+// section 3 - right after the success metrics they harden into numbers - and
+// everything below renumbers, so the charter stays contiguous in both shapes
+// (1..8 without AI, 1..9 with). A consulting engagement delivering AI work is
+// exactly the buyer who needs a signed numeric threshold; hiding Section 9
+// from engagement mode hid the platform's sharpest asset from them.
+const ENG_AIEVAL = { key: 'aieval', title: 'AI Acceptance Criteria' };
+export const engSections = (a) => {
+  if (!a || a.has_ai !== 'Yes') return ENG_SECTIONS;
+  return [ENG_SECTIONS[0], ENG_SECTIONS[1], ENG_AIEVAL, ...ENG_SECTIONS.slice(2)]
+    .map((s, i) => ({ ...s, num: i + 1 }));
+};
+const ENG_TITLE2KEY = {};
+ENG_SECTIONS.forEach((s) => { ENG_TITLE2KEY[s.title] = s.key; });
+ENG_TITLE2KEY[ENG_AIEVAL.title] = ENG_AIEVAL.key;
 
 // The section number to display for a section key, given the document type. PRD
-// keeps its fixed numbering; an engagement renders a contiguous 1..8.
-export const docSecNum = (a, key) =>
-  isEngagement(a) ? (ENG_NUM[key] != null ? ENG_NUM[key] : null)
-                  : (SECBYKEY[key] ? SECBYKEY[key].num : null);
+// keeps its fixed numbering; an engagement renders contiguously from its layout.
+export const docSecNum = (a, key) => {
+  if (!isEngagement(a)) return SECBYKEY[key] ? SECBYKEY[key].num : null;
+  const hit = engSections(a).find((s) => s.key === key);
+  return hit ? hit.num : null;
+};
 // The section heading to display, so the worksheet and the document agree.
-export const docSecTitle = (a, key) =>
-  (isEngagement(a) && ENG_TITLE[key]) ? ENG_TITLE[key] : (SECBYKEY[key] ? SECBYKEY[key].title : key);
+export const docSecTitle = (a, key) => {
+  if (isEngagement(a)) {
+    const hit = engSections(a).find((s) => s.key === key);
+    if (hit) return hit.title;
+  }
+  return SECBYKEY[key] ? SECBYKEY[key].title : key;
+};
 
 /* ---- Question bank ---- */
 export const Q = [
@@ -135,7 +155,7 @@ export const visQ = (a) => Q.filter((q) => !q.cond || q.cond(a));
 export function isAnswered(q, v) {
   if (v == null || v === '') return false;
   if (q.type === 'list') return (v || []).some((s) => s && String(s).trim());
-  if (q.type === 'rows') return (v || []).some((r) => Object.keys(r || {}).some((c) => c !== '_k' && r[c] && String(r[c]).trim()));
+  if (q.type === 'rows') return (v || []).some((r) => Object.keys(r || {}).some((c) => !isMetaKey(c) && r[c] && String(r[c]).trim()));
   return true;
 }
 
@@ -146,7 +166,9 @@ export function assembleAnswers(fields, rows) {
   for (const [fid, f] of Object.entries(fields || {})) a[fid] = f.value;
   for (const q of Q) {
     const rs = (rows && rows[q.id]) || [];
-    if (q.type === 'rows') a[q.id] = rs.map((r) => ({ ...r.data, _k: r.k }));
+    // _by is upsert_row's server-stamped last-editor identity: an attested
+    // 'recorded by' beside free-text claims like a decision's owner.
+    if (q.type === 'rows') a[q.id] = rs.map((r) => ({ ...r.data, _k: r.k, ...(r.updated_by_name ? { _by: r.updated_by_name } : {}) }));
     else if (q.type === 'list') a[q.id] = rs.map((r) => String((r.data && r.data.text) || ''));
   }
   return a;
@@ -159,7 +181,11 @@ export function mdTable(headers, rows) {
     rows.map((r) => '| ' + r.map((c) => (c == null ? '' : String(c)).replace(/\n+/g, ' ').replace(/\|/g, '/')).join(' | ') + ' |').join('\n');
 }
 export const bullets = (arr) => (arr || []).filter((s) => s && String(s).trim()).map((s) => '- ' + s).join('\n');
-export const rowsFilled = (arr) => (arr || []).filter((r) => Object.keys(r || {}).some((c) => c !== '_k' && r[c] && String(r[c]).trim()));
+/* Row keys that start with an underscore are bookkeeping (_k permanent id,
+   _by attested recorder), never content: they do not make a row 'filled',
+   never count as a change, and are stripped from every share payload. */
+export const isMetaKey = (k) => !!k && k[0] === '_';
+export const rowsFilled = (arr) => (arr || []).filter((r) => Object.keys(r || {}).some((c) => !isMetaKey(c) && r[c] && String(r[c]).trim()));
 export const idOf = (prefix, row, i) => prefix + '-' + String(row._k != null ? row._k : i + 1).padStart(3, '0');
 const naField = () => '[ to confirm ]';
 
@@ -220,7 +246,7 @@ function bSolution(a) {
     const unassigned = [];
     const collect = (key, pre) => {
       (a[key] || []).forEach((r, i) => {
-        const has = Object.keys(r || {}).some((k) => k !== '_k' && k !== 'comp' && r[k] && String(r[k]).trim());
+        const has = Object.keys(r || {}).some((k) => !isMetaKey(k) && k !== 'comp' && r[k] && String(r[k]).trim());
         if (!has) return;
         const id = pre + '-' + String(r._k != null ? r._k : i + 1).padStart(3, '0');
         if (r.comp && groups[r.comp] !== undefined) groups[r.comp].push(id); else unassigned.push(id);
@@ -324,9 +350,13 @@ function bGlossary(a) {
 function decisionsBody(a) {
   const rows = rowsFilled(a.decisions);
   if (!rows.length) return '_No decisions recorded yet._';
+  // 'Decided by' is the consultant's claim; 'recorded by' is upsert_row's
+  // server-stamped identity of whoever last wrote the row. A decision is a
+  // claim plus an attested recorder - the document says which is which.
   return mdTable(
     ['ID', 'Decision', 'Options considered', 'Rationale', 'Decided by', 'Date', 'Supersedes'],
-    rows.map((r, i) => [idOf('DEC', r, i), r.decision || '', r.options || '', r.rationale || '', r.owner || '', r.date || '', r.supersedes || '']));
+    rows.map((r, i) => [idOf('DEC', r, i), r.decision || '', r.options || '', r.rationale || '',
+      (r.owner || '') + (r._by ? ' (recorded by ' + r._by + ')' : ''), r.date || '', r.supersedes || '']));
 }
 export function revisionBody(versions) {
   if (!versions || !versions.length) return '_No baselined version yet. This document is a working draft._';
@@ -364,55 +394,77 @@ export function buildSections(a, label, versions) {
    serve both modes; only the framing and numbering differ. The software-only
    sections are gated off the worksheet, so nothing the team fills is dropped. */
 const bodyOf = (block) => (block ? block.slice(block.indexOf('\n\n') + 2) : '');
-function engObjective(a) {
-  const p = ['## 1. Objective and Context'];
-  if (a.ov_purpose) p.push('### 1.1 Purpose and Audience\n\n' + a.ov_purpose);
-  if (a.ov_vision) p.push('### 1.2 Objective\n\n' + a.ov_vision);
-  if (a.ov_problem) p.push('### 1.3 Context\n\n' + a.ov_problem);
-  if (a.ov_market) p.push('### 1.4 Opportunity\n\n' + a.ov_market);
+function engObjective(a, n) {
+  const p = ['## ' + n + '. Objective and Context'];
+  if (a.ov_purpose) p.push('### ' + n + '.1 Purpose and Audience\n\n' + a.ov_purpose);
+  if (a.ov_vision) p.push('### ' + n + '.2 Objective\n\n' + a.ov_vision);
+  if (a.ov_problem) p.push('### ' + n + '.3 Context\n\n' + a.ov_problem);
+  if (a.ov_market) p.push('### ' + n + '.4 Opportunity\n\n' + a.ov_market);
   const g = bullets(a.ov_goals);
-  if (g) p.push('### 1.5 Goals\n\n' + g);
+  if (g) p.push('### ' + n + '.5 Goals\n\n' + g);
   return p.length > 1 ? p.join('\n\n') : null;
 }
-function engMetrics(a) {
+function engMetrics(a, n) {
   const m = rowsFilled(a.metrics);
   if (!m.length) return null;
-  return '## 2. Success Metrics\n\n' + mdTable(['Metric', 'Target', 'Measurement Method'], m.map((r) => [r.metric || '', r.target || '', r.method || '']));
+  return '## ' + n + '. Success Metrics\n\n' + mdTable(['Metric', 'Target', 'Measurement Method'], m.map((r) => [r.metric || '', r.target || '', r.method || '']));
 }
-function engScope(a) {
+function engScope(a, n) {
   const comps = rowsFilled(a.components);
   const inb = bullets(a.sol_in), outb = bullets(a.sol_out);
   if (!a.sol_solution && !inb && !outb && !comps.length) return null;
-  const p = ['## 3. Scope and Approach'];
-  if (a.sol_solution) p.push('### 3.1 Approach\n\n' + a.sol_solution);
-  if (inb || outb) p.push('### 3.2 Scope\n\n' + (inb ? '**In scope**\n\n' + inb + (outb ? '\n\n' : '') : '') + (outb ? '**Out of scope**\n\n' + outb : ''));
-  if (comps.length) p.push('### 3.3 Workstreams\n\n' + mdTable(['Workstream', 'Owner', 'Status', 'Description'], comps.map((c) => [c.name || '', c.owner || 'to confirm', c.status || 'Active', c.desc || ''])));
+  const p = ['## ' + n + '. Scope and Approach'];
+  if (a.sol_solution) p.push('### ' + n + '.1 Approach\n\n' + a.sol_solution);
+  if (inb || outb) p.push('### ' + n + '.2 Scope\n\n' + (inb ? '**In scope**\n\n' + inb + (outb ? '\n\n' : '') : '') + (outb ? '**Out of scope**\n\n' + outb : ''));
+  if (comps.length) p.push('### ' + n + '.3 Workstreams\n\n' + mdTable(['Workstream', 'Owner', 'Status', 'Description'], comps.map((c) => [c.name || '', c.owner || 'to confirm', c.status || 'Active', c.desc || ''])));
   return p.join('\n\n');
 }
-function engADC(a) {
+function engADC(a, n) {
   const as = bullets(a.assume), de = bullets(a.depend), co = bullets(a.constrain);
   if (!as && !de && !co) return null;
-  const p = ['## 4. Assumptions, Dependencies, and Constraints'];
-  if (as) p.push('### 4.1 Assumptions\n\n' + as);
-  if (de) p.push('### 4.2 Dependencies\n\n' + de);
-  if (co) p.push('### 4.3 Constraints\n\n' + co);
+  const p = ['## ' + n + '. Assumptions, Dependencies, and Constraints'];
+  if (as) p.push('### ' + n + '.1 Assumptions\n\n' + as);
+  if (de) p.push('### ' + n + '.2 Dependencies\n\n' + de);
+  if (co) p.push('### ' + n + '.3 Constraints\n\n' + co);
   return p.join('\n\n');
 }
-function engStakeholders(a) {
+function engStakeholders(a, n) {
   const pe = rowsFilled(a.people);
-  const p = ['## 5. Stakeholders and Roles'];
-  p.push('### 5.1 People and Roles\n\n' + (pe.length ? mdTable(['Name', 'Role'], pe.map((r) => [r.name || '', r.role || ''])) : '_To confirm._'));
-  p.push('### 5.2 Links\n\n- Repository: ' + (a.link_repo || 'to confirm') + '\n- Project board: ' + (a.link_board || 'to confirm') + '\n- Design: ' + (a.link_design || 'to confirm'));
+  const p = ['## ' + n + '. Stakeholders and Roles'];
+  p.push('### ' + n + '.1 People and Roles\n\n' + (pe.length ? mdTable(['Name', 'Role'], pe.map((r) => [r.name || '', r.role || ''])) : '_To confirm._'));
+  p.push('### ' + n + '.2 Links\n\n- Repository: ' + (a.link_repo || 'to confirm') + '\n- Project board: ' + (a.link_board || 'to confirm') + '\n- Design: ' + (a.link_design || 'to confirm'));
+  return p.join('\n\n');
+}
+function engEval(a, n) {
+  if (a.has_ai !== 'Yes') return null;
+  const ev = rowsFilled(a.eval);
+  const p = ['## ' + n + '. AI Acceptance Criteria'];
+  if (ev.length) p.push(mdTable(['ID', 'Quality Dimension', 'Metric and Method', 'Threshold'], ev.map((r, i) => [idOf('EVAL', r, i), r.dim || '', r.metric || '', r.thresh || naField()])));
+  else p.push('_Acceptance criteria to confirm. State the metric, the method, and the numeric threshold that closes the AI workstream - always including a grounding or hallucination guardrail and a safety threshold._');
+  if (a.golden) p.push('**Golden dataset and red-team method.** ' + a.golden);
   return p.join('\n\n');
 }
 export function assembleEngagement(sections, a) {
   const p = [];
   if (sections.control) p.push(sections.control);
-  [engObjective(a), engMetrics(a), engScope(a), engADC(a), engStakeholders(a),
-    '## 6. Decisions and Rationale\n\n' + bodyOf(sections.decisions),
-    '## 7. Glossary\n\n' + bodyOf(sections.glossary),
-    '## 8. Revision History\n\n' + bodyOf(sections.revision)
-  ].forEach((b) => { if (b) p.push(b); });
+  // Layout-driven: the same engSections() that numbers the worksheet numbers
+  // the charter, so the two can never disagree about where a section sits.
+  engSections(a).forEach((sec) => {
+    let b = null;
+    switch (sec.key) {
+      case 'overview': b = engObjective(a, sec.num); break;
+      case 'metrics': b = engMetrics(a, sec.num); break;
+      case 'aieval': b = engEval(a, sec.num); break;
+      case 'solution': b = engScope(a, sec.num); break;
+      case 'adc': b = engADC(a, sec.num); break;
+      case 'people': b = engStakeholders(a, sec.num); break;
+      case 'decisions': b = '## ' + sec.num + '. Decisions and Rationale\n\n' + bodyOf(sections.decisions); break;
+      case 'glossary': b = '## ' + sec.num + '. Glossary\n\n' + bodyOf(sections.glossary); break;
+      case 'revision': b = '## ' + sec.num + '. Revision History\n\n' + bodyOf(sections.revision); break;
+      default: b = null;
+    }
+    if (b) p.push(b);
+  });
   return p.join('\n\n');
 }
 export function assemble(sections, a) {
@@ -446,7 +498,12 @@ export const BRIEF_SECTIONS = [
   { key: 'pieces', label: 'Components', def: false, fields: ['components'] },
   { key: 'willdo', label: 'What it will do', def: true, fields: ['fr'] },
   { key: 'success', label: 'Success metrics', def: false, fields: ['metrics'] },
-  { key: 'oos', label: 'Not in scope', def: true, fields: ['sol_out'] }
+  { key: 'oos', label: 'Not in scope', def: true, fields: ['sol_out'] },
+  // Deliberate disclosure, never a default: FR fit criteria stay internal
+  // absolutely, but an AI threshold is the number the client signs - the team
+  // opts a brief into it per share. Backing fields are shaped in
+  // buildSharePayload to {dim, metric, thresh} plus the golden-set statement.
+  { key: 'aieval', label: 'AI acceptance criteria', def: false, fields: ['eval', 'golden'] }
 ];
 export const defaultBriefSections = () => BRIEF_SECTIONS.filter((s) => s.def).map((s) => s.key);
 
@@ -485,6 +542,13 @@ export function bBrief(a, sections) {
   if (inc('pieces')) {
     const comps = rowsFilled(a.components);
     if (comps.length) P.push('## The pieces\n\n' + comps.map((r) => '- **' + (r.name || '') + '**' + (r.desc ? ': ' + r.desc : '')).join('\n'));
+  }
+  if (inc('aieval')) {
+    const ev = rowsFilled(a.eval);
+    const blk = [];
+    if (ev.length) blk.push(ev.map((r, i) => '- **' + idOf('EVAL', r, i) + ' ' + (r.dim || '') + '**: ' + (r.metric || '') + (r.thresh ? ' - threshold ' + r.thresh : '')).join('\n'));
+    if (a.golden) blk.push('**Golden dataset and red-team method.** ' + a.golden);
+    if (blk.length) P.push('## AI acceptance criteria\n\n' + blk.join('\n\n'));
   }
   if (inc('willdo')) {
     const fr = rowsFilled(a.fr);
@@ -580,10 +644,10 @@ export function mdToHtml(md) {
 export function reqDiff(prev, cur) {
   const groups = [['fr', 'FR'], ['nfr', 'NFR'], ['eval', 'EVAL'], ['interfaces', 'IR']];
   const added = [], modified = [], removed = [];
-  const has = (r) => Object.keys(r || {}).some((k) => k !== '_k' && k !== 'comp' && k !== 'src' && r[k] && String(r[k]).trim());
+  const has = (r) => Object.keys(r || {}).some((k) => !isMetaKey(k) && k !== 'comp' && k !== 'src' && r[k] && String(r[k]).trim());
   const sig = (r) => {
     const o = {};
-    Object.keys(r || {}).sort().forEach((k) => { if (k !== '_k') o[k] = r[k]; });
+    Object.keys(r || {}).sort().forEach((k) => { if (!isMetaKey(k) && k !== 'src') o[k] = r[k]; });   // attribution is provenance, not content
     return JSON.stringify(o);
   };
   groups.forEach((g) => {
@@ -598,6 +662,38 @@ export function reqDiff(prev, cur) {
     Object.keys(pa).forEach((k) => { if (!(k in ca)) removed.push(g[1] + '-' + String(k).padStart(3, '0')); });
   });
   return { added, modified, removed };
+}
+
+/* "FR-014 modified" is a changelog; "FR-014 fit criterion changed from
+   'within 5 seconds' to 'within 30 seconds'" is evidence. Both snapshots are
+   already stored, so the difference between a diff and a defense is this
+   function: for every modified requirement, the exact columns that changed,
+   with their old and new text. `src` (promotion attribution) is bookkeeping,
+   not content, and never reports as a change. */
+const DIFF_COLS = {
+  fr: [['stmt', 'statement'], ['fit', 'fit criterion'], ['pri', 'priority'], ['comp', 'component']],
+  nfr: [['stmt', 'statement'], ['fit', 'fit criterion'], ['pri', 'priority'], ['comp', 'component']],
+  eval: [['dim', 'quality dimension'], ['metric', 'metric and method'], ['thresh', 'threshold'], ['comp', 'component']],
+  interfaces: [['iface', 'interface'], ['req', 'requirement'], ['fit', 'fit criterion'], ['comp', 'component']]
+};
+export function reqDiffDetail(prev, cur) {
+  const groups = [['fr', 'FR'], ['nfr', 'NFR'], ['eval', 'EVAL'], ['interfaces', 'IR']];
+  const out = [];
+  groups.forEach((g) => {
+    const byK = {};
+    (prev[g[0]] || []).forEach((r) => { if (r && r._k != null) byK[r._k] = r; });
+    (cur[g[0]] || []).forEach((r) => {
+      if (!r || r._k == null || !(r._k in byK)) return;
+      const before = byK[r._k];
+      const changes = [];
+      (DIFF_COLS[g[0]] || []).forEach(([col, label]) => {
+        const from = String(before[col] || '').trim(), to = String(r[col] || '').trim();
+        if (from !== to) changes.push({ col, label, from, to });
+      });
+      if (changes.length) out.push({ id: g[1] + '-' + String(r._k).padStart(3, '0'), changes });
+    });
+  });
+  return out;
 }
 
 /* ---- Change note for a freshly generated version ----

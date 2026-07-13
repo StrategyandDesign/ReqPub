@@ -2,8 +2,7 @@
 import assert from 'node:assert/strict';
 import {
   Q, SECTIONS, isAnswered, assembleAnswers, buildSections, assemble,
-  mdToHtml, bBrief, reqDiff, changeNote, execSummaryData, suggestFit, mdTable
-} from '../app/js/domain.js';
+  mdToHtml, bBrief, reqDiff, changeNote, execSummaryData, suggestFit, mdTable, reqDiffDetail, rowsFilled } from '../app/js/domain.js';
 
 let n = 0;
 const test = (name, fn) => { fn(); n++; console.log('  ✓ ' + name); };
@@ -198,6 +197,48 @@ test('changeNote caps attribution at three sources and counts the rest', () => {
 test('a src-only row is bookkeeping, not a requirement (reqDiff ignores it)', () => {
   const rd = reqDiff({ fr: [] }, { fr: [{ _k: 1, src: 'Discovery · Jane' }] });
   assert.equal(rd.added.length, 0);
+});
+
+/* ---- reqDiffDetail: the difference between a diff and a defense ---- */
+test('reqDiffDetail reports the exact columns that changed, from and to', () => {
+  const prev = { fr: [{ _k: 14, stmt: 'Responds to a query', fit: 'within 5 seconds', pri: 'Must', comp: 'Core' }] };
+  const cur = { fr: [{ _k: 14, stmt: 'Responds to a query', fit: 'within 30 seconds', pri: 'Should', comp: 'Core' }] };
+  const d = reqDiffDetail(prev, cur);
+  assert.equal(d.length, 1);
+  assert.equal(d[0].id, 'FR-014');
+  assert.deepEqual(d[0].changes.map((c) => c.label), ['fit criterion', 'priority']);
+  assert.equal(d[0].changes[0].from, 'within 5 seconds');
+  assert.equal(d[0].changes[0].to, 'within 30 seconds');
+});
+
+test('bookkeeping keys never report as changes; added and removed rows are not detail', () => {
+  const prev = { fr: [{ _k: 1, stmt: 'Same text', fit: 'Same fit' }] };
+  const cur = { fr: [{ _k: 1, stmt: 'Same text', fit: 'Same fit', src: 'Discovery · Jane', _by: 'Micah' }, { _k: 2, stmt: 'Brand new' }] };
+  assert.deepEqual(reqDiffDetail(prev, cur), []);
+  const rd = reqDiff(prev, cur);
+  assert.deepEqual(rd.added, ['FR-002']);
+  assert.deepEqual(rd.modified, [], 'src and _by are attribution, not content');
+});
+
+test('reqDiffDetail covers EVAL thresholds - the number a client signs', () => {
+  const prev = { eval: [{ _k: 4, dim: 'Hallucination guardrail', metric: 'Grounded rate', thresh: 'at least 90%' }] };
+  const cur = { eval: [{ _k: 4, dim: 'Hallucination guardrail', metric: 'Grounded rate', thresh: 'at least 95%' }] };
+  const d = reqDiffDetail(prev, cur);
+  assert.equal(d[0].id, 'EVAL-004');
+  assert.deepEqual(d[0].changes, [{ col: 'thresh', label: 'threshold', from: 'at least 90%', to: 'at least 95%' }]);
+});
+
+/* ---- the attested recorder ---- */
+test('assembled rows carry the server-stamped recorder, and decisions render the attestation', () => {
+  const a = assembleAnswers({}, { decisions: [{ id: 'd', k: 1, data: { decision: 'Use Postgres', owner: 'Tim' }, pos: 1, rev: 1, updated_by_name: 'Ana Reyes' }] });
+  assert.equal(a.decisions[0]._by, 'Ana Reyes');
+  const body = buildSections(a, '', []).decisions;
+  assert.ok(body.includes('Tim (recorded by Ana Reyes)'));
+});
+
+test('a row whose only content is bookkeeping is not a filled row', () => {
+  assert.equal(rowsFilled([{ _k: 1, _by: 'Ana' }]).length, 0);
+  assert.equal(rowsFilled([{ _k: 1, _by: 'Ana', stmt: 'Real' }]).length, 1);
 });
 
 console.log('\ndomain.test: ' + n + '/' + n + ' passed');

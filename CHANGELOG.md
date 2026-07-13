@@ -1,5 +1,69 @@
 # Changelog
 
+## 2.20.0 · the record defends itself
+
+- **Fixed, critical: a project manager could silently rewrite an approved
+  baseline.** Independent review caught what two internal audits missed: the
+  `ver_update` policy plus the table grant allowed a direct `UPDATE` of any
+  column on `versions` - snapshot, status, label, `created_at` - bypassing
+  `version_set_status` (the transition whitelist and the all-approvals-green
+  gate) and writing no activity row. The client only ever used that surface
+  for the build tag. Versions now match the posture of `project_fields`,
+  `field_rows`, and `activity`: direct write revoked, the policy dropped
+  permanently, and the build tag moves only through `version_set_build`
+  (manager-gated, 120-char cap, logged as `version.build`). Live installs run
+  `supabase/fix-version-integrity.sql` once. Locked by a 16-check adversarial
+  suite (`tests/backend-e2e/version-integrity.test.mjs`), including a legacy
+  simulation proving the fix closes an existing install.
+- **Fixed: creating a project could show two identical cards - one database
+  row rendered twice.** The org-channel realtime echo of the insert can arrive
+  while `await createProject` is still in flight; the sync engine (whose state
+  IS the app state) added the row, then the handler blind-unshifted its local
+  copy of the same id. Both cards mirrored `projectStats[id]` in lockstep -
+  exactly the "two cards, identical pills" incident. Worst on template starts
+  (a consulting engagement holds the dashboard open through ~13 RPCs of update
+  echoes), but present on every starter including Blank. Both the local write
+  and the echo now flow through one pure reconciler (`upsertById`), in either
+  arrival order; and a `durable()` retry that trips the primary key now reads
+  as the success it is instead of provoking a real second project
+  (`isDupKey`). Locked by `tests/projdedup.test.mjs` (8 checks). The 2.19.1
+  double-click guard remains as its own layer.
+- **AI Acceptance Criteria are now sellable.** The section enters consulting
+  engagement mode: when an engagement declares AI, acceptance criteria land as
+  charter section 3 - right after the success metrics they harden into
+  numbers - and the charter renumbers contiguously (1..9 with AI, 1..8
+  without, byte-identical). The layout is one function (`engSections`), so the
+  worksheet and the document can never disagree. Briefs gain an explicit
+  opt-in share section: the client sees dimension, metric, and threshold -
+  the number that stops the meter - shaped in the payload itself; component
+  tags do not ride along, and the FR fit-criterion doctrine stays absolute.
+  PRDs are untouched (Section 9 remains AI Evaluation Criteria).
+- **A diff is now a defense.** The Changes view renders, for every modified
+  requirement, the exact columns that changed with prior and current text:
+  "FR-014 · fit criterion: ~~within 5 seconds~~ → within 30 seconds."
+  `reqDiffDetail` covers FR, NFR, EVAL, and IR; bookkeeping keys never report.
+- **Evidence dates on covers.** A printed baseline carries the baseline's own
+  date and, when approved, the date of the last sign-off. Two prints of one
+  approved version read the same; the print date is footer metadata.
+- **Honesty pass.** The audit-trail claim now says exactly what is true: the
+  trail records versions, status changes, approvals, build-tag changes, and
+  inbound submissions; edit attribution is server-stamped on every field and
+  row; baselines are immutable snapshots. The schema comment advertising a
+  `field.saved` action that was never written is corrected. Decisions render
+  the attested recorder beside the claimed owner: "Tim (recorded by Ana
+  Reyes)" - the recorder is `upsert_row`'s server-stamped identity, and every
+  underscore-prefixed row key is now formal bookkeeping: never a filled row,
+  never a diff, stripped from every share payload.
+- **Record health accumulates.** Two derived facts join the counts: client
+  inputs incorporated in the approved baseline (promotion-sourced rows in the
+  latest approved snapshot - never guessed from the draft) and the last
+  client-visible change (the latest approved baseline's date).
+- Meta-PRD regenerated through the validator: 19 functional requirements
+  including the three shipped above, the immutability NFR, and honest counts.
+- Deferred, deliberately: role-tailored empty-state copy; busy states on other
+  direct-insert buttons (the reconciler pattern now exists for both).
+- Suites: 121 unit + 231 backend = 352 checks green.
+
 ## 2.19.1 · one click, one project
 
 - **Fixed: a fast double-click on New project created two identical projects.**

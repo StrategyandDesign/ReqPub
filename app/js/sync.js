@@ -14,7 +14,7 @@
    ============================================================================ */
 
 import { sb, repo as liveRepo } from './data.js';
-import { debounce, pushUnique } from './core.js';
+import { debounce, pushUnique, upsertById } from './core.js';
 
 const FLUSH_MS = 500;          // keystroke coalescing before a field save
 const SELF_KEY = Math.random().toString(36).slice(2);
@@ -393,11 +393,9 @@ export function createSync() {
     if ((p.operation || msg.event) === 'DELETE') {
       st.projects = st.projects.filter((x) => x.id !== (old && old.id));
     } else if (rec) {
-      const i = st.projects.findIndex((x) => x.id === rec.id);
-      if (rec.archived) { if (i >= 0) st.projects.splice(i, 1); }
-      else if (i < 0) st.projects.unshift(rec);
-      else st.projects[i] = rec;
-      st.projects.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+      // Same reconciler as the optimistic local write in main.js, so the echo
+      // and the local insert converge to one entry in either arrival order.
+      upsertById(st.projects, rec, 'updated_at');
     }
     this.onChange('projects');
   },

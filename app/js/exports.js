@@ -15,11 +15,17 @@ function coverHTML(meta) {
     : '';
   const label = meta.brandLabel ? '<div class="rp-client">' + esc(meta.brandLabel) + '</div>' : '';
   const statusCls = meta.status || 'draft';
+  const fmtDay = (d) => new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  // Evidence dates: a baseline document carries the date the baseline was
+  // created and, when signed off, the date of the last approval decision. Two
+  // prints of the same approved version must read the same. The print date is
+  // footer metadata, not cover evidence.
   const rail = [
     ['Version', meta.label ? 'v' + meta.label : 'Working draft'],
     ['Status', STATUS_LABEL[meta.status] || 'Draft'],
     meta.org ? ['Prepared by', meta.org] : null,
-    ['Date', new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })],
+    [meta.baselined ? 'Baselined' : 'Date', fmtDay(meta.baselined || new Date())],
+    meta.approvedAt ? ['Approved', fmtDay(meta.approvedAt)] : null,
     // The baseline fingerprint identifies the exact snapshot this document was
     // produced from (full value + recipe in the Verification section).
     meta.fingerprint ? ['Fingerprint', fmtFingerprint(meta.fingerprint)] : null
@@ -66,7 +72,8 @@ export function downloadWord(md, meta) {
     ? '<p style="margin:0 0 6pt"><img src="' + escA(meta.logo) + '" style="max-height:54pt;max-width:220pt"></p>' : '';
   const label = meta.brandLabel ? '<div style="font-size:12pt;font-weight:bold;color:#222">' + esc(meta.brandLabel) + '</div>' : '';
   const rail = [meta.label ? 'Version v' + meta.label : 'Working draft', STATUS_LABEL[meta.status] || 'Draft',
-    meta.org ? 'Prepared by ' + meta.org : null, new Date().toLocaleDateString()]
+    meta.org ? 'Prepared by ' + meta.org : null,
+    (meta.baselined ? 'Baselined ' + new Date(meta.baselined).toLocaleDateString() : new Date().toLocaleDateString()) + (meta.approvedAt ? ' · Approved ' + new Date(meta.approvedAt).toLocaleDateString() : '')]
     .filter(Boolean).join('  ·  ');
   const approvals = (meta.approvals || []).length
     ? '<div style="font-family:Consolas,monospace;font-size:9pt;color:#333;margin-top:8pt">Approvals: ' +
@@ -117,7 +124,7 @@ export function execSummaryHTML(answers, meta) {
   const list = (items, fmt) => items.length ? '<ul>' + items.map((x) => '<li>' + fmt(x) + '</li>').join('') + '</ul>' : '<p style="color:var(--ink-4)">None recorded.</p>';
   return '<div class="md doc-anim">' +
     '<h1>' + esc(d.product) + ' - Executive Summary</h1>' +
-    '<div class="doc-meta">' + esc([d.org, meta.label ? 'v' + meta.label : 'Working draft', new Date().toLocaleDateString()].filter(Boolean).join('  ·  ')) + '</div>' +
+    '<div class="doc-meta">' + esc([d.org, meta.label ? 'v' + meta.label : 'Working draft', meta.baselined ? 'Baselined ' + new Date(meta.baselined).toLocaleDateString() : null, 'Printed ' + new Date().toLocaleDateString()].filter(Boolean).join('  ·  ')) + '</div>' +
     (d.vision ? '<h2>Vision</h2><p>' + esc(d.vision) + '</p>' : '') +
     (d.problem ? '<h2>Problem</h2><p>' + esc(d.problem) + '</p>' : '') +
     '<h2>Goals</h2>' + list(d.goals, (g) => esc(g)) +
@@ -133,7 +140,7 @@ export function execSummaryHTML(answers, meta) {
 export function execSummaryMd(answers, meta) {
   const d = execSummaryData(answers);
   return ['# ' + d.product + ' - Executive Summary', '',
-    [d.org, meta.label ? 'v' + meta.label : 'Working draft', new Date().toLocaleDateString()].filter(Boolean).join(' · '), '',
+    [d.org, meta.label ? 'v' + meta.label : 'Working draft', meta.baselined ? 'Baselined ' + new Date(meta.baselined).toLocaleDateString() : null, 'Printed ' + new Date().toLocaleDateString()].filter(Boolean).join(' · '), '',
     d.vision ? '## Vision\n\n' + d.vision : '', d.problem ? '## Problem\n\n' + d.problem : '',
     '## Goals', ...d.goals.map((g) => '- ' + g), '',
     '## Success metrics', ...d.metrics.map((m) => '- **' + (m.metric || '') + '**' + (m.target ? ': ' + m.target : '')), '',

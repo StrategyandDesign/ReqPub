@@ -42,16 +42,17 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── send-invite/                 invite email (Resend)
 │       └── attachment-upload/           file upload with virus scan
 ├── tests/
-│   ├── domain.test.mjs                  19 document / diff / brief / decision / attribution tests
+│   ├── domain.test.mjs                  24 document / diff-evidence / brief / attribution tests
 │   ├── sync.test.mjs                    12 multi-writer concurrency simulations
-│   ├── share.test.mjs                   10 section-scoped share-payload tests
+│   ├── share.test.mjs                   13 section-scoped share-payload tests
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
-│   ├── engagement.test.mjs             10 engagement-charter + PRD-invariance tests
-│   ├── health.test.mjs                 15 readiness-signal + record-count tests
+│   ├── engagement.test.mjs             15 engagement-charter + AI-acceptance + PRD-invariance tests
+│   ├── health.test.mjs                 17 readiness-signal + record-count + accumulation tests
 │   ├── templates.test.mjs              10 template validation + RPC-application tests
 │   ├── fingerprint.test.mjs            9 canonical-JSON / SHA-256 / client-report tests
 │   ├── views.test.mjs                  8 view-render contracts (picker, guard, health, promotion)
-│   └── backend-e2e/                     215 checks against a real embedded Postgres
+│   ├── projdedup.test.mjs              8 project-list reconciliation + retry-semantics tests
+│   └── backend-e2e/                     231 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
 │       ├── sme-workspace.test.mjs       durable SME workspace (16)
@@ -61,7 +62,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── seed-prds.test.mjs           seed-data integrity, 3 example PRDs + standalone (19)
 │       ├── deploy-fathering.test.mjs    rebuild-in-place deploy: erase, replace, approve v1.1 (21)
 │       ├── new-reply.test.mjs           team-level new-reply flag: post/reply flags, any teammate clears (11)
-│       └── discovery-promote.test.mjs   discovery promotion back-link: column, fix, RLS, durability (11)
+│       ├── discovery-promote.test.mjs   discovery promotion back-link: column, fix, RLS, durability (11)
+│       └── version-integrity.test.mjs   baselines immutable at the table; build tag gated + logged (16)
 ├── tools/                               PRD seed generator (validated against the builders)
 ├── docs/
 │   ├── ARCHITECTURE.md                  design rationale + citations
@@ -75,8 +77,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 98 domain + concurrency + share + health + template + fingerprint checks (node only)
-npm i && npm run test:backend   # 215 checks on an embedded Postgres
+npm test                        # 121 domain + concurrency + share + health + template + fingerprint checks (node only)
+npm i && npm run test:backend   # 231 checks on an embedded Postgres
 ```
 
 The backend suite runs as a non-root user and needs the `en_US.UTF-8` locale
