@@ -1330,6 +1330,25 @@ async function handleAction(a, id, t, e) {
       render();
       break;
     }
+    case 'apprrecord': {
+      // A sign-off recorded on an already-approved baseline: insert the slot
+      // (the trigger forces it pending), then decide it approved. Provenance
+      // stamps decided_by/decided_at to the recorder - honest evidence, and
+      // the approved_no_signoff warning clears with it.
+      const role = val('apr-role-' + id).trim();
+      const name = val('apr-name-' + id).trim();
+      if (!name) { toast('Type the signer\u2019s name - a sign-off needs one'); break; }
+      const r = await repo.addApprover(id, role, name, null);
+      const slotId = r.data && r.data[0] && r.data[0].id;
+      if (r.error || !slotId) { toast('Could not record the sign-off'); break; }
+      const d = await repo.decideApproval(slotId, 'approved', 'Recorded on the approved baseline');
+      if (d.error || d.data !== true) { toast('Slot added but not decided - approve it on the row'); }
+      const list = await repo.approvals([id]);
+      APP.approvals[id] = list[id] || [];
+      toast('Sign-off recorded');
+      render();
+      break;
+    }
     case 'appradd': {
       const sel = document.getElementById('apr-user-' + id);
       const opt = sel && sel.selectedOptions && sel.selectedOptions[0];

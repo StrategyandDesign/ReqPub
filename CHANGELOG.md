@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.23.1 · the warning that named no version
+
+- **Field report investigated: "Approvers added but still shown as gap."**
+  Verdict in three parts. The signal logic was correct: the warning was about
+  v1.0 (approved with zero sign-off slots, as seeded records are), not the
+  v1.1 the user had just fixed - but the signal named no version, so the fix
+  landed on the wrong baseline and the warning survived it. Worse, the remedy
+  was locked out: the schema permits recording a sign-off on an approved
+  version (slot insert is manager-gated, the provenance trigger forces it in
+  pending and stamps decided_by/decided_at truthfully), but the UI hid the
+  add controls exactly on approved versions, and the signal's own copy
+  claimed the only fix was "future baselines." A warning that can never
+  clear violates the Health tab's stated contract and trains people to
+  ignore the tab.
+- **Fixed, all three.** Version-scoped signals now name their versions
+  ("Approved without a named sign-off: v1.0"), so the fix lands where the
+  problem is. Version history now offers "Record sign-off" on approved
+  baselines - insert plus decide in one action, stamped to whoever records
+  it, framed as what it is: evidence, recorded late, honestly attributed.
+  The warning clears the moment it lands.
+- **And the numbers now agree.** The topbar pill said "2 gaps" for a record
+  with 0 gaps and 2 warnings (it counted signals and called them all gaps);
+  the 2.23 cover line summed per-signal counts (and would have said 8
+  warnings for the same record the Health tab called 2). One convention
+  everywhere now: gaps and warnings count signals, multiplicity stays on the
+  row as ×N. The pill never calls a warning a gap, and gaps outrank warnings
+  in its label.
+- Suites: 154 unit + 231 backend = 385 checks green. Frontend only; no
+  schema change, nothing to run in Supabase.
+
 ## 2.23.0 · the gate moves to the record
 
 - **Positioning corrected with facts, then written down.** The program

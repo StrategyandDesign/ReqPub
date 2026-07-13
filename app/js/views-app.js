@@ -5,7 +5,7 @@
 
 import { esc, escA, ico, IC, brandmark, initials, relTime, themeGet } from './core.js';
 import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, reqDiffDetail, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
-import { healthSignals } from './health.js';
+import { healthSignals, healthPillLabel } from './health.js';
 import { renderTab, newReplyCount } from './views-collab.js';
 import { execSummaryHTML } from './exports.js';
 import { TEMPLATES } from './templates.js';
@@ -570,7 +570,7 @@ function renderDoc(APP, a, ac, total) {
   const sigs = healthSignals(a, { versions: APP.versions, approvalsByVersion: APP.approvals, shares: APP.shares, comms: APP.comms, discovery: APP.discovery });
   const hasGap = sigs.some((s) => s.level === 'gap');
   const gapsPill = sigs.length && APP.docTab !== 'health'
-    ? '<button class="btn btn-sm" data-action="tab" data-val="health" title="Readiness signals - deterministic gaps computed from the record" style="color:' + (hasGap ? 'var(--bad)' : 'var(--amber)') + ';font-weight:620">' + sigs.length + ' ' + (sigs.length === 1 ? 'gap' : 'gaps') + '</button>'
+    ? '<button class="btn btn-sm" data-action="tab" data-val="health" title="Readiness signals - deterministic, computed from the record, cleared the moment the record is fixed" style="color:' + (hasGap ? 'var(--bad)' : 'var(--amber)') + ';font-weight:620">' + healthPillLabel(sigs) + '</button>'
     : '';
   const activeSection = (NAV.find((g) => g.subs.some((s) => s[0] === APP.docTab)) || {}).key;
   const tabBtns = NAV.map((g) => {

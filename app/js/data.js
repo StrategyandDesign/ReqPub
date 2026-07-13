@@ -181,7 +181,7 @@ export const repo = {
     return durable(() => sb.from('version_approvals').insert({
       version_id: versionId, approver_role: role, approver_name: name,
       approver_user_id: userId || null
-    }));
+    }).select('id'));
   },
   decideApproval(id, status, comment) {
     return rpc('approval_decide', { p_approval: id, p_status: status, p_comment: comment || '' });

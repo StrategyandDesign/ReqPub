@@ -69,10 +69,28 @@ const briefFor = (shares, seq) =>
    state of the record at the moment it was fixed, inside an already-immutable
    baseline. Evidence, not a score. "Approved with two known warnings, named"
    is the most defensible sentence in the product. */
+/* One convention on every surface: gaps and warnings count SIGNALS (distinct
+   issues), and a signal's own multiplicity shows as ×N on its row. The Health
+   badge, the topbar pill, the cover rail, and the gate packet all agree. */
 export const healthStateLine = (sigs) => {
-  const sum = (lvl) => (sigs || []).filter((s) => s.level === lvl).reduce((t, s) => t + (s.count || 1), 0);
-  const g = sum('gap'), w = sum('warn');
+  const n = (lvl) => (sigs || []).filter((s) => s.level === lvl).length;
+  const g = n('gap'), w = n('warn');
   return g + ' gap' + (g === 1 ? '' : 's') + ' · ' + w + ' warning' + (w === 1 ? '' : 's');
+};
+/* The ambient count on the workspace topbar. Gaps outrank warnings; the label
+   never calls a warning a gap. Empty string when the record is clean. */
+export const healthPillLabel = (sigs) => {
+  const g = (sigs || []).filter((s) => s.level === 'gap').length;
+  const w = (sigs || []).filter((s) => s.level === 'warn').length;
+  if (g) return g + ' gap' + (g === 1 ? '' : 's');
+  if (w) return w + ' warning' + (w === 1 ? '' : 's');
+  return '';
+};
+/* 'v1.0' / 'v1.0, v2.0' / 'v1.0, v2.0, v3.0 +2 more' - which versions a
+   version-scoped signal is about, so the fix lands on the right baseline. */
+const labelList = (vs) => {
+  const ls = (vs || []).map((v) => 'v' + (v.label || v.seq));
+  return ls.slice(0, 3).join(', ') + (ls.length > 3 ? ' +' + (ls.length - 3) + ' more' : '');
 };
 
 export function healthSignals(a, ctx = {}) {
@@ -146,14 +164,18 @@ export function healthSignals(a, ctx = {}) {
   // cover. The operational rule, made visible instead of made a new
   // permission tier.
   const slotsOf = (v) => ((ctx.approvalsByVersion || {})[v.id] || []).length;
-  const inReviewNoAppr = (ctx.versions || []).filter((v) => v.status === 'in_review' && !slotsOf(v)).length;
-  add('review_no_approvers', 'gap', inReviewNoAppr,
-    'Version' + (inReviewNoAppr === 1 ? '' : 's') + ' in review with no named approvers',
-    'The approvals gate only protects versions that have sign-off slots. Name the approvers, then send it to review.');
-  const approvedNoAppr = (ctx.versions || []).filter((v) => v.status === 'approved' && !slotsOf(v)).length;
-  add('approved_no_signoff', 'warn', approvedNoAppr,
-    'Approved version' + (approvedNoAppr === 1 ? '' : 's') + ' with no named sign-off',
-    'The record shows approval by state alone - no name on the cover. Add named approvers to future baselines.');
+  const inReviewNoAppr = (ctx.versions || []).filter((v) => v.status === 'in_review' && !slotsOf(v));
+  add('review_no_approvers', 'gap', inReviewNoAppr.length,
+    'In review with no named approvers' + (inReviewNoAppr.length ? ': ' + labelList(inReviewNoAppr) : ''),
+    'The approvals gate only protects versions that have sign-off slots. Name the approvers on that version, then send it to review.');
+  // A signal must be fixable, and this one is: a manager can record a manual
+  // sign-off on an approved baseline from Version history (the schema permits
+  // it and stamps who recorded it, when). It names its versions so the fix
+  // lands on the right one - and it clears the moment the sign-off does.
+  const approvedNoAppr = (ctx.versions || []).filter((v) => v.status === 'approved' && !slotsOf(v));
+  add('approved_no_signoff', 'warn', approvedNoAppr.length,
+    'Approved without a named sign-off' + (approvedNoAppr.length ? ': ' + labelList(approvedNoAppr) : ''),
+    'The cover shows approval by state alone. Open that version in Version history and record the sign-off - it is stamped to whoever records it - and this clears the moment it lands.');
 
   // signed a baseline the client-facing surface does not yet reflect.
   const lv = latestVersion(ctx.versions);

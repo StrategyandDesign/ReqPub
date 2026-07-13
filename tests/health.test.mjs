@@ -3,7 +3,7 @@
    deterministic, must appear exactly when its gap exists, and must vanish
    the moment the gap is fixed. Counts must be plain, defensible tallies. */
 import assert from 'node:assert/strict';
-import { healthSignals, recordCounts, countToConfirm, landingTab, incorporatedRows, healthStateLine } from '../app/js/health.js';
+import { healthSignals, recordCounts, countToConfirm, landingTab, incorporatedRows, healthStateLine , healthPillLabel } from '../app/js/health.js';
 import { ENGAGEMENT } from '../app/js/domain.js';
 
 let n = 0;
@@ -192,10 +192,31 @@ test('an approved version with zero sign-off slots warns; drafts never trip it',
   assert.ok(hit && hit.level === 'warn' && hit.count === 1);
 });
 
-test('healthStateLine sums signal counts into the evidence sentence', () => {
+test('healthStateLine counts signals per level - the one convention on every surface', () => {
   assert.equal(healthStateLine([]), '0 gaps · 0 warnings');
-  assert.equal(healthStateLine([{ level: 'gap', count: 1 }, { level: 'warn', count: 2 }]), '1 gap · 2 warnings');
-  assert.equal(healthStateLine([{ level: 'warn', count: 1 }, { level: 'warn' }]), '0 gaps · 2 warnings', 'a countless signal counts once');
+  assert.equal(healthStateLine([{ level: 'gap', count: 1 }, { level: 'warn', count: 7 }]), '1 gap · 1 warning', 'multiplicity stays on the row as ×N, not in the line');
+  assert.equal(healthStateLine([{ level: 'warn', count: 2 }, { level: 'warn', count: 1 }]), '0 gaps · 2 warnings');
+});
+
+test('the topbar pill never calls a warning a gap', () => {
+  assert.equal(healthPillLabel([]), '');
+  assert.equal(healthPillLabel([{ level: 'warn', count: 7 }, { level: 'warn', count: 1 }]), '2 warnings');
+  assert.equal(healthPillLabel([{ level: 'gap', count: 3 }, { level: 'warn', count: 1 }]), '1 gap', 'gaps outrank warnings');
+});
+
+test('version-scoped signals name their versions, and recording a sign-off clears the warning', () => {
+  const ctx = { versions: [
+    { id: 'v1', seq: 1, label: '1.0', status: 'approved', created_at: '2026-07-01T00:00:00Z' },
+    { id: 'v2', seq: 2, label: '1.1', status: 'draft', created_at: '2026-07-02T00:00:00Z' }
+  ], approvalsByVersion: { v2: [{ status: 'approved', approver_name: 'Micah Canfield' }] } };
+  const sigs = healthSignals({ ctrl_product: 'P' }, ctx);
+  const hit = sigs.find((s) => s.key === 'approved_no_signoff');
+  assert.ok(hit, 'v1.0 is approved with zero slots - the warning fires');
+  assert.ok(hit.label.includes('v1.0'), 'the signal names the version it is about');
+  assert.ok(!hit.label.includes('v1.1'), 'a sign-off on the draft is not the issue and is not named');
+  const fixed = healthSignals({ ctrl_product: 'P' },
+    { ...ctx, approvalsByVersion: { ...ctx.approvalsByVersion, v1: [{ status: 'approved', approver_name: 'Tim', approver_role: 'Sponsor' }] } });
+  assert.ok(!fixed.find((s) => s.key === 'approved_no_signoff'), 'it clears the moment the sign-off lands on v1.0');
 });
 
 console.log('\nhealth.test: ' + n + '/' + n + ' passed');

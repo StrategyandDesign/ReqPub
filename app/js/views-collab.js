@@ -534,13 +534,22 @@ function renderVersions(APP) {
           '<button class="btn btn-ghost btn-sm" data-action="apprdecide" data-id="' + escA(ap.id) + '" data-val="changes_requested" style="font-size:11px;color:var(--amber)">Changes</button>' : '') +
         (isMgr ? '<button class="icobtn" data-action="apprdel" data-id="' + escA(ap.id) + '" style="width:26px;height:26px">' + ico(IC.close, 'i-sm') + '</button>' : '') + '</div>';
     }).join('');
-    const addAppr = (isMgr && v.status !== 'approved')
+    // On draft / in-review versions: assign teammates or add manual slots.
+    // On APPROVED versions: recording a sign-off is still legal and honest -
+    // the provenance trigger stamps who recorded it and when - so the health
+    // warning about a nameless approval is fixable exactly where it points.
+    // Teammate assignment is hidden there: a pending slot on an approved
+    // baseline never appears in anyone's waiting-on-you feed.
+    const isApproved = v.status === 'approved';
+    const addAppr = isMgr
       ? '<div style="margin-top:8px"><div style="display:flex;gap:6px;flex-wrap:wrap">' +
-        (memOpts ? '<select class="input" id="apr-user-' + escA(v.id) + '" style="height:32px;font-size:12px;flex:1;min-width:130px"><option value="">Assign a teammate…</option>' + memOpts + '</select>' : '') +
-        '<input class="input" id="apr-role-' + escA(v.id) + '" placeholder="Role (e.g. Engineering)" style="height:32px;font-size:12px;flex:1;min-width:120px">' +
-        '<input class="input" id="apr-name-' + escA(v.id) + '" placeholder="or type a name" style="height:32px;font-size:12px;flex:1;min-width:110px">' +
-        '<button class="btn btn-sec btn-sm" data-action="appradd" data-id="' + escA(v.id) + '">Add</button></div>' +
-        '<div class="hint" style="font-size:10.5px;margin-top:5px">Assign a teammate: they see a waiting on you flag in the app and can approve their own sign-off. Or type a name to record a manual sign-off yourself.</div></div>' : '';
+        (!isApproved && memOpts ? '<select class="input" id="apr-user-' + escA(v.id) + '" style="height:32px;font-size:12px;flex:1;min-width:130px"><option value="">Assign a teammate…</option>' + memOpts + '</select>' : '') +
+        '<input class="input" id="apr-role-' + escA(v.id) + '" placeholder="Role (e.g. Sponsor)" style="height:32px;font-size:12px;flex:1;min-width:120px">' +
+        '<input class="input" id="apr-name-' + escA(v.id) + '" placeholder="' + (isApproved ? 'Signer\u2019s name' : 'or type a name') + '" style="height:32px;font-size:12px;flex:1;min-width:110px">' +
+        '<button class="btn btn-sec btn-sm" data-action="' + (isApproved ? 'apprrecord' : 'appradd') + '" data-id="' + escA(v.id) + '">' + (isApproved ? 'Record sign-off' : 'Add') + '</button></div>' +
+        '<div class="hint" style="font-size:10.5px;margin-top:5px">' + (isApproved
+          ? 'This baseline is already approved. Recording adds a named sign-off as evidence - stamped to whoever records it, at the time it is recorded - and the health warning clears the moment it lands.'
+          : 'Assign a teammate: they see a waiting on you flag in the app and can approve their own sign-off. Or type a name to record a manual sign-off yourself.') + '</div></div>' : '';
     return '<div class="tl-item' + (on ? ' hot' : '') + '">' +
       '<button data-action="viewver" data-seq="' + v.seq + '" style="text-align:left;display:block;width:100%">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-size:14px;font-weight:600">v' + esc(v.label) + '</span>' +

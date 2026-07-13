@@ -47,7 +47,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── share.test.mjs                   13 section-scoped share-payload tests
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
 │   ├── engagement.test.mjs             17 charter + gate-plan + AI-acceptance + PRD-invariance tests
-│   ├── health.test.mjs                 22 readiness / accumulation / evidence-line tests
+│   ├── health.test.mjs                 24 readiness / evidence-line / pill-label tests
 │   ├── templates.test.mjs              10 template validation + RPC-application tests
 │   ├── fingerprint.test.mjs            14 canonical-JSON / client-report / gate-packet tests
 │   ├── views.test.mjs                  9 view-render contracts (picker, guard, roles, promotion)
@@ -79,7 +79,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 152 domain + concurrency + share + health + package + fingerprint checks (node only)
+npm test                        # 154 domain + concurrency + share + health + package + fingerprint checks (node only)
 npm i && npm run test:backend   # 231 checks on an embedded Postgres
 ```
 

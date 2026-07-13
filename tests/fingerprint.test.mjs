@@ -115,7 +115,7 @@ test('the gate packet composes name, criteria state, per-column changes, and the
   const prev = { fr: [{ _k: 1, stmt: 'Records a session', fit: 'within 5 seconds', pri: 'Must' }] };
   const md = gatePacketMd(meta, cur, prev, '1.0');
   assert.ok(md.includes('**Requirements Baseline** - a named decision on baseline v2.0'));
-  assert.ok(md.includes('0 gaps · 2 warnings'));
+  assert.ok(md.includes('0 gaps · 1 warning'), 'the line counts signals; the row below carries the ×2');
   assert.ok(md.includes('Warning ×2: Approved versions with no named sign-off'));
   assert.ok(md.includes('## Changes since v1.0'));
   assert.ok(md.includes('- fit criterion: ~~within 5 seconds~~ → within 30 seconds'));
