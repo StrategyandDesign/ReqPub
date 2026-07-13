@@ -110,8 +110,8 @@ function briefPicker(APP) {
   const chips = BRIEF_SECTIONS.map((s) =>
     '<button class="chip' + (picked.includes(s.key) ? ' on' : '') + '" data-action="briefpicktoggle" data-val="' + s.key + '" style="height:36px;font-size:13px">' + esc(s.label) + '</button>').join('');
   return '<div class="modal-back" data-action="modalback"><div class="modal-card" role="dialog" aria-modal="true" data-stop="1">' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>What do partners and SMEs see?</h3><button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
-    '<div class="hint" style="margin-top:4px">These are the sections' + (latest ? ' of v' + esc(latest.label) : '') + ' that every external party sees: partners in their portal, SMEs in their workspace, and anyone with a review link. Unselected content is left out of the share entirely, not hidden. Fit criteria, schedules, and internal notes are never included.</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>What do client contacts and SMEs see?</h3><button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
+    '<div class="hint" style="margin-top:4px">These are the sections' + (latest ? ' of v' + esc(latest.label) : '') + ' that every external party sees: client contacts in their portal, SMEs in their workspace, and anyone with a review link. Unselected content is left out of the share entirely, not hidden. Fit criteria, schedules, and internal notes are never included.</div>' +
     '<div class="fldlabel">Sections</div><div class="choice">' + chips + '</div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:18px">' +
     '<span class="hint">' + picked.length + ' of ' + BRIEF_SECTIONS.length + ' selected</span>' +
@@ -136,7 +136,7 @@ function shareModal(APP) {
     '<button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
     '<div style="padding:10px 6px 12px">' +
     row(IC.users, 'var(--sky)', 'var(--brand)', 'A teammate', 'Full workspace access with an account. Managers edit; Viewers read and reply.', 'shr-team') +
-    row(IC.user, '#f1ebfd', 'var(--purple)', 'A partner', 'Client-side manager of SMEs. Signs in, sees published briefs of granted projects only.', 'shr-partner') +
+    row(IC.user, '#f1ebfd', 'var(--purple)', 'A client contact', 'Client-side manager of SMEs. Signs in, sees published briefs of granted projects only.', 'shr-partner') +
     row(IC.send, '#e6f7fb', 'var(--teal)', 'An SME reviewer', latest ? 'Pick which sections of v' + esc(latest.label) + ' they see, then copy the link. No account needed.' : 'Generate a version first.', 'shr-brief', !latest) +
     row(IC.link, '#e6f7fb', 'var(--teal)', 'An app tester', latest ? 'Copies the testing link for v' + esc(latest.label) + '. Bug reports land in your Inbox.' : 'Generate a version first.', 'shr-pilot', !latest) +
     row(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'A question for an SME', 'Compose an input request and send its link. Answers thread back to the Inbox.', 'shr-request') +
@@ -159,7 +159,7 @@ function generateModal(APP) {
   const nextMinor = nextLabel(APP.versions, false), nextMajor = nextLabel(APP.versions, true);
   return '<div class="modal-back" data-action="modalback"><div class="modal-card" role="dialog" aria-modal="true" data-stop="1">' +
     '<div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>Generate a version</h3><button class="modal-x" data-action="modalclose">' + ico(IC.close) + '</button></div>' +
-    '<div class="hint" style="margin-top:6px">Locks the current worksheet into an immutable baseline that reviewers, SMEs, and partners see.</div>' +
+    '<div class="hint" style="margin-top:6px">Locks the current worksheet into an immutable baseline that reviewers, SMEs, and client contacts see.</div>' +
     '<div class="fldlabel">Version</div><div class="choice">' +
     '<button class="chip' + (!g.major ? ' on' : '') + '" data-action="genkind" data-val="minor">Minor · v' + esc(nextMinor) + '</button>' +
     '<button class="chip' + (g.major ? ' on' : '') + '" data-action="genkind" data-val="major">Major · v' + esc(nextMajor) + '</button></div>' +
@@ -267,7 +267,7 @@ function orgModal(APP) {
         '<button class="icobtn" data-action="premove" data-id="' + escA(p.id) + '">' + ico(IC.close, 'i-sm') + '</button></div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-left:40px">' + (chips || '<span class="hint">Create a project to assign.</span>') + '</div></div>';
     }).join('');
-    body = '<div class="fldlabel">Add a partner</div>' +
+    body = '<div class="fldlabel">Add a client contact</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><input class="input" id="pName" placeholder="Name" style="flex:1;min-width:120px"><input class="input" id="pEmail" type="email" placeholder="email" style="flex:1.4;min-width:170px"><button class="btn btn-primary" data-action="paddnew">Add</button></div>' +
       '<div class="hint" style="margin-top:7px">Client contacts manage SMEs on the client side. They sign in with this email, see only the published brief of assigned projects, and exchange threads with your team.</div>' +
       '<div class="fldlabel" style="margin-top:18px">Client contacts &amp; project access</div>' + (rows || '<div class="hint">No client contacts yet.</div>');
@@ -284,7 +284,7 @@ export function viewProjects(APP) {
   let agg = { unread: 0, open: 0, newExt: 0 };
   list.forEach((p) => { const s = stats[p.id]; if (s) { agg.unread += s.unread; agg.open += s.open; agg.newExt += (s.newExt || 0); } });
   const bits = [];
-  if (agg.newExt) bits.push(agg.newExt + ' new repl' + (agg.newExt === 1 ? 'y' : 'ies') + ' from partners or SMEs');
+  if (agg.newExt) bits.push(agg.newExt + ' new repl' + (agg.newExt === 1 ? 'y' : 'ies') + ' from client contacts or SMEs');
   if (agg.open && APP.role === 'manager') bits.push(agg.open + ' item' + (agg.open === 1 ? '' : 's') + ' awaiting review');
   const banner = bits.length
     ? '<div class="card rise" style="padding:16px 18px;margin-bottom:18px;border:1px solid var(--sky-2);background:var(--sky);display:flex;align-items:center;gap:12px">' +
@@ -573,7 +573,7 @@ function renderDoc(APP, a, ac, total) {
   const tabBtns = NAV.map((g) => {
     const on = g.key === activeSection;
     const badge = (g.key === 'inbox' && newRep)
-      ? ' <span style="background:var(--brand);color:#fff;border-radius:999px;padding:0 5px;font-size:10px;font-weight:700;vertical-align:1px" title="New replies from partners or SMEs">' + newRep + '</span>' : '';
+      ? ' <span style="background:var(--brand);color:#fff;border-radius:999px;padding:0 5px;font-size:10px;font-weight:700;vertical-align:1px" title="New replies from client contacts or SMEs">' + newRep + '</span>' : '';
     return '<button class="btn btn-sm" data-action="tab" data-val="' + g.subs[0][0] + '" style="' +
       (on ? 'background:var(--ink);color:var(--bg)' : 'color:var(--ink-3)') + '">' + g.label + badge + '</button>';
   }).join('');

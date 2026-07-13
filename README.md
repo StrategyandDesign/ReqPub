@@ -27,7 +27,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── exports.js                   Word / Markdown / print / executive summary / client baseline report
 │       ├── views-app.js                 shell, dashboard, workspace, command palette
 │       ├── views-collab.js              inbox, discovery, notes, versions + approvals, health, access, activity
-│       ├── views-external.js            partner portal, SME workspace, accountless SME pages
+│       ├── views-external.js            client portal (`partner` role), SME workspace, accountless pages
 │       └── main.js                      state, routing, events
 ├── supabase/
 │   ├── schema.sql                       v2 tables, RLS, RPCs, triggers, realtime auth

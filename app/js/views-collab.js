@@ -12,6 +12,7 @@ const attachmentsForComm = (APP, commId) => (APP.attachments || []).filter((a) =
 
 const EXTERNAL = { app: 1, brief: 1, sme: 1, partner: 1 };
 const ORIGIN_LABEL = { app: 'App', brief: 'Reviewer', sme: 'SME', partner: 'Client contact', team: 'Team', meeting: 'Meeting' };
+const AUTHOR_LABEL = { partner: 'Client contact', sme: 'SME', team: 'Team' };   // author_kind keys are schema-permanent; only the label changes
 const COMM_STATUS = ['new', 'in_review', 'actioned', 'closed'];
 const COMM_STATUS_LABEL = { new: 'New', in_review: 'In review', actioned: 'Actioned', closed: 'Closed' };
 
@@ -64,7 +65,7 @@ function threadHTML(APP, comm, canReply) {
   const thread = msgs.map((m) =>
     '<div style="padding:8px 0;border-top:1px solid var(--line)"><div style="font-size:11px;color:var(--ink-4);margin-bottom:2px">' +
     '<strong style="color:var(--ink-2)">' + esc(m.author_name || 'Team') + '</strong>' +
-    (m.author_kind !== 'team' ? ' <span class="pill" style="height:16px;font-size:9.5px;padding:0 6px;vertical-align:1px;color:' + srcColor(m.author_kind === 'partner' ? 'partner' : 'sme') + ';border-color:currentColor">' + esc(m.author_kind) + '</span>' : '') +
+    (m.author_kind !== 'team' ? ' <span class="pill" style="height:16px;font-size:9.5px;padding:0 6px;vertical-align:1px;color:' + srcColor(m.author_kind === 'partner' ? 'partner' : 'sme') + ';border-color:currentColor">' + esc(AUTHOR_LABEL[m.author_kind] || m.author_kind) + '</span>' : '') +
     ' · ' + esc(relTime(m.created_at)) + '</div>' +
     '<div style="font-size:12.5px;color:var(--ink-2);line-height:1.5;white-space:pre-wrap">' + esc(m.body) + '</div></div>').join('');
   const draft = (APP.drafts[comm.id] || '');
@@ -146,7 +147,7 @@ function renderInbox(APP) {
   const search = '<input class="input" data-ibsearch="1" value="' + escA(F.q || '') + '" placeholder="Search people, titles, text" style="margin:12px 0 10px;font-size:13px">';
   const filters = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px"><span class="eyebrow" style="font-size:9px">Source</span><div class="choice">' + srcs.map(schip).join('') + '</div><div style="width:8px"></div><span class="eyebrow" style="font-size:9px">Status</span><div class="choice">' + stats.map(stchip).join('') + '</div></div>';
   const items = !all.length
-    ? '<div class="empty">' + ico(IC.msg) + '<div style="font-size:14px;color:var(--ink-2);font-weight:560;margin-bottom:4px">No communications yet</div><div style="font-size:13px;max-width:280px">App reports, PRD reviews, SME input, and partner notes all land here - live.</div></div>'
+    ? '<div class="empty">' + ico(IC.msg) + '<div style="font-size:14px;color:var(--ink-2);font-weight:560;margin-bottom:4px">No communications yet</div><div style="font-size:13px;max-width:280px">App reports, PRD reviews, SME input, and client-contact notes all land here - live.</div></div>'
     : !filtered.length ? '<div class="empty">' + ico(IC.msg) + '<div style="font-size:13px">Nothing matches.</div></div>'
     : filtered.map((it) => commCard(APP, it)).join('');
   return '<div class="page" style="max-width:600px">' + header + search + filters + items + '</div>';
@@ -398,7 +399,7 @@ function renderAccess(APP) {
       '<button class="btn btn-primary btn-sm" data-action="accpadd">Add + grant</button></div>'
     : '';
   const partnersBody = (pRows || '<div class="acc-row" style="border-top:none"><span style="font-size:12.5px;color:var(--ink-4)">' +
-    (isMgr ? 'No partners yet. Add one below; they sign in with their email.' : 'No partners yet.') + '</span></div>') + pAdd;
+    (isMgr ? 'No client contacts yet. Add one below; they sign in with their email.' : 'No client contacts yet.') + '</span></div>') + pAdd;
 
   /* 3 - guest links for the latest version */
   const guestBody = latest
@@ -447,7 +448,7 @@ function renderAccess(APP) {
       (isMgr ? 'No logo yet. Add the collaborator’s logo; it appears on the brief they see and on the printed PDF.' : 'No collaborator logo set.') + '</span>' +
       (isMgr ? '<div style="flex:1"></div><button class="btn btn-sec btn-sm" data-action="brandpick">' + ico(IC.plus, 'i-sm') + 'Upload logo</button>' : '') + '</div>';
   const brandBody = brandPreview +
-    (isMgr && proj.brand_logo ? '<div class="acc-row"><span style="flex:1;font-size:11.5px;color:var(--ink-4)">Shown to partners and SMEs on the shared PRD, and on every printed or Word export.</span><button class="btn btn-ghost btn-sm" data-action="brandpick">Replace</button></div>' : '') +
+    (isMgr && proj.brand_logo ? '<div class="acc-row"><span style="flex:1;font-size:11.5px;color:var(--ink-4)">Shown to client contacts and SMEs on the shared PRD, and on every printed or Word export.</span><button class="btn btn-ghost btn-sm" data-action="brandpick">Replace</button></div>' : '') +
     (isMgr ? '<input type="file" id="brandFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none">' : '');
 
   /* SME workspaces - one durable personal link per expert (this project) */
@@ -489,11 +490,11 @@ function renderAccess(APP) {
       '<div class="acc-row" style="border-top:none"><span style="flex:1;font-size:12.5px;color:var(--ink-4)">' +
       (latest ? 'Points at v' + esc(latest.label) + '. Anyone with the link can view; nobody can edit.' : 'Generate a version first.') + '</span>' +
       '<button class="btn btn-sec btn-sm" data-action="copypresent"' + (latest ? '' : ' disabled') + '>' + ico(IC.link, 'i-sm') + 'Copy link</button></div>') +
-    section(IC.doc, 'var(--bg-3)', 'var(--ink)', 'Brand on the shared PRD', 'Assign the collaborator’s logo to this PRD. It appears when a partner or SME views the brief, and on the printed and Word exports.', brandBody) +
+    section(IC.doc, 'var(--bg-3)', 'var(--ink)', 'Brand on the shared PRD', 'Assign the collaborator’s logo to this PRD. It appears when a client contact or SME views the brief, and on the printed and Word exports.', brandBody) +
     section(IC.users, 'var(--sky)', 'var(--brand)', 'Your team', 'Sign in with accounts. Managers edit the document; Viewers read everything and reply in threads.', teamBody) +
     section(IC.user, '#f1ebfd', 'var(--purple)', 'Client contacts', 'The client-side portal role. They sign in with their email and see only the published brief of projects granted here.', partnersBody) +
     section(IC.msg, '#e6f7fb', 'var(--teal)', 'SME workspaces', 'A durable personal link per expert: the branded PRD plus one continuous thread that stays put across every version. No account, no lost bookmarks - the same link always reopens their conversation.', smeBody) +
-    section(IC.clip, 'var(--bg-3)', 'var(--ink)', 'Files from reviewers', 'Documents partners and SMEs attach to their notes. Download here or from the thread. Files are virus-scanned when a scanner is configured; a “scan failed” flag means one was set but unreachable.', filesBody) +
+    section(IC.clip, 'var(--bg-3)', 'var(--ink)', 'Files from reviewers', 'Documents client contacts and SMEs attach to their notes. Download here or from the thread. Files are virus-scanned when a scanner is configured; a “scan failed” flag means one was set but unreachable.', filesBody) +
     section(IC.send, '#e6f7fb', 'var(--teal)', 'Review &amp; testing links', 'No account needed. Each recipient gets a private thread back to your inbox. Anyone with the link can respond, so share deliberately.', guestBody) +
     section(IC.msg, 'var(--amber-bg)', 'var(--amber)', 'Input requests', 'Ask SMEs a specific question before or after the PRD exists. Responses land in the Inbox, linked to the request.', reqBody) +
     (olderBody ? section(IC.hist, 'var(--bg-3)', 'var(--ink-3)', 'Older links still live', 'Links for earlier versions that were never revoked.', olderBody) : '') +

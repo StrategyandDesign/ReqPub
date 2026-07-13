@@ -24,14 +24,14 @@ Concretely:
 
 Everything shared is rows in Postgres; nothing user-visible lives in a JSON blob keyed by org anymore.
 
-- `projects`: one row per PRD. `id` stays **text** to preserve v1 ids, and with them every share link and partner assignment in the wild.
+- `projects`: one row per PRD. `id` stays **text** to preserve v1 ids, and with them every share link and client-contact assignment in the wild.
 - `project_fields`: one row per scalar answer (`project_id, field_id` PK, `value jsonb`, `rev`, author attribution).
 - `field_rows`: one row per repeating item (requirements, personas, metrics, goals), with `k` (permanent identity), `pos` (ordering), `rev`, soft `deleted`.
 - `versions`: immutable baselines. seq, label, full snapshot (answers + rendered sections), build tag, and a **status state machine** (`draft → in_review → approved / changes_requested`) enforced in `version_set_status`.
 - `version_approvals`: approver slots per version. A slot is either assigned to a team member (`approver_user_id`) or a free-text name for a manual sign-off. The gate is real: `approved` is refused while any approver is pending. Decisions run through `approval_decide`, which authorizes a manager on any slot but a member only on their own assigned slot (in-app routing, no email); the provenance trigger stamps `decided_by` from `auth.uid()` either way, so a sign-off is always attributed to whoever made it. `my_open_approvals()` returns the caller's pending slots on in-review versions, driving the dashboard "waiting on you" flag. (Of the tools surveyed, Productboard, Jira Product Discovery, and Confluence, none ships a native approval gate; Aha! is the exception. This is deliberate white space.)
-- `comms`: every communication (app feedback, brief reviews, SME input, partner notes, team/meeting notes) in one table with `origin`, unified status (`new / in_review / actioned / closed`), version linkage, promotion tracking, a human-readable `ref` for partner notes, and optionally a `reply_token` for accountless SME threads.
+- `comms`: every communication (app feedback, brief reviews, SME input, client-contact notes, team/meeting notes) in one table with `origin`, unified status (`new / in_review / actioned / closed`), version linkage, promotion tracking, a human-readable `ref` for client-contact (`partner`-origin) notes, and optionally a `reply_token` for accountless SME threads.
 - `messages`: threaded replies on any `comm` or `request`, with `author_kind` (team / partner / sme). Insert-only.
-- `attachments`: metadata for files uploaded by the team, partners, and seated SMEs (org, project, thread, uploader, name, type, size, storage path, scan status). Bytes live in a private Storage bucket; this table is the audit anchor. Every row is written by a `SECURITY DEFINER` RPC that the upload edge function calls only after a virus scan.
+- `attachments`: metadata for files uploaded by the team, client contacts, and seated SMEs (org, project, thread, uploader, name, type, size, storage path, scan status). Bytes live in a private Storage bucket; this table is the audit anchor. Every row is written by a `SECURITY DEFINER` RPC that the upload edge function calls only after a virus scan.
 - `input_requests`: tokened "ask an SME" links with prompt, due date, status.
 - `discovery_entries`: the research log.
 - `read_marks`: per-user read receipts (v1 stored these org-wide, which was simply wrong).
@@ -47,7 +47,7 @@ Row-level security on every table; membership checks run through `SECURITY DEFIN
 - Managers write; Viewers read everything and may post comms/replies (their inserts are constrained to their own identity: `author_user = auth.uid()`).
 - Racy structures cannot be written directly at all. No INSERT/UPDATE policies exist on `project_fields` or `field_rows`; the RPCs are the only path, so rev checks cannot be bypassed by a creative client.
 - Messages inserts verify the parent belongs to the same org (no cross-org thread injection).
-- Partners touch nothing directly; their surface is a small set of RPCs that scope every query to `partner_access` rows for `auth.uid()`.
+- Client contacts (the `partner` role) touch nothing directly; their surface is a small set of RPCs that scope every query to `partner_access` rows for `auth.uid()`.
 - SMEs have no account. Share and reply tokens are 144-bit random URL-safe strings generated server-side (`gen_random_bytes`), not guessable hashes; payloads served to them are curated subsets built by the app (`buildSharePayload`) that never include fit criteria, schedules, or internal notes. Legacy v1 hash tokens continue to resolve because the rows were migrated, but all new tokens are random.
 - Anonymous endpoints are rate limited server-side: 60 submissions per project per origin per hour, 30 per input request per hour, 30 replies per SME thread per hour, and 40 file uploads per project per hour. Publishing a share is fenced to the caller's own org and project, so a colliding or guessed token belonging to another workspace is refused rather than overwritten.
 - Team identity is server-stamped: when a signed-in member writes a team message or team note, the author name is taken from their profile, not from the request. External viewers therefore cannot be shown words under a teammate's forged name.
@@ -72,10 +72,10 @@ Trigger failure safety: every broadcast call is wrapped so a realtime outage can
 Three tiers, matching how the surveyed tools converge (paid makers, scoped free collaborators, zero-friction reviewers), plus the partner layer none of them model:
 
 - **SMEs (no account):** brief review, app testing, and input-request pages served by token. Every submission returns a private reply token, so the SME bookmarks the page and has a two-way thread with the team (`sme_thread` / `sme_reply`), no login ever. A seated SME also gets a durable per-PRD workspace reached by one stable link that resumes the same thread across versions and devices. v1 SMEs fired feedback into a void.
-- **Client contacts (account; schema role `partner`):** a portal listing assigned projects with the latest *published* brief, their notes as live threads (each carrying a stable `PN-n` reference), and direct reply. Partner identity is server-derived, never client-asserted.
+- **Client contacts (account; schema role `partner`):** a portal listing assigned projects with the latest *published* brief, their notes as live threads (each carrying a stable `PN-n` reference), and direct reply. Client-contact identity is server-derived, never client-asserted.
 - **Team:** managers and viewers, with viewers deliberately able to participate in conversation while remaining unable to touch the document.
 
-Partners and seated SMEs can also attach documents to their threads. Uploads are scanned when a scanner is configured, stored privately, and land in the team's inbox and a per-PRD file roll-up; see `docs/ATTACHMENTS.md`.
+Client contacts and seated SMEs can also attach documents to their threads. Uploads are scanned when a scanner is configured, stored privately, and land in the team's inbox and a per-PRD file roll-up; see `docs/ATTACHMENTS.md`.
 
 ## 6. Migration
 

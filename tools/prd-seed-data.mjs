@@ -213,8 +213,8 @@ export const reqpub = {
     ov_purpose: 'This document is the working requirements record for ReqPub itself: the platform the team uses to turn discovery into a versioned, approved, testable requirements record. It states what has already shipped (so the team edits from reality) and what remains for the next phase (SOC 2 Type II and e-signature execution with cryptographic sealing). It is the record the team stress-tests the platform against.',
     ov_vision: 'The requirements record your client approves. ReqPub takes a project from discovery to an approved, testable baseline where every version is numbered, every approval is named, and every export carries its own history. When someone asks what was agreed, you open the record. The terminal promise is a sign-off that is cryptographically sealed to the exact baseline signed, so the document proves itself.',
     ov_problem: 'Projects fail at "that’s not what we agreed," not at the build. Requirements live in decks, documents, and email threads; reconstructing who approved what, when, and what changed since the client last saw it burns senior hours and goodwill. Teams need a single record that moves with the scope and defends itself under review.',
-    ov_market: 'Advisory and product teams whose work is reviewed, contested, and approved: consulting engagement teams, agencies, and internal product groups working with external subject-matter experts and partners. The buyer answers to a client and to procurement; the record is the artifact both trust.',
-    context: 'A static frontend (installable, no build step) on a managed Postgres backend with row-level security, realtime, and edge functions. Deployed on GitHub Pages against Supabase. Used live by internal teams (managers and viewers), external SMEs with no account (tokened links), and partners who manage SMEs (a portal). Multiplayer editing must survive nine or more concurrent editors without lost writes.',
+    ov_market: 'Advisory and product teams whose work is reviewed, contested, and approved: consulting engagement teams, agencies, and internal product groups working with external subject-matter experts and client contacts. The buyer answers to a client and to procurement; the record is the artifact both trust.',
+    context: 'A static frontend (installable, no build step) on a managed Postgres backend with row-level security, realtime, and edge functions. Deployed on GitHub Pages against Supabase. Used live by internal teams (managers and viewers), external SMEs with no account (tokened links), and client contacts who manage SMEs (a portal). Multiplayer editing must survive nine or more concurrent editors without lost writes.',
     sol_solution: 'A relational requirements platform: every shared structure is rows, not a JSON blob, so concurrent adds cannot overwrite each other; every scalar field carries a revision so stale writes are detected and resolved rather than clobbered; version numbers are allocated server-side; approvals are a real state machine with named, server-stamped sign-off; sharing is section-scoped and brand-carrying; and every export carries its own history on the cover. The next phase seals that export cryptographically and executes sign-off by e-signature.',
     staged: 'Yes',
     has_ai: 'No',
@@ -232,7 +232,7 @@ export const reqpub = {
     ov_goals: [
       'Let a full team edit one requirements document at once with zero lost writes.',
       'Make every version numbered, every approval named, and every export self-documenting.',
-      'Let external SMEs and partners review and approve from a link with no account.',
+      'Let external SMEs and client contacts review and approve from a link with no account.',
       'Reach SOC 2 Type II certification before the first enterprise contract renewal.',
       'Execute sign-off by e-signature, cryptographically sealed to the exact baseline signed.'
     ],
@@ -241,7 +241,7 @@ export const reqpub = {
       'Live multiplayer editing with presence, per-field conflict detection, and durable retried saves.',
       'Immutable, server-numbered version baselines with a change diff by requirement ID.',
       'A real approval state machine with named, server-stamped sign-off and a gate on Approved.',
-      'Section-scoped, brand-carrying sharing: SME review links, partner portal, and read-only presentation links.',
+      'Section-scoped, brand-carrying sharing: SME review links, client portal, and read-only presentation links.',
       'A designed, co-branded PDF and Word export carrying version, status, approvals, and history.',
       'Validated template starts, record-health signals, one-click promotion from discovery, and a fingerprinted client baseline report.',
       'An append-only audit trail written by the database.'
@@ -290,7 +290,7 @@ export const reqpub = {
       { rel: 'Phase 1 Relational core (shipped)', obj: 'Rebuild from key-value to relational: rev-checked fields, insert-based rows, server-numbered versions, migration.', mvp: 'shipped', ship: 'shipped' },
       { rel: 'Phase 2 Live collaboration (shipped)', obj: 'Presence, per-field conflict resolution, durable retried saves, live document follow, presentation mode.', mvp: 'shipped', ship: 'shipped' },
       { rel: 'Phase 3 Approvals & audit (shipped)', obj: 'Approval state machine with named sign-off, append-only activity trail, provenance trigger.', mvp: 'shipped', ship: 'shipped' },
-      { rel: 'Phase 4 Sharing & brand (shipped)', obj: 'Section-scoped SME links, partner portal, per-PRD brand logo, designed co-branded PDF, read-only presentation link.', mvp: 'shipped', ship: 'shipped' },
+      { rel: 'Phase 4 Sharing & brand (shipped)', obj: 'Section-scoped SME links, client portal, per-PRD brand logo, designed co-branded PDF, read-only presentation link.', mvp: 'shipped', ship: 'shipped' },
       { rel: 'Phase 5 Record health & client deliverable (shipped)', obj: 'Validated template starts, baseline-readiness signals, one-click promotion from discovery with source attribution, fingerprinted client baseline report.', mvp: 'shipped', ship: 'shipped' },
       { rel: 'Phase 6 SOC 2 Type II (next)', obj: 'Controls, evidence collection, and an independent Type II examination.', mvp: 'to confirm', ship: 'to confirm' },
       { rel: 'Phase 7 E-signature & sealing (next)', obj: 'Execute sign-off by e-signature and cryptographically seal each export to the exact baseline signed.', mvp: 'to confirm', ship: 'to confirm' }
@@ -299,7 +299,7 @@ export const reqpub = {
       { name: 'Relational core', owner: 'Engineering', status: 'Shipped', desc: 'Projects, fields, rows, versions; rev-checked RPCs; RLS; kv migration.' },
       { name: 'Live collaboration', owner: 'Engineering', status: 'Shipped', desc: 'Presence, conflict resolution, durable saves, live doc follow, presentation mode.' },
       { name: 'Approvals & audit', owner: 'Engineering', status: 'Shipped', desc: 'Approval state machine, named sign-off, append-only activity trail.' },
-      { name: 'Sharing & brand', owner: 'Engineering', status: 'Shipped', desc: 'Section-scoped links, partner portal, brand logo, designed PDF, presentation link.' },
+      { name: 'Sharing & brand', owner: 'Engineering', status: 'Shipped', desc: 'Section-scoped links, client portal, brand logo, designed PDF, presentation link.' },
       { name: 'Record health & deliverables', owner: 'Engineering', status: 'Shipped', desc: 'Template starts, readiness signals, discovery promotion with attribution, fingerprinted client baseline report.' },
       { name: 'SOC 2 compliance', owner: 'Security / Compliance', status: 'Planned', desc: 'Control set, evidence automation, independent Type II examination.' },
       { name: 'E-signature & sealing', owner: 'Engineering', status: 'Planned', desc: 'E-signature execution and cryptographic sealing of exports to their baseline.' }
@@ -353,7 +353,7 @@ export const reqpub = {
     ],
     people: [
       { name: 'Micah Canfield', role: 'Owner; product direction and approvals' },
-      { name: 'Collection Ventures team', role: 'Nine-person team stress-testing the platform as managers, viewers, partners, and SME reviewers' }
+      { name: 'Collection Ventures team', role: 'Nine-person team stress-testing the platform as managers, viewers, client contacts, and SME reviewers' }
     ],
     glossary: [
       { term: 'Baseline', def: 'An immutable, numbered snapshot of the requirements at a point in time.' },

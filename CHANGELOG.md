@@ -1,5 +1,37 @@
 # Changelog
 
+## 2.22.1 · the sweep behind the rename
+
+- **Full-platform audit of the word "Partner," every occurrence classified.**
+  The 2.22.0 rename covered the primary surfaces; this sweep caught what it
+  missed. Fixed, because a person could read them: the invite email a client
+  receives said "added as a **partner**" (the worst possible surface - the
+  wire key stays `partner`, the words now say client contact); the share
+  modal, publish hint, access empty states, inbox copy, brand and files
+  descriptions, "new replies" badges, and two toasts; the thread author pill
+  rendered the raw `author_kind` key ("partner" lowercase) and now maps to
+  Client contact / SME / Team; the schema's uploader-name fallback said
+  'Partner' when a client contact had no name on file - one word inside
+  `attachment_uploader`, recreated by `supabase/fix-client-contact-label.sql`
+  (idempotent, display-only, no authorization or shape change); and the
+  meta-PRD's own prose (market, context, goals, scope, releases, components,
+  people) now says client portal and client contacts, regenerated through the
+  validator.
+- **Left alone, deliberately, and on the record:** every schema identifier
+  (`partner` role, `partners`, `partner_access`, origin and author-kind keys,
+  RPC names), every code identifier and action key, the wire parameter to the
+  invite function, test files and fixtures, `docs/AUDIT.md` (a dated
+  historical record), older changelog entries (history stays history), and
+  the two PRDs where "partner" means something else: the e-sign PRD's
+  commercial partners and the Fathering PRD's partnered groups. Words keep
+  their senses.
+- Living docs (SECURITY.md, ARCHITECTURE.md, ATTACHMENTS.md, README) now say
+  client contact in prose and `partner` only when naming the schema role.
+- Suites: 145 unit + 231 backend = 376 checks green, backend rerun in full
+  because schema.sql changed. Deploy note: run
+  `supabase/fix-client-contact-label.sql` once, and redeploy the send-invite
+  edge function (`supabase functions deploy send-invite`).
+
 ## 2.22.0 · the right names in the room
 
 - **Independently verified before building:** the buyer's reference firm

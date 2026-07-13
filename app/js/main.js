@@ -621,7 +621,7 @@ async function handleAction(a, id, t, e) {
       const name = val('pName').trim(), email = val('pEmail').trim().toLowerCase();
       if (!email || !email.includes('@')) { toast('Enter a valid email'); break; }
       const r = await repo.addPartner(APP.orgId, email, name);
-      if (r.error) { toast('Could not add partner'); break; }
+      if (r.error) { toast('Could not add client contact'); break; }
       repo.sendInviteEmail(email, 'partner', APP.org, APP.user.email);
       loadOrgData('partners');
       break;
@@ -875,7 +875,7 @@ async function handleAction(a, id, t, e) {
       const name = val('accPName').trim(), email = val('accPEmail').trim().toLowerCase();
       if (!email || !email.includes('@')) { toast('Enter a valid email'); break; }
       const r = await repo.addPartner(APP.orgId, email, name);
-      if (r.error || !r.data) { toast('Could not add partner'); break; }
+      if (r.error || !r.data) { toast('Could not add client contact'); break; }
       await repo.grantPartner(r.data.id, APP.pid);
       repo.sendInviteEmail(email, 'partner', APP.org, APP.user.email);
       toast('Client contact added with access to this project');

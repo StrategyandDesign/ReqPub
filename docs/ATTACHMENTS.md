@@ -1,6 +1,6 @@
 # Attachments: files from partners and SMEs
 
-Partners and seated SMEs (and the team) can attach documents (PDFs, Word/Excel/
+Client contacts and seated SMEs (and the team) can attach documents (PDFs, Word/Excel/
 PowerPoint, text/CSV/Markdown, images, and zips) to a conversation. Files are
 **scanned on the way in when a scanner is configured** (see setup below), stored
 in a **private** bucket, and reachable only through short-lived signed links.

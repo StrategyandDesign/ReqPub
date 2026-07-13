@@ -1218,7 +1218,7 @@ returns jsonb language sql security definer stable set search_path = public as $
     when exists (select 1 from partners pt join partner_access pa on pa.partner_id = pt.id
                  where pt.user_id = p_user and pa.project_id = c.project_id)
       then jsonb_build_object('ok', true, 'kind', 'partner', 'org_id', c.org_id, 'project_id', c.project_id,
-             'name', coalesce((select name from partners where user_id = p_user and org_id = c.org_id limit 1), 'Partner'))
+             'name', coalesce((select name from partners where user_id = p_user and org_id = c.org_id limit 1), 'Client contact'))
     else jsonb_build_object('ok', false, 'error', 'forbidden')
   end
   from (select 1) one left join comms c on c.id = p_comm;

@@ -52,6 +52,9 @@ Deno.serve(async (req) => {
 
   const email = String(body.email ?? "").trim();
   const role = String(body.role ?? "teammate");
+  // The wire key stays 'partner' (schema-permanent); the words a client reads
+  // in their own inbox say what the role is called in the product.
+  const roleLabel = role === "partner" ? "client contact" : role;
   const workspace = String(body.orgName ?? "").trim() || "a ReqPub workspace";
   const inviter = String(body.inviterEmail ?? "").trim();
   if (!email) return reply(req, { error: "email required" }, 400);
@@ -85,13 +88,13 @@ Deno.serve(async (req) => {
     `<table width="100%" style="max-width:520px;background:#fff;border:1px solid #e6e8eb;border-radius:16px">` +
     `<tr><td style="padding:26px 32px 6px"><div style="font-weight:700;font-size:20px;letter-spacing:-.02em">ReqPub</div></td></tr>` +
     `<tr><td style="padding:6px 32px 4px"><h1 style="font-size:22px;margin:0 0 10px;letter-spacing:-.02em">${intro} to ${esc(workspace)}</h1>` +
-    `<p style="font-size:15px;color:#555b63;line-height:1.6;margin:0">You've been added as a <strong>${esc(role)}</strong>. Create your account with <strong>${esc(email)}</strong> to join the shared workspace.</p></td></tr>` +
+    `<p style="font-size:15px;color:#555b63;line-height:1.6;margin:0">You've been added as a <strong>${esc(roleLabel)}</strong>. Create your account with <strong>${esc(email)}</strong> to join the shared workspace.</p></td></tr>` +
     `<tr><td style="padding:18px 32px 6px"><a href="${signup}" style="display:inline-block;background:#2563FF;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">Accept invite &amp; sign up</a></td></tr>` +
     `<tr><td style="padding:10px 32px 26px"><p style="font-size:12.5px;color:#767c85;line-height:1.6;margin:0">Or open <a href="${signup}" style="color:#2563FF">this link</a>, choose &ldquo;I was invited,&rdquo; and sign up with ${esc(email)}.</p></td></tr>` +
     `</table><p style="font-size:11.5px;color:#98a0aa;margin:16px 0 0">Sent by ReqPub · If you weren't expecting this, you can ignore it.</p>` +
     `</td></tr></table></body></html>`;
 
-  const text = `${inviter ? inviter + " invited you" : "You've been invited"} to ${workspace} on ReqPub as a ${role}.\n\n` +
+  const text = `${inviter ? inviter + " invited you" : "You've been invited"} to ${workspace} on ReqPub as a ${roleLabel}.\n\n` +
     `Accept: ${signup}\nSign up with ${email} and choose "I was invited".`;
 
   const res = await fetch("https://api.resend.com/emails", {

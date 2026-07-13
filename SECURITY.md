@@ -29,7 +29,7 @@ Full detail lives in `docs/ARCHITECTURE.md` §3. The essentials:
   have already added the recipient to a workspace they manage (a row visible to
   them only under the manager-scoped policy) before sending, so it cannot be used
   to email arbitrary addresses.
-- Realtime channels are private. Members receive and send; partners receive
+- Realtime channels are private. Members receive and send; client contacts (the `partner` role) receive
   only; anonymous visitors have no channel access. Database state is never
   writable through realtime.
 - The `activity` table is append-only (no update or delete policies exist) and
@@ -68,7 +68,7 @@ Documented deliberately rather than hidden:
   self-hosted ClamAV REST service) and `SCAN_FAIL_CLOSED` in production; see
   `docs/ATTACHMENTS.md`.
 - The `attachment-upload` function reflects a permissive CORS origin. It
-  authorizes by bearer JWT (team, partner) or the SME reply token, not by
+  authorizes by bearer JWT (team, client contact) or the SME reply token, not by
   cookies, so a cross-origin request carries no ambient authority and CORS is not
   its trust boundary; a leaked token would be the concern. `send-invite`
   restricts its origin to the app URL.
