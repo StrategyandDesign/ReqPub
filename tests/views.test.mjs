@@ -5,7 +5,7 @@
    handler's re-entry flag only helps if the second click has nothing live to
    land on (the 2026-07-13 duplicate-project incident). */
 import assert from 'node:assert/strict';
-import { viewProjects } from '../app/js/views-app.js';
+import { viewProjects, roleWelcome } from '../app/js/views-app.js';
 import { renderTab } from '../app/js/views-collab.js';
 import { assembleAnswers, ENGAGEMENT } from '../app/js/domain.js';
 
@@ -92,6 +92,12 @@ test('a version row carries the fingerprint chip and the attributed change note'
   assert.ok(html.includes('sha256:aaaa aaaa'), 'computed fingerprint renders truncated');
   assert.ok(html.includes('FR-001 from Discovery · Jane'), 'attribution renders on the note');
   assert.ok(html.includes('data-action="vfinger"'));
+});
+
+test('the empty dashboard speaks to the role in front of it', () => {
+  assert.ok(roleWelcome('viewer').includes('you keep them honest'));
+  assert.ok(roleWelcome('manager').includes('defends itself under review'));
+  assert.notEqual(roleWelcome('viewer'), roleWelcome('manager'));
 });
 
 console.log('\nviews.test: ' + n + '/' + n + ' passed');

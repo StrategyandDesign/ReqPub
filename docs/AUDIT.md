@@ -6,8 +6,8 @@ data leakage, and correctness), conducted against the actual code, not its
 comments. This document records what was found, what was fixed, and what is a
 deliberately accepted residual. Every fix ships with a regression test.
 
-> This records the audit as of v2.5.0. The suite has since grown to 352 checks
-> (121 via `npm test`, 231 via `npm run test:backend`); the figures in this file
+> This records the audit as of v2.5.0. The suite has since grown to 374 checks
+> (143 via `npm test`, 231 via `npm run test:backend`); the figures in this file
 > are the v2.5.0 baseline.
 
 ## Method

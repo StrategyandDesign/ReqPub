@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.21.0 · one baseline, two audiences, one fingerprint
+
+- **The implementation package.** The client baseline report gains its
+  counterpart for the build team: one click on a stored baseline downloads
+  `requirements.json` (every requirement row with its permanent id, statement,
+  fit criterion, priority, component, promotion source, and attested
+  recorder), `acceptance.md` (the fit criteria and AI thresholds as a testable
+  checklist), `CHANGES.md` (the per-column evidence diff against the prior
+  baseline), `prd.md` (the full assembled document), and a README carrying the
+  fingerprint and its recipe. The same SHA-256 sits on the client report, so
+  the document the client signed and the package the builders received are
+  provably the same baseline. Every file is a pure function of the stored
+  snapshot (`app/js/implpkg.js`, 9 tests). Delivery stays dependency-free: a
+  STORE-only zip writer (`app/js/zipstore.js`, ~90 lines, deterministic bytes
+  per baseline) whose suite parses its own output with an independent reader
+  and recomputes every CRC-32; the archive also validates under system `unzip`
+  and Python's `zipfile`. No third-party zip library, per review guidance.
+- **Health-first landing, refined rule.** A project now opens on Record
+  health once it has a baseline and on the document before one exists -
+  pre-baseline the job is drafting, post-baseline the job is defending. The
+  rule is one pure function (`landingTab`), and an explicit tab request always
+  wins. Every workspace tab gains an ambient gaps pill (red for hard gaps,
+  amber for warnings, absent at zero) computed from the same deterministic
+  signals as the Health tab, one click away from it.
+- **Record of engagement on the client report.** Versions, named sign-offs,
+  and the client's own inputs incorporated in this baseline, listed by
+  permanent id and source: "your input became FR-012 and it is in the baseline
+  you signed." Counts only, every number pointing at rows; statements stay
+  behind the share-scoping boundary; the list caps at twelve with a remainder
+  count. Renders only when the data is supplied.
+- **Role-aware first session.** The empty dashboard now says, in one sentence,
+  what the record is for the role in front of it. Copy, not architecture,
+  sized accordingly.
+- Meta-PRD regenerated through the validator: 22 functional requirements,
+  including fit criteria for all three capabilities above.
+- Deliberately not built, per the same review: no composite health score
+  (counts, not scores, stays the doctrine), no portfolio-level health on the
+  dashboard (that is a server-side rollup or nothing), and no revenue claims
+  in the product. The claims that survive review are the ones the suite can
+  point at.
+- Known cost, deferred with eyes open: `main.js` is 1,645 lines and grows by
+  one switch case per feature. The next structural feature should split it;
+  this release added handlers, not structure, on purpose.
+- Suites: 143 unit + 231 backend = 374 checks green. No schema change; this
+  release is frontend and pure computed surfaces only.
+
 ## 2.20.0 · the record defends itself
 
 - **Fixed, critical: a project manager could silently rewrite an approved

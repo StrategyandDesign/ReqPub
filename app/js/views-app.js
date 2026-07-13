@@ -5,6 +5,7 @@
 
 import { esc, escA, ico, IC, brandmark, initials, relTime, themeGet } from './core.js';
 import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, reqDiffDetail, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
+import { healthSignals } from './health.js';
 import { renderTab, newReplyCount } from './views-collab.js';
 import { execSummaryHTML } from './exports.js';
 import { TEMPLATES } from './templates.js';
@@ -205,6 +206,7 @@ export function paletteItems(APP) {
     items.push({ label: 'Export Word document', hint: 'Export', ico: IC.word, action: 'word' });
     items.push({ label: 'Print / save as PDF', hint: 'Export', ico: IC.print, action: 'print' });
     items.push({ label: 'Client baseline report (PDF)', hint: 'Export', ico: IC.shield, action: 'clientprint' });
+    items.push({ label: 'Implementation package (ZIP)', hint: 'Export', ico: IC.download, action: 'implpkg' });
   }
   items.push({ label: 'New project', hint: 'Create', ico: IC.plus, action: 'palnew' });
   items.push({ label: 'Toggle dark mode', hint: 'Theme', ico: IC.moon, action: 'themetoggle' });
@@ -360,10 +362,19 @@ export function viewProjects(APP) {
     '</div></div>', APP);
 }
 
+/* One sentence per role, drawn from the record's own language, so the first
+   session answers "what is this and why should I care" before the steps do.
+   Exported pure for the view-contract tests. */
+export function roleWelcome(role) {
+  if (role === 'viewer') return 'You see everything the team writes - the live document, versions, approvals, and health - and you can reply in every thread. Managers author; you keep them honest.';
+  return 'Client relay, structured discovery, promoted inputs, approved baseline: one record that defends itself under review.';
+}
+
 function onboardBlock(APP) {
   const step = (n, t, d) => '<div style="border:1px solid var(--line);border-radius:11px;padding:13px"><div style="width:24px;height:24px;border-radius:7px;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:680;margin-bottom:9px">' + n + '</div><div style="font-size:13px;font-weight:600;margin-bottom:3px">' + esc(t) + '</div><div style="font-size:11.5px;color:var(--ink-3);line-height:1.5">' + esc(d) + '</div></div>';
   return '<div class="card rise" style="grid-column:1/-1;padding:26px 24px">' +
-    '<div style="font-size:16px;font-weight:640;margin-bottom:14px">How ' + esc(APP.org || 'this workspace') + ' works</div>' +
+    '<div style="font-size:16px;font-weight:640;margin-bottom:6px">How ' + esc(APP.org || 'this workspace') + ' works</div>' +
+    '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.55;margin-bottom:14px;max-width:640px">' + esc(roleWelcome(APP.role)) + '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">' +
     step(1, 'Answer the worksheet', 'The guided intake covers users, scope, requirements, data, and AI evaluation. Everyone edits together, live.') +
     step(2, 'Generate a version', 'A numbered, immutable baseline with a change summary and an approval workflow.') +
@@ -550,6 +561,14 @@ function renderDoc(APP, a, ac, total) {
     { key: 'share', label: 'Share', subs: [['access', 'Access'], ['people', 'People']] }
   ];
   const newRep = newReplyCount(APP);   // team-level: unseen external replies on this project
+  // Ambient readiness: the same deterministic signals the Health tab shows,
+  // as a count on every tab. Red when a hard gap exists, amber for warnings,
+  // absent at zero. One click lands on Health.
+  const sigs = healthSignals(a, { versions: APP.versions, approvalsByVersion: APP.approvals, shares: APP.shares, comms: APP.comms, discovery: APP.discovery });
+  const hasGap = sigs.some((s) => s.level === 'gap');
+  const gapsPill = sigs.length && APP.docTab !== 'health'
+    ? '<button class="btn btn-sm" data-action="tab" data-val="health" title="Readiness signals - deterministic gaps computed from the record" style="color:' + (hasGap ? 'var(--bad)' : 'var(--amber)') + ';font-weight:620">' + sigs.length + ' ' + (sigs.length === 1 ? 'gap' : 'gaps') + '</button>'
+    : '';
   const activeSection = (NAV.find((g) => g.subs.some((s) => s[0] === APP.docTab)) || {}).key;
   const tabBtns = NAV.map((g) => {
     const on = g.key === activeSection;
@@ -589,13 +608,14 @@ function renderDoc(APP, a, ac, total) {
     content = '<div class="page">' + execSummaryHTML(ans, { label: d.label }) +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
       '<button class="btn btn-sec btn-sm" data-action="execdl">' + ico(IC.dl, 'i-sm') + 'Download summary (.md)</button>' +
-      '<button class="btn btn-sec btn-sm" data-action="clientprint" title="Executive summary + the client-safe brief content + revision record, behind a fingerprinted cover">' + ico(IC.shield, 'i-sm') + 'Client baseline report (PDF)</button></div></div>';
+      '<button class="btn btn-sec btn-sm" data-action="clientprint" title="Executive summary + the client-safe brief content + revision record, behind a fingerprinted cover">' + ico(IC.shield, 'i-sm') + 'Client baseline report (PDF)</button>' +
+      '<button class="btn btn-sec btn-sm" data-action="implpkg" title="For the build team: requirements.json + acceptance checklist + per-column changes + full PRD, sealed to the same fingerprint as the client report">' + ico(IC.download, 'i-sm') + 'Implementation package (ZIP)</button></div></div>';
   } else if (APP.docTab === 'changes') {
     content = renderChanges(APP, a);
   } else {
     content = renderTab(APP, a);
   }
-  return '<div class="doc-tools"><div style="display:flex;gap:4px;flex-wrap:wrap">' + tabBtns + '</div>' +
+  return '<div class="doc-tools"><div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">' + tabBtns + gapsPill + '</div>' +
     '<div style="display:flex;align-items:center;gap:6px">' + docActions + '</div>' + subNav + '</div>' +
     '<div class="doc-scroll" id="docScroll">' + content + '</div>';
 }

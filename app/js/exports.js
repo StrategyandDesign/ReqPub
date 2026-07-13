@@ -165,6 +165,20 @@ export function downloadExecSummary(answers, meta) {
    boundary, so main.js builds the payload first. */
 export function clientDocMd(answers, meta, briefAnswers, briefSections, versions) {
   const parts = [execSummaryMd(answers, meta)];
+  // Record of engagement: counts only, every number points at rows, and the
+  // incorporated list names the client's own inputs by permanent id - "your
+  // input became FR-012 and it is in the baseline you signed". Ids and
+  // sources only; statements stay behind the share-scoping boundary.
+  if (meta.record) {
+    const r = meta.record;
+    const inc = r.incorporated || [];
+    const lines = [[r.versions + ' version' + (r.versions === 1 ? '' : 's'),
+      r.signoffs + ' named sign-off' + (r.signoffs === 1 ? '' : 's'),
+      inc.length + ' of your inputs incorporated in this baseline'].join(' · ')];
+    if (inc.length) lines.push(inc.slice(0, 12).map((x) => '- **' + x.id + '** — from ' + x.src).join('\n') +
+      (inc.length > 12 ? '\n- …and ' + (inc.length - 12) + ' more' : ''));
+    parts.push('## Record of engagement\n\n' + lines.join('\n\n'));
+  }
   const brief = briefAnswers ? bBrief(briefAnswers, briefSections || defaultBriefSections()) : '';
   if (brief) parts.push('## The plan in plain language\n\n_The sections below are exactly what a published review brief contains: the client-safe view of this baseline._\n\n' + brief.replace(/^## /gm, '### '));
   parts.push('## Revision record\n\n' + revisionBody(versions || []));

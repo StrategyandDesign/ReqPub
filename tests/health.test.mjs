@@ -3,7 +3,7 @@
    deterministic, must appear exactly when its gap exists, and must vanish
    the moment the gap is fixed. Counts must be plain, defensible tallies. */
 import assert from 'node:assert/strict';
-import { healthSignals, recordCounts, countToConfirm } from '../app/js/health.js';
+import { healthSignals, recordCounts, countToConfirm, landingTab, incorporatedRows } from '../app/js/health.js';
 import { ENGAGEMENT } from '../app/js/domain.js';
 
 let n = 0;
@@ -157,6 +157,22 @@ test('lastClientVisible is the latest approved baseline date, absent when nothin
   ] });
   assert.equal(c.lastClientVisible, '2026-07-05T00:00:00Z');
   assert.equal(recordCounts({}, { versions: [{ seq: 1, status: 'draft', created_at: '2026-07-01T00:00:00Z' }] }).lastClientVisible, '');
+});
+
+test('a project lands on Health once a baseline exists, on the document before one does', () => {
+  assert.equal(landingTab([]), 'document');
+  assert.equal(landingTab(null), 'document');
+  assert.equal(landingTab([{ seq: 1 }]), 'health');
+});
+
+test('incorporatedRows names the promotion-sourced rows by permanent id', () => {
+  const rows = incorporatedRows({
+    fr: [{ _k: 12, stmt: 'x', src: 'Inbox · Dana' }, { _k: 2, stmt: 'y' }],
+    nfr: [{ _k: 2, stmt: 'z', src: 'Discovery · Lee' }],
+    eval: [], interfaces: []
+  });
+  assert.deepEqual(rows, [{ id: 'FR-012', src: 'Inbox · Dana' }, { id: 'NFR-002', src: 'Discovery · Lee' }]);
+  assert.deepEqual(incorporatedRows(null), []);
 });
 
 console.log('\nhealth.test: ' + n + '/' + n + ' passed');

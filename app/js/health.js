@@ -151,6 +151,23 @@ export function healthSignals(a, ctx = {}) {
    What the record holds. Plain counts from data already loaded; every number
    here is defensible by pointing at rows.
    --------------------------------------------------------------------------- */
+/* Where a project opens: on Health once a baseline exists (the job is
+   defending), on the document before one does (the job is drafting). A blanket
+   health-first landing would punish the drafting session with a thin page. */
+export const landingTab = (versions) => ((versions || []).length ? 'health' : 'document');
+
+/* Promotion-sourced rows in a snapshot's answers, with their permanent ids -
+   the rows a client can be shown as "your input, in the baseline you signed". */
+export function incorporatedRows(answers) {
+  const a = answers || {};
+  const groups = [['fr', 'FR'], ['nfr', 'NFR'], ['eval', 'EVAL'], ['interfaces', 'IR']];
+  const out = [];
+  groups.forEach(([k, pre]) => (a[k] || []).forEach((r) => {
+    if (r && r.src && r._k != null) out.push({ id: pre + '-' + String(r._k).padStart(3, '0'), src: r.src });
+  }));
+  return out;
+}
+
 export function recordCounts(a, ctx = {}) {
   a = a || {};
   const versions = ctx.versions || [];
@@ -171,9 +188,7 @@ export function recordCounts(a, ctx = {}) {
   // latest approved snapshot carrying a promotion src), and when the client
   // last saw the record move (the latest approved baseline's date).
   const approvedSnap = ctx.latestApprovedAnswers || null;
-  const incorporated = approvedSnap
-    ? ['fr', 'nfr', 'eval', 'interfaces'].reduce((t, k) => t + (approvedSnap[k] || []).filter((r) => r && r.src).length, 0)
-    : 0;
+  const incorporated = approvedSnap ? incorporatedRows(approvedSnap).length : 0;
   const approvedDates = versions.filter((v) => v.status === 'approved' && v.created_at).map((v) => v.created_at).sort();
   const lastClientVisible = approvedDates.length ? approvedDates[approvedDates.length - 1] : '';
 

@@ -3,14 +3,17 @@
    Views are pure string builders; this file owns every state change.
    ============================================================================ */
 
-import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl, pushUnique, upsertById, isDupKey, versionFingerprint } from './core.js';
+import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl, pushUnique, upsertById, isDupKey, versionFingerprint, download } from './core.js';
 import { assembleAnswers, buildSections, suggestFit, changeNote, qById, mdToHtml, defaultBriefSections } from './domain.js';
 import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace } from './views-external.js';
-import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc } from './exports.js';
+import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, fileStem } from './exports.js';
+import { landingTab, incorporatedRows } from './health.js';
+import { buildImplementationFiles } from './implpkg.js';
+import { zipStore } from './zipstore.js';
 import { TEMPLATES, templateByKey, applyTemplate } from './templates.js';
 
 /* ---------------- state ---------------- */
@@ -349,7 +352,7 @@ async function openProject(id, tab) {
   APP.pid = id;
   APP.project = APP.projects.find((p) => p.id === id) || null;
   APP.view = 'workspace';
-  APP.docTab = tab || 'document'; APP.viewSeq = null; APP.fbSeq = null;
+  APP.docTab = tab || 'document'; APP.landingAuto = !tab; APP.viewSeq = null; APP.fbSeq = null;
   APP.fields = {}; APP.rows = {}; APP.versions = []; APP.comms = []; APP.msgs = {};
   APP.requests = []; APP.discovery = []; APP.reads = {}; APP.snapshots = {}; APP.shares = [];
   APP.approvals = {}; APP.conflicts = {}; APP.openComms = {}; APP.openDisc = {}; APP.openSecs = {};
@@ -367,6 +370,9 @@ async function openProject(id, tab) {
     fields: b.fields, rows: b.rows, versions: b.versions, comms: b.comms,
     requests: b.requests, discovery: b.discovery, reads: b.reads, bundleLoading: false
   });
+  // Land on Health once a baseline exists, on the document before one does -
+  // and only when the caller did not ask for a specific tab.
+  if (APP.landingAuto) { APP.docTab = landingTab(APP.versions); APP.landingAuto = false; }
   const parentIds = [...b.comms.map((c) => c.id), ...b.requests.map((r) => r.id)];
   const [msgs, approvals, shares, attachments, members] = await Promise.all([
     repo.messagesFor(parentIds),
@@ -940,6 +946,41 @@ async function handleAction(a, id, t, e) {
        payload builder the share system uses, so the share-scoping boundary is
        the content boundary: fit criteria, schedules, and internal notes are
        absent, not hidden. */
+    case 'implpkg': {
+      // The builders' counterpart to the client baseline report: one click on
+      // a stored baseline produces the spec bundle, sealed to the SAME
+      // fingerprint the client report carries - the document the client
+      // signed and the package the builders received are provably the same
+      // baseline. STORE-only zip, zero dependencies, deterministic bytes.
+      if (!APP.versions.length) { toast('Generate a version first - the implementation package is produced from a baseline'); break; }
+      const seq = APP.viewSeq != null ? APP.viewSeq : APP.versions[APP.versions.length - 1].seq;
+      await ensureSnapshot(seq);
+      const snap = APP.snapshots[seq];
+      if (!snap) { toast('Could not load that baseline - try again'); break; }
+      const idx = APP.versions.findIndex((x) => x.seq === seq);
+      const prevMeta = idx > 0 ? APP.versions[idx - 1] : null;
+      if (prevMeta) await ensureSnapshot(prevMeta.seq);
+      const prevSnap = prevMeta ? APP.snapshots[prevMeta.seq] : null;
+      const v = APP.versions[idx];
+      const fingerprint = await versionFingerprint(snap);
+      const ap = v ? (APP.approvals[v.id] || []) : [];
+      const answers = snap.snapshot.answers || {};
+      const product = answers.ctrl_product || (APP.project && APP.project.name) || 'Untitled';
+      const files = buildImplementationFiles({
+        product, label: snap.label, seq, status: v ? v.status : snap.status,
+        note: (v && v.note) || snap.note || '', author: (v && v.author_name) || snap.author_name || '',
+        baselined: (v && v.created_at) || snap.created_at || '',
+        approvedAt: (v && v.status === 'approved') ? (ap.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '') : '',
+        fingerprint, answers,
+        prevAnswers: prevSnap ? (prevSnap.snapshot.answers || null) : null,
+        prevLabel: prevMeta ? prevMeta.label : '',
+        versions: APP.versions.filter((x) => x.seq <= seq)
+      });
+      download(fileStem({ product, label: snap.label }) + '-implementation.zip', 'application/zip',
+        zipStore(files.map((f) => ({ name: f.name, data: f.text })), (v && v.created_at) || snap.created_at || new Date()));
+      toast('Implementation package downloaded - same fingerprint as the client report');
+      break;
+    }
     case 'clientprint': {
       if (!APP.versions.length) { toast('Generate a version first - the client report is produced from a baseline'); break; }
       const seq = APP.viewSeq != null ? APP.viewSeq : APP.versions[APP.versions.length - 1].seq;
@@ -956,6 +997,12 @@ async function handleAction(a, id, t, e) {
         org: answers.ctrl_org || '', label: snap.label, status: v ? v.status : snap.status,
         baselined: (v && v.created_at) || snap.created_at || '',
         approvedAt: (() => { const ap = v ? (APP.approvals[v.id] || []) : []; return (v && v.status === 'approved') ? (ap.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '') : ''; })(),
+        record: (() => {
+          const upTo = APP.versions.filter((x) => x.seq <= seq);
+          let signoffs = 0;
+          upTo.forEach((x) => { signoffs += (APP.approvals[x.id] || []).filter((d) => d.status === 'approved').length; });
+          return { versions: upTo.length, signoffs, incorporated: incorporatedRows(answers) };
+        })(),
         approvals: v ? (APP.approvals[v.id] || []) : [],
         logo: (APP.project && APP.project.brand_logo) || '',
         brandLabel: (APP.project && APP.project.brand_label) || '',

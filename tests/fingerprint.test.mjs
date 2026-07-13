@@ -89,4 +89,22 @@ test('with no brief payload the report still stands: summary, history, verificat
   assert.ok(md.includes('## Verification'));
 });
 
+test('record of engagement renders counts and attributed ids, only when provided', () => {
+  const meta = { product: 'P', label: '2.0', status: 'approved', fingerprint: 'f'.repeat(64),
+    record: { versions: 3, signoffs: 4, incorporated: [{ id: 'FR-012', src: 'Inbox · Dana' }, { id: 'NFR-002', src: 'Discovery · Lee' }] } };
+  const md = clientDocMd({ ctrl_product: 'P' }, meta, null, null, []);
+  assert.ok(md.includes('## Record of engagement'));
+  assert.ok(md.includes('3 versions · 4 named sign-offs · 2 of your inputs incorporated in this baseline'));
+  assert.ok(md.includes('- **FR-012** — from Inbox · Dana'));
+  const bare = clientDocMd({ ctrl_product: 'P' }, { product: 'P', label: '2.0', fingerprint: 'f'.repeat(64) }, null, null, []);
+  assert.ok(!bare.includes('Record of engagement'));
+});
+
+test('the incorporated list caps at twelve and counts the rest', () => {
+  const inc = Array.from({ length: 15 }, (_, i) => ({ id: 'FR-' + String(i + 1).padStart(3, '0'), src: 'Inbox · SME' }));
+  const md = clientDocMd({}, { product: 'P', label: '1.0', record: { versions: 1, signoffs: 1, incorporated: inc } }, null, null, []);
+  assert.ok(md.includes('- …and 3 more'));
+  assert.ok(!md.includes('FR-013'));
+});
+
 console.log('\nfingerprint.test: ' + n + '/' + n + ' passed');
