@@ -1,6 +1,8 @@
 # Positioning: the record next to the program tracker
 
-Internal. External discipline: never name the tracker or its vendor. Facts
+Internal. External discipline: never name the tracker, its vendor, or any
+AI implementation firm on the site. Naming Ode in rooms as market evidence
+is permitted. Facts
 below were verified against primary sources (vendor and firm pages, press
 releases) and against this codebase; judgments and hypotheses are labeled.
 
@@ -44,6 +46,20 @@ releases) and against this codebase; judgments and hypotheses are labeled.
   prep stops being the ritual their own platform complains about.
 - **Clients:** the document you signed verifies without any vendor, including
   us.
+- **AI implementation firms (a channel, never a competitor):** your engineers
+  build faster against a signed requirements.json, and the client's sign-off
+  on the acceptance table protects your delivery. Nothing to migrate; the
+  record is per engagement.
+
+## The rooms lines (Tier 1, usable verbatim)
+
+- Forward-deployed AI engineering just became a capitalized category. The
+  faster the build, the more the signed baseline is the only stable thing in
+  the room.
+- AI does the work. The record proves what it was allowed to do and what
+  done means.
+- When the work includes an AI system, the client signs the number that
+  stops the meter: dimension, metric, threshold, on the baseline.
 
 ## How the layer wins over time
 
@@ -64,10 +80,23 @@ fight for the dashboard; it is to own the layer the dashboard must reference.
 4. **Only if pulled:** e-sign sealing makes the gate decision legal-grade.
    No tracker matches that without becoming a records company.
 
-Hypothesis, labeled: the agentic era compresses trackers from both sides -
-status reporting commoditizes toward zero while proof of authorization and
-acceptance appreciates. Direction matches the rest of the portfolio; timing
-unproven. Also held quietly and unverified: the reference firm acquires
+Now fact, dated 2026-07-15: AI implementation via embedded engineers is a
+capitalized services category. Anthropic, Blackstone, and Hellman & Friedman
+launched Ode with Anthropic (built on Fractional AI, acquired May 2026; Chris
+Taylor CEO, Eddie Siegel CTO), with Goldman Sachs, General Atlantic, Leonard
+Green, Apollo, GIC, and Sequoia in the consortium, targeting mid-size
+companies; "forward deployed" is Anthropic's own vocabulary (its Head of
+Forward Deployed Engineering is quoted in the launch release). Press-reported,
+not primary: roughly $1.5B of capital and about 100 engineers at launch, with
+PE portfolio companies as one non-exclusive pipeline. Consequence: every
+engagement in this category creates the question nobody in that stack owns -
+what the system was authorized to do, what done means in numbers, who signed
+it. These firms are a channel for the record, never a competitor.
+
+Still hypothesis, labeled: the agentic era compresses trackers from both
+sides - status reporting commoditizes toward zero while proof of
+authorization and acceptance appreciates. Direction matches the rest of the
+portfolio and now has a demand-side signal; timing unproven. Also held quietly and unverified: the reference firm acquires
 delivery capabilities but cannot own the shared tracker; a clean,
 standards-postured record layer priced per engagement can be adopted partner
 by partner without a board decision. Do nothing that forecloses that; chase

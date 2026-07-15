@@ -1,5 +1,33 @@
 # Changelog
 
+## 2.24.0 · the record beside the builders
+
+- **Positioning extended to the AI implementation wave, in three tiers, all
+  grounded in the verified Ode launch (2026-07-15).** Verified from primary
+  sources: Anthropic, Blackstone, and Hellman & Friedman launched Ode with
+  Anthropic, built on Fractional AI (acquired May 2026), targeting mid-size
+  companies with embedded engineers; "forward deployed" is Anthropic's own
+  vocabulary. Press-reported and labeled as such: roughly $1.5B and about
+  100 engineers. The consequence ReqPub owns: every engagement in this
+  category creates the question nobody in that stack answers - what the
+  system was authorized to do, what done means in numbers, who signed it.
+- **Tier 1, rooms:** three verbatim lines added to docs/POSITIONING.md,
+  including the doctrine sentence for the wave: AI does the work; the record
+  proves what it was allowed to do and what done means. Naming Ode in rooms
+  as market evidence is permitted; it never appears on the site.
+- **Tier 2, site:** one paragraph added to the Works beside your platform
+  section. When the work includes an AI system, the record carries the
+  evaluation table the client signs (dimension, metric, threshold), their
+  engineers consume requirements.json on day one, and the client signs the
+  number that stops the meter. Every sentence is shipped product truth from
+  2.20 and 2.21. No other site change.
+- **Tier 3, doctrine:** POSITIONING.md's agentic paragraph split into dated
+  fact and remaining hypothesis; AI implementation firms added to the
+  per-audience lines as a channel, never a competitor; the external
+  discipline line extended to cover the new category.
+- Banned-language sweep clean on both changed files; page validates. Suites:
+  154 unit + 231 backend = 385 checks green. No product or schema change.
+
 ## 2.23.4 · the anchor is atomic
 
 - **Field report: the Request an introduction button did nothing on the live
