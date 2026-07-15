@@ -128,8 +128,8 @@ export const TEMPLATES = [
         { role: 'Clinical or policy review', name: 'to confirm' }
       ],
       eval: [
-        { dim: 'Grounding / hallucination guardrail', metric: 'to confirm - what is measured and how', thresh: 'to confirm', comp: '' },
-        { dim: 'Safety on distress content', metric: 'to confirm - red-team set with human review', thresh: 'to confirm', comp: '' }
+        { dim: 'Grounding / hallucination guardrail', metric: 'to confirm - what is measured and how', thresh: 'to confirm', dataset: 'to confirm', comp: '' },
+        { dim: 'Safety on distress content', metric: 'to confirm - red-team set with human review', thresh: 'to confirm', dataset: 'to confirm', comp: '' }
       ],
       data_entities: [{ entity: 'Assessment responses', sens: 'Personal and sensitive' }],
       metrics: [{ metric: 'Scoring correctness', target: '100% agreement with the reference model on golden fixtures', method: 'Automated tests against labeled fixtures on every release.' }],

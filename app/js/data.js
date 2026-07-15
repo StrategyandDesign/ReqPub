@@ -357,7 +357,7 @@ export function buildSharePayload(project, answers, versionLabel, seq, kind, bui
   // AI acceptance is deliberate disclosure: the client signs {dimension,
   // metric, threshold}. Component tags do not ride along, and the FR fit
   // doctrine is untouched - fit criteria never appear in any payload.
-  if (secs.includes('aieval')) ca.eval = filled(answers.eval).map((r) => ({ dim: r.dim || '', metric: r.metric || '', thresh: r.thresh || '' }));
+  if (secs.includes('aieval')) ca.eval = filled(answers.eval).map((r) => ({ dim: r.dim || '', metric: r.metric || '', thresh: r.thresh || '', dataset: r.dataset || '' }));
   if (secs.includes('willdo')) {
     ca.fr = (answers.fr || []).map((x) => ({ stmt: x.stmt || '', comp: x.comp || '' }));
     if (!secs.includes('pieces')) ca.components = filled(answers.components).map((c) => ({ name: c.name }));

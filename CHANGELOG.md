@@ -1,5 +1,49 @@
 # Changelog
 
+## 2.25.0 · the signed number travels
+
+Built from field research on forward-deployed AI engineering (Ode, the
+OpenAI deployment venture, Palantir, Distyl, Tribe, the consultancy FDE
+programs) under a strict adoption bar: one feature cleared it, everything
+else was rejected on the record.
+
+- **What cleared, and why.** The field's converging convention for AI
+  acceptance is a threshold table on a named eval set with a stated sampling
+  rule, wired as a launch gate; buyers now request evaluation artifacts like
+  audited financials; and "who signed off, on what threshold, on what
+  baseline" is the documented open question at handoff. ReqPub already owned
+  two thirds of that sentence. This release closes the rest:
+  - The AI acceptance criteria table gains an **Eval set** column. A
+    threshold without a named set can be cherry-picked; a threshold on a
+    named set is a number the client can sign. The set travels everywhere
+    the number does: worksheet, charter, PRD, published brief, checklist.
+  - **requirements.json gains an acceptance block**: id, dimension, metric,
+    threshold, eval set - the signed numbers, machine-readable, consumable
+    as a CI gate by any build team, sealed under the same baseline
+    fingerprint as the client report.
+  - **requirements.json gains an approvals block**: role, name, status,
+    decided_at, with the latest decision date - answering who signed, on
+    what, machine-readably. Labeled honestly in the file itself: approvals
+    are record-state; the fingerprint covers the baseline, not this block.
+  - acceptance.md now leads with the signed thresholds table; the checklist
+    boxes carry the eval set beside each threshold; starters anchor their
+    placeholder thresholds with a to-confirm eval set; the Verification
+    prose says "the named eval set" where it said "a golden dataset."
+- **Rejected under the bar, deliberately and on the record:** storing eval
+  results or runs (the record holds what the meter is judged against, never
+  the meter - results live in eval tooling; an acceptance decision is a
+  decisions-log entry, already supported); agent decision-rights tables (a
+  separate venture's ground); model or system card generation; EU AI Act and
+  ISO 42001 compliance mappings (the GRC lane); and eval-platform
+  integrations (standing rule: deferred until a real integration pulls).
+- One clause added to the site's proof section so the copy matches the
+  package contents. One phrase removed from the Fathering seed PRD
+  ("single source of truth" reworded to "authoritative record") so the
+  banned-language grep runs clean repo-wide.
+- Suites: 156 unit + 231 backend = 387 checks green. Content and
+  composition only; create_version stores the snapshot verbatim, so there is
+  no Supabase migration. Regenerated seed files are included.
+
 ## 2.24.0 · the record beside the builders
 
 - **Positioning extended to the AI implementation wave, in three tiers, all

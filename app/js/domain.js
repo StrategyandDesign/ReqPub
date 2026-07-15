@@ -140,7 +140,7 @@ export const Q = [
   { id: 'nfr', sec: 'nonfunctional', type: 'rows', prompt: 'Non-functional requirements', help: 'Quality requirements. Replace fast and secure with numbers and conditions. Consider performance, security, reliability, availability, scalability, accessibility, compliance.', add: 'Add requirement', cols: [{ k: 'stmt', l: 'Requirement', ph: 'Quality requirement with a number' }, { k: 'fit', l: 'Fit criterion and acceptance', ph: 'Measured condition' }, { k: 'pri', l: 'Priority', sel: ['Must', 'Should', 'Could', "Won't"] }, { k: 'comp', l: 'Component', dyn: 'components' }] },
 
   { id: 'has_ai', sec: 'aieval', type: 'choice', prompt: 'Does the product include AI, probabilistic, or generative components?', options: ['Yes', 'No'], help: 'Such components cannot be verified by a single expected output. They need evaluation criteria against a golden dataset. This unlocks Section 9.', req: true },
-  { id: 'eval', sec: 'aieval', type: 'rows', prompt: 'AI evaluation criteria', help: 'For each quality dimension, state the metric, the method, and a numeric threshold against a golden dataset. Always include a grounding or hallucination guardrail and a safety threshold.', add: 'Add criterion', cond: (a) => a.has_ai === 'Yes', cols: [{ k: 'dim', l: 'Quality dimension', ph: 'e.g. Hallucination guardrail' }, { k: 'metric', l: 'Metric and method', ph: 'What is measured and how' }, { k: 'thresh', l: 'Threshold', ph: 'e.g. at least 95%' }, { k: 'comp', l: 'Component', dyn: 'components' }] },
+  { id: 'eval', sec: 'aieval', type: 'rows', prompt: 'AI evaluation criteria', help: 'For each quality dimension, state the metric, the method, a numeric threshold, and the named eval set it is measured on, with its sampling rule. A threshold without a named set can be cherry-picked; a threshold on a named set is a number the client can sign. Always include a grounding or hallucination guardrail and a safety threshold.', add: 'Add criterion', cond: (a) => a.has_ai === 'Yes', cols: [{ k: 'dim', l: 'Quality dimension', ph: 'e.g. Hallucination guardrail' }, { k: 'metric', l: 'Metric and method', ph: 'What is measured and how' }, { k: 'thresh', l: 'Threshold', ph: 'e.g. at least 95%' }, { k: 'dataset', l: 'Eval set', ph: 'e.g. acceptance-set v3 · 100 cases · fixed sample' }, { k: 'comp', l: 'Component', dyn: 'components' }] },
   { id: 'golden', sec: 'aieval', type: 'long', prompt: 'Golden dataset and red-team approach', help: 'What the labeled benchmark set covers, and how you probe for hallucination and sycophancy.', cond: (a) => a.has_ai === 'Yes' },
   { id: 'gates', sec: 'gates', type: 'rows', prompt: 'Stage gates', help: 'Each gate: what must be true, who decides, by when. Name the gate on the baseline when you generate it, and the gate packet carries the evidence into the room.', add: 'Add gate', cond: (a) => isEngagement(a), cols: [{ k: 'gate', l: 'Gate', ph: 'e.g. Requirements Baseline' }, { k: 'criteria', l: 'Criteria', ph: 'What must be true to pass' }, { k: 'decider', l: 'Deciding role', ph: 'e.g. Sponsor' }, { k: 'target', l: 'Target date', ph: 'to confirm' }] },
 
@@ -311,7 +311,7 @@ function bAIEval(a) {
   if (a.has_ai !== 'Yes') return null;
   const ev = rowsFilled(a.eval);
   const p = ['## 9. AI Evaluation Criteria'];
-  if (ev.length) p.push(mdTable(['ID', 'Quality Dimension', 'Metric and Method', 'Threshold'], ev.map((r, i) => [idOf('EVAL', r, i), r.dim || '', r.metric || '', r.thresh || naField()])));
+  if (ev.length) p.push(mdTable(['ID', 'Quality Dimension', 'Metric and Method', 'Threshold', 'Eval Set'], ev.map((r, i) => [idOf('EVAL', r, i), r.dim || '', r.metric || '', r.thresh || naField(), r.dataset || naField()])));
   else p.push('_Evaluation criteria to confirm. Always include a grounding or hallucination guardrail and a safety threshold._');
   if (a.golden) p.push('**Golden dataset and red-team method.** ' + a.golden);
   return p.join('\n\n');
@@ -341,7 +341,7 @@ function bInterfaces(a) {
   return '## 11. Interfaces and Integrations\n\n' + mdTable(['ID', 'Requirement', 'Fit Criterion and Acceptance', 'Priority'], it.map((r, i) => [idOf('IR', r, i), (r.iface ? r.iface + '. ' : '') + (r.req || ''), r.fit || naField(), 'Must']));
 }
 function bVerification(a) {
-  const base = '## 12. Verification and Acceptance\n\nEvery requirement in this document carries a fit criterion. Deterministic requirements are verified by test, inspection, or demonstration. Probabilistic or AI components are verified by evaluation against a golden dataset with the stated threshold. Safety requirements are verified on a red-team or scenario set with human review. A release is accepted when every Must requirement for that release passes its fit criterion and every evaluation criterion meets its threshold.';
+  const base = '## 12. Verification and Acceptance\n\nEvery requirement in this document carries a fit criterion. Deterministic requirements are verified by test, inspection, or demonstration. Probabilistic or AI components are verified by evaluation against the named eval set with the stated threshold. Safety requirements are verified on a red-team or scenario set with human review. A release is accepted when every Must requirement for that release passes its fit criterion and every evaluation criterion meets its threshold.';
   return a.verify_note ? base + '\n\n' + a.verify_note : base;
 }
 function bTraceability(a) {
@@ -460,7 +460,7 @@ function engEval(a, n) {
   if (a.has_ai !== 'Yes') return null;
   const ev = rowsFilled(a.eval);
   const p = ['## ' + n + '. AI Acceptance Criteria'];
-  if (ev.length) p.push(mdTable(['ID', 'Quality Dimension', 'Metric and Method', 'Threshold'], ev.map((r, i) => [idOf('EVAL', r, i), r.dim || '', r.metric || '', r.thresh || naField()])));
+  if (ev.length) p.push(mdTable(['ID', 'Quality Dimension', 'Metric and Method', 'Threshold', 'Eval Set'], ev.map((r, i) => [idOf('EVAL', r, i), r.dim || '', r.metric || '', r.thresh || naField(), r.dataset || naField()])));
   else p.push('_Acceptance criteria to confirm. State the metric, the method, and the numeric threshold that closes the AI workstream - always including a grounding or hallucination guardrail and a safety threshold._');
   if (a.golden) p.push('**Golden dataset and red-team method.** ' + a.golden);
   return p.join('\n\n');
@@ -568,7 +568,7 @@ export function bBrief(a, sections) {
   if (inc('aieval')) {
     const ev = rowsFilled(a.eval);
     const blk = [];
-    if (ev.length) blk.push(ev.map((r, i) => '- **' + idOf('EVAL', r, i) + ' ' + (r.dim || '') + '**: ' + (r.metric || '') + (r.thresh ? ' - threshold ' + r.thresh : '')).join('\n'));
+    if (ev.length) blk.push(ev.map((r, i) => '- **' + idOf('EVAL', r, i) + ' ' + (r.dim || '') + '**: ' + (r.metric || '') + (r.thresh ? ' - threshold ' + r.thresh : '') + (r.dataset ? ' on ' + r.dataset : '')).join('\n'));
     if (a.golden) blk.push('**Golden dataset and red-team method.** ' + a.golden);
     if (blk.length) P.push('## AI acceptance criteria\n\n' + blk.join('\n\n'));
   }

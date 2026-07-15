@@ -120,6 +120,35 @@ test('a gate name rides in requirements.json when the baseline carries one', () 
   assert.equal(plain.version.gate, undefined, 'absent gates are omitted, not empty');
 });
 
+test('the signed thresholds travel machine-readable, anchored to their eval set', () => {
+  const withEval = buildImplementationFiles({ ...meta, answers: { ...meta.answers,
+    eval: [{ _k: 1, dim: 'Grounding', metric: 'Faithfulness', thresh: 'at least 95%', dataset: 'acceptance-set v3 · 100 cases' }] } });
+  const j = JSON.parse(Object.fromEntries(withEval.map((f) => [f.name, f.text]))['requirements.json']);
+  assert.equal(j.acceptance.length, 1);
+  assert.equal(j.acceptance[0].id, 'EVAL-001');
+  assert.equal(j.acceptance[0].threshold, 'at least 95%');
+  assert.equal(j.acceptance[0].dataset, 'acceptance-set v3 · 100 cases');
+  const md = Object.fromEntries(withEval.map((f) => [f.name, f.text]))['acceptance.md'];
+  assert.ok(md.includes('Signed acceptance thresholds'));
+  assert.ok(md.includes('acceptance-set v3'));
+  const noEval = buildImplementationFiles({ ...meta, answers: { ...meta.answers, eval: [] } });
+  const jj = JSON.parse(Object.fromEntries(noEval.map((f) => [f.name, f.text]))['requirements.json']);
+  assert.equal(jj.acceptance, undefined, 'no eval rows, no acceptance block');
+});
+
+test('approvals ride as labeled record-state, never as baseline content', () => {
+  const withAp = buildImplementationFiles({ ...meta, approvals: [
+    { approver_role: 'Sponsor', approver_name: 'Tim', status: 'approved', decided_at: '2026-07-10T00:00:00Z' },
+    { approver_role: 'Engineering', approver_name: 'Ana', status: 'approved', decided_at: '2026-07-12T00:00:00Z' }
+  ] });
+  const j = JSON.parse(Object.fromEntries(withAp.map((f) => [f.name, f.text]))['requirements.json']);
+  assert.equal(j.approvals.records.length, 2);
+  assert.equal(j.approvals.latest_decision_at, '2026-07-12T00:00:00Z');
+  assert.ok(j.approvals.note.includes('fingerprint covers the baseline'));
+  const plain = JSON.parse(byName['requirements.json']);
+  assert.equal(plain.approvals, undefined, 'no approvals passed, no block');
+});
+
 test('the package is deterministic for a given baseline', () => {
   const again = buildImplementationFiles(meta);
   assert.deepEqual(again, files);

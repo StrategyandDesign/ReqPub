@@ -1007,7 +1007,7 @@ async function handleAction(a, id, t, e) {
         note: (v && v.note) || snap.note || '', author: (v && v.author_name) || snap.author_name || '',
         baselined: (v && v.created_at) || snap.created_at || '',
         approvedAt: (v && v.status === 'approved') ? (ap.filter((x) => x.status === 'approved' && x.decided_at).map((x) => x.decided_at).sort().pop() || '') : '',
-        fingerprint, answers,
+        fingerprint, answers, approvals: ap,
         prevAnswers: prevSnap ? (prevSnap.snapshot.answers || null) : null,
         prevLabel: prevMeta ? prevMeta.label : '',
         versions: APP.versions.filter((x) => x.seq <= seq)

@@ -53,7 +53,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── views.test.mjs                  9 view-render contracts (picker, guard, roles, promotion)
 │   ├── projdedup.test.mjs              8 project-list reconciliation + retry-semantics tests
 │   ├── zipstore.test.mjs               8 STORE-zip writer tests (independent reader, CRC, determinism)
-│   ├── implpkg.test.mjs                10 implementation-package tests (spec bundle, fingerprint symmetry)
+│   ├── implpkg.test.mjs                12 implementation-package tests (spec bundle, acceptance block, fingerprint symmetry)
 │   └── backend-e2e/                     231 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
@@ -79,7 +79,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 154 domain + concurrency + share + health + package + fingerprint checks (node only)
+npm test                        # 156 domain + concurrency + share + health + package + fingerprint checks (node only)
 npm i && npm run test:backend   # 231 checks on an embedded Postgres
 ```
 

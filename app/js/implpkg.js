@@ -9,7 +9,7 @@
    SHA-256 sits on the client report, so the document the client signed and
    the package the builders received are provably the same baseline.
    Everything here is a pure function of the stored snapshot. */
-import { rowsFilled, reqDiff, reqDiffDetail, buildSections, assemble } from './domain.js';
+import { rowsFilled, reqDiff, reqDiffDetail, buildSections, assemble, mdTable } from './domain.js';
 
 const RECIPE = 'SHA-256 over the canonical JSON (object keys sorted, arrays in order, UTF-8) of {label, seq, snapshot} for this version, as stored.';
 const NOT_A_SIGNATURE = 'The fingerprint identifies the exact snapshot; it is not a signature or a trusted timestamp.';
@@ -29,6 +29,14 @@ function jsonRows(answers) {
   };
 }
 
+function acceptanceThresholds(answers) {
+  const ev = rowsFilled(answers.eval);
+  if (!ev.length) return '';
+  return '## Signed acceptance thresholds\n\n' +
+    'Each threshold is measured on its named eval set. A build below any threshold does not ship.\n\n' +
+    mdTable(['ID', 'Dimension', 'Metric', 'Threshold', 'Eval set'],
+      ev.map((r, i) => ['EVAL-' + String(i + 1).padStart(3, '0'), r.dim || '', r.metric || '', r.thresh || 'to confirm', r.dataset || 'to confirm'])) + '\n\n';
+}
 function acceptanceMd(answers, meta) {
   const P = ['# Acceptance checklist - ' + (meta.product || 'Untitled') + ' v' + meta.label,
     ['Baselined ' + day(meta.baselined), meta.approvedAt ? 'Approved ' + day(meta.approvedAt) : null,
@@ -36,11 +44,13 @@ function acceptanceMd(answers, meta) {
     ].filter(Boolean).join(' · ')];
   const box = (id, stmt, fit) => '- [ ] **' + id + '** ' + stmt + '\n      Fit: ' + (fit || 'to confirm');
   const fr = rowsFilled(answers.fr), nfr = rowsFilled(answers.nfr), ir = rowsFilled(answers.interfaces), ev = rowsFilled(answers.eval);
+  const th = acceptanceThresholds(answers);
+  if (th) P.push(th.trim());
   if (fr.length) P.push('## Functional requirements\n\n' + fr.map((r) => box(id3('FR', r._k), r.stmt || '', r.fit)).join('\n'));
   if (nfr.length) P.push('## Non-functional requirements\n\n' + nfr.map((r) => box(id3('NFR', r._k), r.stmt || '', r.fit)).join('\n'));
   if (ir.length) P.push('## Interfaces\n\n' + ir.map((r) => box(id3('IR', r._k), (r.iface ? r.iface + ' - ' : '') + (r.req || ''), r.fit)).join('\n'));
   if (ev.length) P.push('## AI acceptance criteria\n\n' + ev.map((r) =>
-    '- [ ] **' + id3('EVAL', r._k) + '** ' + (r.dim || '') + ' - ' + (r.metric || '') + ' - threshold: ' + (r.thresh || 'to confirm')).join('\n') +
+    '- [ ] **' + id3('EVAL', r._k) + '** ' + (r.dim || '') + ' - ' + (r.metric || '') + ' - threshold: ' + (r.thresh || 'to confirm') + (r.dataset ? ' on ' + r.dataset : '')).join('\n') +
     (answers.golden ? '\n\nGolden dataset and red-team method: ' + answers.golden : ''));
   P.push('_A box is ticked when its fit criterion passes as stated. ' + NOT_A_SIGNATURE + '_');
   return P.join('\n\n');
@@ -96,6 +106,25 @@ export function buildImplementationFiles(input) {
     requirements: jsonRows(answers),
     components: rowsFilled(answers.components).map((c) => clean({ name: c.name, owner: c.owner, status: c.status, description: c.desc }))
   };
+  // The signed acceptance thresholds, machine-readable: each criterion is
+  // anchored to a named eval set so the number cannot be cherry-picked. This
+  // is content from the fingerprinted baseline.
+  const ev = rowsFilled(answers.eval);
+  if (ev.length) {
+    spec.acceptance = ev.map((r, i) => clean({
+      id: 'EVAL-' + String(i + 1).padStart(3, '0'),
+      dimension: r.dim, metric: r.metric, threshold: r.thresh,
+      dataset: r.dataset, component: r.comp
+    }));
+  }
+  // Who signed, machine-readable. Approvals are record-state, not baseline
+  // content: the fingerprint covers the baseline; this block reports the
+  // approvals as of the latest decision on the record, and says so.
+  if (Array.isArray(meta.approvals) && meta.approvals.length) {
+    const recs = meta.approvals.map((x) => clean({ role: x.approver_role, name: x.approver_name, status: x.status, decided_at: x.decided_at }));
+    const latest = meta.approvals.map((x) => x.decided_at).filter(Boolean).sort().pop();
+    spec.approvals = clean({ note: 'Record-state at the latest decision; the fingerprint covers the baseline, not this block.', latest_decision_at: latest, records: recs });
+  }
   return [
     { name: 'requirements.json', text: JSON.stringify(spec, null, 2) + '\n' },
     { name: 'acceptance.md', text: acceptanceMd(answers, meta) + '\n' },

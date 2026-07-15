@@ -21,7 +21,7 @@ const answers = {
   fr: [{ _k: 1, stmt: 'Records a session', fit: 'INTERNAL FIT', pri: 'Must', comp: 'Recorder' }],
   metrics: [{ _k: 1, metric: 'Completion', target: '75%', method: 'Analytics' }],
   has_ai: 'Yes',
-  eval: [{ _k: 1, dim: 'Hallucination guardrail', metric: 'Grounded-answer rate vs golden set', thresh: 'at least 95%', comp: 'Recorder' }],
+  eval: [{ _k: 1, dim: 'Hallucination guardrail', metric: 'Grounded-answer rate vs golden set', thresh: 'at least 95%', dataset: 'acceptance-set v1 · 100 cases', comp: 'Recorder' }],
   golden: 'GOLDEN SET METHOD'
 };
 const project = { name: 'RecordMade' };
@@ -138,7 +138,7 @@ test('AI acceptance never travels in a default brief', () => {
 
 test('opting in shares the signed number, shaped: dimension, metric, threshold - nothing else', () => {
   const p = buildSharePayload(project, answers, '1.0', 1, 'brief', '', ['aieval']);
-  assert.deepEqual(p.answers.eval, [{ dim: 'Hallucination guardrail', metric: 'Grounded-answer rate vs golden set', thresh: 'at least 95%' }]);
+  assert.deepEqual(p.answers.eval, [{ dim: 'Hallucination guardrail', metric: 'Grounded-answer rate vs golden set', thresh: 'at least 95%', dataset: 'acceptance-set v1 · 100 cases' }], 'the named eval set travels with the signed number');
   assert.equal(p.answers.golden, 'GOLDEN SET METHOD');
   const json = JSON.stringify(p);
   assert.ok(!json.includes('INTERNAL FIT'), 'FR fit doctrine is absolute');
