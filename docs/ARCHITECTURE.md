@@ -94,3 +94,19 @@ Three layers, all in the repo and all green at delivery. Counts are current as o
 ## 8. Known limits
 
 Same-field simultaneous typing is last-writer-wins with notice (see §1). Supabase Realtime delivery is at-least-once and unordered across tables; the rev/id idempotence rules absorb this. The activity trail records app-level actions, not raw SQL run by a project admin in the Supabase dashboard (nothing client-side can close that; it is Supabase's boundary). Exports use the browser's print engine for PDF, a deliberate zero-dependency choice. Virus scanning depends on an external scanner being configured; with none configured, uploads are stored and clearly flagged as unscanned rather than blocked (configurable to fail-closed).
+
+## Module sizes and the split threshold
+
+main.js is the event-dispatch and orchestration layer and is the largest
+module by design: one delegated click switch, one change switch, and the
+async handlers that compose data calls into renders. The seam for a split
+is already visible (dispatch, handlers, document-meta builders). v2.26.0
+held the line the deferral drew: both new capabilities landed their logic
+as modules - intake.js pure and unit-pinned, e-sign in schema RPCs and the
+view layers - and main.js grew only delegated handlers and one hash route.
+The split itself remains scheduled for the first feature that restructures
+routing or dispatch, when its tests ship with it - not as a cosmetic
+refactor before an external review, where restructuring risk exceeds
+reading cost. Every other module
+stays under a quarter of its size, and pure logic lives in domain, health,
+exports, implpkg, and zipstore, where the unit suites pin it.

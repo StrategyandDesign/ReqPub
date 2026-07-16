@@ -22,6 +22,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── domain.js                    question bank + deterministic PRD builders (pure, tested)
 │       ├── health.js                    record health: readiness signals + counts (pure, tested)
 │       ├── templates.js                 validated project starters applied via the live RPCs (tested)
+│       ├── intake.js                    populate a blank record from documents: deterministic mapper + executor (pure, tested)
 │       ├── data.js                      Supabase client + repository (durable, retried writes)
 │       ├── sync.js                      concurrency engine: rev-checked saves, realtime, presence
 │       ├── exports.js                   Word / Markdown / print / executive summary / client baseline report
@@ -40,6 +41,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── storage-attachments.sql          private attachments bucket + policies
 │   └── functions/
 │       ├── send-invite/                 invite email (Resend)
+│       ├── send-sign-request/           e-sign v1: signature request email (Resend; deploy with Verify JWT on)
+│       ├── send-sign-receipt/           e-sign v1: signer receipt email (token-keyed; deploy --no-verify-jwt)
 │       └── attachment-upload/           file upload with virus scan
 ├── tests/
 │   ├── domain.test.mjs                  24 document / diff-evidence / brief / attribution tests
@@ -54,7 +57,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── projdedup.test.mjs              8 project-list reconciliation + retry-semantics tests
 │   ├── zipstore.test.mjs               8 STORE-zip writer tests (independent reader, CRC, determinism)
 │   ├── implpkg.test.mjs                12 implementation-package tests (spec bundle, acceptance block, fingerprint symmetry)
-│   └── backend-e2e/                     231 checks against a real embedded Postgres
+│   ├── intake.test.mjs                 20 intake tests (segment, classify, extract, plan, never-overwrite, executor)
+│   └── backend-e2e/                     260 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
 │       ├── sme-workspace.test.mjs       durable SME workspace (16)
@@ -65,7 +69,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── deploy-fathering.test.mjs    rebuild-in-place deploy: erase, replace, approve v1.1 (21)
 │       ├── new-reply.test.mjs           team-level new-reply flag: post/reply flags, any teammate clears (11)
 │       ├── discovery-promote.test.mjs   discovery promotion back-link: column, fix, RLS, durability (11)
-│       └── version-integrity.test.mjs   baselines immutable at the table; build tag gated + logged (16)
+│       ├── version-integrity.test.mjs   baselines immutable at the table; build tag gated + logged (16)
+│       └── esign.test.mjs               e-sign v1: token lifecycle, approval landing, boundaries, trail (29)
 ├── tools/                               PRD seed generator (validated against the builders)
 ├── docs/
 │   ├── ARCHITECTURE.md                  design rationale + citations
@@ -79,8 +84,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 156 domain + concurrency + share + health + package + fingerprint checks (node only)
-npm i && npm run test:backend   # 231 checks on an embedded Postgres
+npm test                        # 176 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
+npm i && npm run test:backend   # 260 checks on an embedded Postgres
 ```
 
 The backend suite runs as a non-root user and needs the `en_US.UTF-8` locale

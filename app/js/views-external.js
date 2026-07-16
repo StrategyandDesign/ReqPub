@@ -314,6 +314,92 @@ export function renderPresentShare(APP) {
   return wrap(head + body + foot, 780);
 }
 
+/* ---------------- e-sign v1 (#sign/token) ----------------
+   The signer's page: the exact stored baseline rendered like a presentation
+   link, a fingerprint the signer's own browser recomputes and verifies, and a
+   plain signature panel - consent, typed name, sign or decline. After signing
+   the same URL is the signer's archive copy forever: it re-renders the exact
+   signed document with the receipt, and prints to PDF. The words on the page
+   say what this is and is not: a recorded electronic signature with an audit
+   trail; cryptographic sealing is a later phase. */
+export function renderSignPage(APP) {
+  const g = APP.sign;
+  if (!g) return wrap(invalidCard('signature request'), 760);
+  const fpShort = (h) => 'sha256:' + String(h || '').slice(0, 16);
+  const verify = g.fingerprint
+    ? (g.verified
+      ? '<span class="pill" style="background:var(--ok-bg,#e8f6ee);color:var(--ok,#1a7f4b);border:1px solid rgba(26,127,75,.25)">Document verified · fingerprint matches</span>'
+      : '<span class="pill" style="background:#fdf1f1;color:#a13030;border:1px solid rgba(161,48,48,.25)">Fingerprint mismatch - do not sign; contact the sender</span>')
+    : '<span class="pill">' + esc(fpShort(g.computedFp)) + '</span>';
+  const who = g.signer || {};
+  let panel = '';
+  if (g.status === 'signed') {
+    panel =
+      '<div class="card" style="padding:22px 26px;margin-top:16px;border-left:3px solid var(--ok,#1a7f4b)">' +
+      '<div style="font-weight:650;font-size:15px;margin-bottom:6px">Signed</div>' +
+      '<div style="font-size:13.5px;color:var(--ink-2);line-height:1.65">' +
+      '<span class="mono">' + esc(g.signedName || who.name || '') + '</span> signed version ' + esc(g.label || '') +
+      (g.signedAt ? ' on <span class="mono">' + esc(new Date(g.signedAt).toLocaleString()) + '</span>' : '') +
+      '. Document fingerprint <span class="mono">' + esc(fpShort(g.fingerprint || g.computedFp)) + '</span>.</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">' +
+      '<button class="btn btn-sec btn-sm" data-action="brandprint">' + ico(IC.print, 'i-sm') + 'Print / save PDF</button>' +
+      '<button class="btn btn-ghost btn-sm" data-action="signreceipt">Email me this receipt</button></div>' +
+      (APP.signReceiptSent ? '<div style="font-size:12px;color:var(--ink-3);margin-top:8px">Receipt sent to ' + esc(who.email || 'your email') + '.</div>' : '') +
+      '<div style="font-size:11.5px;color:var(--ink-4);line-height:1.55;margin-top:12px">This page is your archive copy: the same link always renders the exact document you signed, with this receipt. ' +
+      'What was recorded: your typed name, the time, the document fingerprint, and the request trail. This is a recorded electronic signature with an audit trail, not cryptographic sealing; sealing ships in a later phase.</div></div>';
+  } else if (g.status === 'declined') {
+    panel =
+      '<div class="card" style="padding:22px 26px;margin-top:16px;border-left:3px solid #a13030">' +
+      '<div style="font-weight:650;font-size:15px;margin-bottom:6px">Declined</div>' +
+      '<div style="font-size:13.5px;color:var(--ink-2);line-height:1.6">This signature request was declined' +
+      (g.declineReason ? ': <span style="color:var(--ink-3)">' + esc(g.declineReason) + '</span>' : '.') +
+      ' The team has been notified on the record.</div></div>';
+  } else {
+    const err = APP.signError ? '<div style="font-size:12.5px;color:#a13030;margin-bottom:10px">' + esc(APP.signError) + '</div>' : '';
+    panel =
+      '<div class="card" style="padding:22px 26px;margin-top:16px">' +
+      '<div style="font-weight:650;font-size:15px;margin-bottom:4px">Sign this version</div>' +
+      '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6;margin-bottom:14px">You were asked to sign as ' +
+      '<b>' + esc(who.role || 'Signer') + '</b>' + (who.email ? ' (' + esc(who.email) + ')' : '') +
+      '. Read the document above, then sign with your typed name. Your name, the time, and the document fingerprint are recorded with an audit trail.</div>' +
+      err +
+      '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">' +
+      '<input class="input" id="signName" placeholder="Type your full name to sign" value="' + escA(APP.signName || who.name || '') + '" style="flex:1;min-width:220px;height:44px"' + (APP.signBusy ? ' disabled' : '') + '>' +
+      '<button class="btn btn-primary" data-action="signsubmit" style="height:44px"' + (APP.signBusy ? ' disabled' : '') + '>' + (APP.signBusy ? 'Signing…' : 'Sign version ' + esc(g.label || '')) + '</button></div>' +
+      '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink-3);line-height:1.5;margin-top:11px;cursor:pointer">' +
+      '<input type="checkbox" id="signConsent" style="margin-top:2px"' + (APP.signConsent ? ' checked' : '') + '>' +
+      '<span>I agree to sign electronically, and the typed name above is mine.</span></label>' +
+      (APP.signDeclineOpen
+        ? '<div style="display:flex;gap:8px;margin-top:14px"><input class="input" id="signWhy" placeholder="Why are you declining? (optional, goes on the record)" style="flex:1">' +
+          '<button class="btn btn-sec btn-sm" data-action="signdeclinego"' + (APP.signBusy ? ' disabled' : '') + '>Decline</button></div>'
+        : '<button class="btn btn-ghost btn-sm" data-action="signdeclineopen" style="margin-top:12px">Decline instead…</button>') +
+      '</div>';
+  }
+  const strip =
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">' +
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+    '<span class="eyebrow" style="font-size:9.5px">Signature request</span>' + verify + '</div>' +
+    '<span style="font-size:11.5px;color:var(--ink-4)">Requested for version ' + esc(g.label || '') + (g.author ? ' · recorded by ' + esc(g.author) : '') + '</span></div>';
+  return wrapSign(strip, panel, APP);
+}
+function wrapSign(strip, panel, APP) {
+  const g = APP.sign; const p = (APP.share && APP.share.payload) || {};
+  const md = bBrief(p.answers || {}, p.sections);
+  const brand = brandBanner(p);
+  const body = md.trim()
+    ? '<div class="card" style="padding:30px 34px">' + mdToHtml(md) + '</div>'
+    : '<div class="card" style="padding:34px;color:var(--ink-3);font-size:14px;text-align:center">This request has no document content.</div>';
+  const head = brand +
+    '<div style="min-width:0;margin-bottom:18px"><div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px">' +
+    '<span class="pill pill-solid"><span class="mono">v' + esc(g.label || '?') + '</span></span>' +
+    '<span class="eyebrow" style="font-size:9.5px">Requirements · for signature</span></div>' +
+    '<h1 style="font-size:30px;letter-spacing:-.025em;font-weight:660;margin:0">' + esc(g.project || p.product || 'Untitled') + '</h1></div>';
+  const foot = '<div style="text-align:center;margin-top:24px;font-size:11.5px;color:var(--ink-4);display:flex;align-items:center;justify-content:center;gap:6px">' +
+    '<span class="brandmark" style="width:16px;height:16px;border-radius:4px"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>' +
+    'A signature request on a fingerprinted requirements record, served by ReqPub.</div>';
+  return wrap(strip + head + body + panel + foot, 780);
+}
+
 /* ---------------- durable SME workspace (#sme/replyToken) ----------------
    The SME's permanent home for one PRD: the branded read-only brief plus a
    single continuous thread with the team. Reached by a stable personal link,

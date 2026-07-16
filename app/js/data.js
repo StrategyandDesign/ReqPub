@@ -250,6 +250,29 @@ export const repo = {
     return rpc('share_put', { p_project: pid, p_kind: kind, p_seq: seq, p_payload: payload, p_token: token || null });
   },
   shareRevoke(token) { return rpc('share_revoke', { p_token: token }); },
+
+  /* ---- e-sign v1 (recorded electronic signatures on a version) ---- */
+  signCreate(versionId, email, name, role, fingerprint) {
+    return rpc('sign_request_create', { p_version: versionId, p_email: email, p_name: name || '', p_role: role || '', p_fingerprint: fingerprint || '' });
+  },
+  signContext(token) { return rpc('sign_request_context', { p_token: token }); },
+  signSign(token, typedName, ua) { return rpc('sign_request_sign', { p_token: token, p_typed_name: typedName, p_ua: ua || '' }); },
+  signDecline(token, reason) { return rpc('sign_request_decline', { p_token: token, p_reason: reason || '' }); },
+  signRevoke(id) { return rpc('sign_request_revoke', { p_id: id }); },
+  async signsFor(pid) {
+    const r = await durable(() => sb.from('sign_requests')
+      .select('id,version_id,token,signer_email,signer_name,signer_role,status,signed_name,signed_at,sent_at,decline_reason,revoked')
+      .eq('project_id', pid).order('sent_at', { ascending: true }));
+    const by = {};
+    (r.data || []).forEach((x) => { if (!x.revoked) (by[x.version_id] = by[x.version_id] || []).push(x); });
+    return by;
+  },
+  sendSignEmail(requestId) {
+    return sb.functions.invoke('send-sign-request', { body: { request_id: requestId } });
+  },
+  sendSignReceipt(token) {
+    return sb.functions.invoke('send-sign-receipt', { body: { token } });
+  },
   async sharesFor(pid) {
     const r = await durable(() => sb.from('shares')
       .select('token,kind,version_seq,revoked,updated_at,sections:payload->sections').eq('project_id', pid));

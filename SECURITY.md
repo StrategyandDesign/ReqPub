@@ -1,5 +1,22 @@
 # Security
 
+## Write semantics, stated plainly
+
+Client writes retry only on transient failures (timeouts, 5xx, network
+loss) with exponential backoff; definitive errors return immediately. A
+response lost at the network layer after a successful write means retries
+are at-least-once. Field and row writes are safe under this: they go
+through rev-checked server RPCs, so a replay is rejected as stale. Direct
+inserts without a natural unique key (approval slots) can, rarely, duplicate
+on a lost response; slots are manager-visible and manager-editable, and the
+provenance trigger stamps every row, so a duplicate is evident and
+removable, never silent. Project creation deduplicates by key.
+
+Brand logos are accepted only as data:image URIs (png, jpeg, gif, webp,
+svg+xml), size-capped, and the whitelist is enforced at every render
+surface (workspace preview, external brief, printed exports), with all
+attributes escaped.
+
 ## Reporting
 
 Report suspected vulnerabilities privately to the workspace owner (see the

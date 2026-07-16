@@ -35,7 +35,7 @@ function acceptanceThresholds(answers) {
   return '## Signed acceptance thresholds\n\n' +
     'Each threshold is measured on its named eval set. A build below any threshold does not ship.\n\n' +
     mdTable(['ID', 'Dimension', 'Metric', 'Threshold', 'Eval set'],
-      ev.map((r, i) => ['EVAL-' + String(i + 1).padStart(3, '0'), r.dim || '', r.metric || '', r.thresh || 'to confirm', r.dataset || 'to confirm'])) + '\n\n';
+      ev.map((r, i) => [id3('EVAL', r._k != null ? r._k : i + 1), r.dim || '', r.metric || '', r.thresh || 'to confirm', r.dataset || 'to confirm'])) + '\n\n';
 }
 function acceptanceMd(answers, meta) {
   const P = ['# Acceptance checklist - ' + (meta.product || 'Untitled') + ' v' + meta.label,
@@ -111,8 +111,10 @@ export function buildImplementationFiles(input) {
   // is content from the fingerprinted baseline.
   const ev = rowsFilled(answers.eval);
   if (ev.length) {
+    // Permanent keys, identical to the printed document and the checklist:
+    // one id per criterion across every artifact in the zip, forever.
     spec.acceptance = ev.map((r, i) => clean({
-      id: 'EVAL-' + String(i + 1).padStart(3, '0'),
+      id: id3('EVAL', r._k != null ? r._k : i + 1),
       dimension: r.dim, metric: r.metric, threshold: r.thresh,
       dataset: r.dataset, component: r.comp
     }));

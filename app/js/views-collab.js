@@ -524,7 +524,8 @@ function renderVersions(APP) {
       // How this slot resolves: an assigned teammate can self-approve; a name-only
       // slot is a manual sign-off a manager records.
       const tag = mineSlot ? '<span style="color:var(--brand);font-weight:600"> · you</span>'
-        : (ap.approver_user_id ? '' : '<span style="color:var(--ink-4)"> · manual</span>');
+        : (ap.sign_request_id ? '<span style="color:var(--ink-4)"> · e-signed</span>'
+          : ap.approver_user_id ? '' : '<span style="color:var(--ink-4)"> · manual</span>');
       return '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px">' +
         '<span class="stchip ' + esc(ap.status === 'pending' ? 'draft' : ap.status) + '" style="height:20px;font-size:10px">' + esc(ap.status === 'pending' ? 'Pending' : STATUS_LABEL[ap.status]) + '</span>' +
         '<span style="flex:1;min-width:0"><strong>' + esc(ap.approver_role || 'Approver') + '</strong>' + (ap.approver_name ? ' - ' + esc(ap.approver_name) : '') + tag +
@@ -550,6 +551,40 @@ function renderVersions(APP) {
         '<div class="hint" style="font-size:10.5px;margin-top:5px">' + (isApproved
           ? 'This baseline is already approved. Recording adds a named sign-off as evidence - stamped to whoever records it, at the time it is recorded - and the health warning clears the moment it lands.'
           : 'Assign a teammate: they see a waiting on you flag in the app and can approve their own sign-off. Or type a name to record a manual sign-off yourself.') + '</div></div>' : '';
+    // E-sign v1: token-keyed signature requests on this exact baseline. The
+    // signature lands as an approval row above; this panel is the request
+    // lifecycle - who was asked, when, what happened, and the archive link.
+    const signs = (APP.signs || {})[v.id] || [];
+    const signLink = (t) => location.origin + location.pathname + '#sign/' + t;
+    const signRows = signs.map((sg) => {
+      const chip = sg.status === 'signed' ? '<span class="stchip approved" style="height:20px;font-size:10px">Signed</span>'
+        : sg.status === 'declined' ? '<span class="stchip changes_requested" style="height:20px;font-size:10px">Declined</span>'
+        : '<span class="stchip draft" style="height:20px;font-size:10px">Sent</span>';
+      return '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px">' +
+        chip + '<span style="flex:1;min-width:0"><strong>' + esc(sg.signer_email) + '</strong>' +
+        (sg.signer_role ? ' · ' + esc(sg.signer_role) : '') +
+        (sg.status === 'signed' ? '<span style="color:var(--ink-4)"> · signed ' + esc(fmtDate(sg.signed_at)) + ' as ' + esc(sg.signed_name) + '</span>'
+          : sg.status === 'declined' ? (sg.decline_reason ? '<span style="color:var(--ink-4)"> · ' + esc(sg.decline_reason) + '</span>' : '')
+          : '<span style="color:var(--ink-4)"> · sent ' + esc(fmtDate(sg.sent_at)) + '</span>') + '</span>' +
+        '<a class="btn btn-ghost btn-sm" href="' + escA(signLink(sg.token)) + '" target="_blank" rel="noopener" style="font-size:11px">' + (sg.status === 'signed' ? 'Receipt' : 'Open') + '</a>' +
+        '<button class="btn btn-ghost btn-sm" data-action="signcopy" data-token="' + escA(sg.token) + '" style="font-size:11px">Copy link</button>' +
+        (isMgr && sg.status === 'pending' ? '<button class="btn btn-ghost btn-sm" data-action="signmail" data-id="' + escA(sg.id) + '" style="font-size:11px">Email again</button>' +
+          '<button class="icobtn" data-action="signrevoke" data-id="' + escA(sg.id) + '" title="Revoke this link" style="width:26px;height:26px">' + ico(IC.close, 'i-sm') + '</button>' : '') +
+        '</div>';
+    }).join('');
+    const signForm = isMgr
+      ? '<div style="margin-top:8px"><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<input class="input" id="sig-email-' + escA(v.id) + '" placeholder="Signer\u2019s email" style="height:32px;font-size:12px;flex:1.4;min-width:150px">' +
+        '<input class="input" id="sig-name-' + escA(v.id) + '" placeholder="Name (optional)" style="height:32px;font-size:12px;flex:1;min-width:100px">' +
+        '<input class="input" id="sig-role-' + escA(v.id) + '" placeholder="Role (e.g. Sponsor)" style="height:32px;font-size:12px;flex:1;min-width:110px">' +
+        '<button class="btn btn-sec btn-sm" data-action="signsend" data-id="' + escA(v.id) + '" data-seq="' + v.seq + '"' + (APP.signSendBusy ? ' disabled' : '') + '>' + (APP.signSendBusy ? 'Sending…' : 'Request signature') + '</button></div>' +
+        '<div class="hint" style="font-size:10.5px;margin-top:5px">Sends a private link to sign this exact baseline. The signature lands above as a named sign-off with a timestamp and audit trail, and the link stays live as the signer\u2019s archive copy. Recorded e-signature; cryptographic sealing is the next phase.</div></div>'
+      : '';
+    const signPanel = (signRows || signForm)
+      ? '<div style="border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:9px;background:var(--bg)">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (signRows ? '2px' : '0') + '"><span class="eyebrow" style="font-size:9px">Signatures</span></div>' +
+        signRows + signForm + '</div>'
+      : '';
     return '<div class="tl-item' + (on ? ' hot' : '') + '">' +
       '<button data-action="viewver" data-seq="' + v.seq + '" style="text-align:left;display:block;width:100%">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="mono" style="font-size:14px;font-weight:600">v' + esc(v.label) + '</span>' +
@@ -564,7 +599,7 @@ function renderVersions(APP) {
       ((APP.fingers || {})[v.id] ? esc(fmtFingerprint(APP.fingers[v.id])) + ' · copied' : 'Fingerprint') + '</button></div>' +
       ((apprRows || addAppr || tbtns) ? '<div style="border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:9px;background:var(--bg)">' +
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:' + (apprRows || addAppr ? '7px' : '0') + '"><span class="eyebrow" style="font-size:9px">Approval workflow</span><div style="flex:1"></div>' + tbtns + '</div>' +
-        apprRows + addAppr + '</div>' : '') +
+        apprRows + addAppr + '</div>' : '') + signPanel +
       '</div>';
   }).join('');
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Version history</h2>' +

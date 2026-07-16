@@ -131,6 +131,11 @@ test('the signed thresholds travel machine-readable, anchored to their eval set'
   const md = Object.fromEntries(withEval.map((f) => [f.name, f.text]))['acceptance.md'];
   assert.ok(md.includes('Signed acceptance thresholds'));
   assert.ok(md.includes('acceptance-set v3'));
+  const gapped = buildImplementationFiles({ ...meta, answers: { ...meta.answers,
+    eval: [{ _k: 1, dim: 'Grounding', metric: 'Faithfulness', thresh: '95%', dataset: 'set v1' },
+           { _k: 3, dim: 'Safety', metric: 'Refusal rate', thresh: '99%', dataset: 'red-team v2' }] } });
+  const gj = JSON.parse(Object.fromEntries(gapped.map((f) => [f.name, f.text]))['requirements.json']);
+  assert.deepEqual(gj.acceptance.map((x) => x.id), ['EVAL-001', 'EVAL-003'], 'permanent keys survive deletions; ids never renumber across artifacts');
   const noEval = buildImplementationFiles({ ...meta, answers: { ...meta.answers, eval: [] } });
   const jj = JSON.parse(Object.fromEntries(noEval.map((f) => [f.name, f.text]))['requirements.json']);
   assert.equal(jj.acceptance, undefined, 'no eval rows, no acceptance block');

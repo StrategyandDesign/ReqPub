@@ -40,7 +40,7 @@ function coverHTML(meta) {
         const decided = a.status === 'approved';
         return '<div class="rp-appr-row"><span class="rp-appr-mark ' + (decided ? 'yes' : '') + '">' +
           (decided ? '&#10003;' : '&middot;') + '</span>' +
-          '<span class="rp-appr-role">' + esc(a.approver_role || 'Approver') + (a.approver_name ? ' - ' + esc(a.approver_name) : '') + '</span>' +
+          '<span class="rp-appr-role">' + esc(a.approver_role || 'Approver') + (a.approver_name ? ' - ' + esc(a.approver_name) : '') + (a.sign_request_id ? ' <span style="color:#777">(e-signed)</span>' : '') + '</span>' +
           '<span class="rp-appr-state ' + esc(a.status) + '">' + esc(STATUS_LABEL[a.status] || a.status) + '</span></div>';
       }).join('') + '</div>'
     : '';
@@ -82,7 +82,7 @@ export function downloadWord(md, meta) {
   const approvals = (meta.approvals || []).length
     ? '<div style="font-family:Consolas,monospace;font-size:9pt;color:#333;margin-top:8pt">Approvals: ' +
       meta.approvals.map((a) => esc((a.approver_role || 'Approver') + (a.approver_name ? ' - ' + a.approver_name : '') +
-        ' (' + (STATUS_LABEL[a.status] || a.status) + ')')).join('; ') + '</div>' : '';
+        (a.sign_request_id ? ', e-signed' : '') + ' (' + (STATUS_LABEL[a.status] || a.status) + ')')).join('; ') + '</div>' : '';
   const cover = '<div class="rp-cover">' + logo + label +
     '<div style="font-family:Consolas,monospace;font-size:8.5pt;letter-spacing:1.5pt;text-transform:uppercase;color:#2563FF;margin-top:10pt">Requirements Baseline</div>' +
     '<div class="rp-title">' + esc(meta.product || 'Untitled') + '</div>' +

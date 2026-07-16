@@ -1,5 +1,108 @@
 # Changelog
 
+## 2.26.0 · sign here, start here
+
+Two capabilities the client asked to have immediately functional, shipped
+whole: e-sign v1 on exact baselines, and populating a blank record from
+documents. Both land through the record's existing spine - approvals,
+rev-checked writes, the activity trail - so nothing new has to be trusted.
+
+- **E-sign v1: a recorded electronic signature on an exact baseline.** A
+  manager sends a token-keyed request from the Versions panel; the signer's
+  page renders the stored snapshot and the signer's own browser recomputes
+  and verifies the send-time fingerprint before asking for a name. Signing
+  requires a typed name plus recorded consent and lands as a normal
+  version_approvals row - decided, timestamped by the provenance trigger,
+  linked both ways to the signature record - so covers, gate packets,
+  health, and the approve gate see it with zero new concepts. Declines
+  carry a reason; revocation is pending-only and a signed record is never
+  un-signed from the app; every event writes the activity trail. The same
+  link stays live as the signer's archive copy: it always re-renders the
+  exact signed document with the receipt, prints to PDF, and can email
+  itself to the signer. The words on every surface are exact: a recorded
+  electronic signature with an audit trail, not cryptographic sealing -
+  sealing is the v2 phase.
+- **The signature record is RPC-only.** Direct writes to sign_requests are
+  revoked from the application role; five definer functions (create,
+  context, sign, decline, revoke) are the only path - manager-gated where
+  they must be, token-scoped where the signer acts, anon-callable only
+  where the token is the credential. 29 new backend checks pin the
+  lifecycle, the approval landing, the state machine, the boundaries, and
+  the trail.
+- **Two mailers, each honest about its authority.** send-sign-request runs
+  under the caller's own JWT and can only mail rows the caller's row-level
+  security can see; send-sign-receipt is token-keyed, requires a signed
+  row, and mails only that row's own signer - the recipient is never
+  caller-supplied. Email is best-effort by design: the request link is
+  always created, copied, and shown in the panel, so delivery problems
+  never block a signature.
+- **Populate from documents: a blank record fills itself, deterministically.**
+  Paste text or add files on the Document tab; a pure mapper
+  (app/js/intake.js - no AI calls, no network) segments by headings,
+  classifies by an ordered keyword map, extracts bullets and markdown
+  tables into the right row shapes, and shows the full mapping for approval
+  before a single write happens. Requirements carry src = Import · file
+  exactly like discovery promotion; Must / Should / Could language becomes
+  the priority; an Acceptance: tail becomes the fit criterion; eval tables
+  carry their eval-set column; and unrecognized sections are never guessed -
+  they wait in an unplaced list for a human target or a skip.
+- **Intake never overwrites.** A filled answer is kept and reported, rows
+  are additive, and writes run through the same rev-checked RPCs as typing,
+  sequentially, with live progress - the applyTemplate discipline, reused.
+  txt and md read exactly; docx is best-effort through mammoth from the
+  pinned CDN the CSP already allows; anything else is refused with a plain
+  ask to paste. 20 new unit checks pin segmentation, classification,
+  extraction, the plan, the never-overwrite rule, and the executor.
+- Approval rows created by signature render '· e-signed' in the workflow
+  panel and on both cover surfaces. The meta-PRD's e-signature requirement
+  moves from Should to shipped Must carrying v1's exact claim; sealing
+  stays Should, gated on independent verification.
+- Suites: 176 unit + 260 backend = 436 checks green on a clean copy.
+
+Deploy: run supabase/fix-esign.sql once on the live database, then
+`supabase functions deploy send-sign-request` (keep Verify JWT on) and
+`supabase functions deploy send-sign-receipt --no-verify-jwt`. Resend
+secrets (RESEND_API_KEY, INVITE_FROM, APP_URL) carry over from send-invite.
+
+## 2.25.1 · the hardening pass
+
+A pre-review adversarial audit of the full codebase: exploit surfaces,
+escaping discipline, auth on the edge, identifier integrity, organization,
+and the AI-tell sweep. One defect found and fixed. Ten surfaces verified
+clean, each with the evidence stated.
+
+- **Found and fixed: acceptance ids could diverge inside one zip.** The
+  2.25.0 acceptance block numbered criteria by array index while the
+  printed document and the checklist number by permanent key. Delete a row
+  once and requirements.json says EVAL-002 where every other artifact says
+  EVAL-003 - an id mismatch between the document the client signed and the
+  machine-readable export, inside the same fingerprinted package. All three
+  now use the permanent key; the regression test pins a gapped fixture to
+  EVAL-001, EVAL-003, never renumbered.
+- **Verified clean, with evidence.** No esc() in attribute position
+  anywhere (escA everywhere an attribute is built); the markdown pipeline
+  escapes before transforming. Brand logos pass a data:image whitelist at
+  all three render surfaces, size-capped, attributes escaped. CSP on every
+  app page: no inline script, pinned script host, frame-ancestors none,
+  supabase-only connect. The invite function authenticates the caller,
+  verifies a pending invite under the caller's own row-level security, and
+  escapes every interpolation into the email; it cannot be used as an open
+  relay. Download filenames are stripped to a safe charset. Zero
+  target=_blank without noopener. Zero TODO, FIXME, debugger, or stray
+  console logging. Zero AI-tell vocabulary and zero em dashes repo-wide
+  (the one in zipstore's test remains as UTF-8 round-trip payload).
+- **Stated, not hidden:** client write retries are at-least-once on lost
+  responses; rev-checked RPCs make field and row replays inert; keyless
+  inserts (approval slots) can rarely duplicate and are manager-visible,
+  provenance-stamped, and removable. Now documented in SECURITY.md, because
+  a reviewer finding an undocumented behavior trusts nothing else on the
+  page.
+- **Organization, decided on the record:** main.js is 1,761 lines of
+  dispatch and orchestration with a visible seam; the split ships with the
+  next structural feature and its tests, not as a cosmetic refactor the
+  week of an external review. docs/ARCHITECTURE.md carries the reasoning.
+- Suites: 156 unit + 231 backend = 387 checks green on a clean copy.
+
 ## 2.25.0 · the signed number travels
 
 Built from field research on forward-deployed AI engineering (Ode, the

@@ -9,7 +9,8 @@ import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
-import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace } from './views-external.js';
+import { mapArtifacts, applyPlan, executeOps } from './intake.js';
+import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace, renderSignPage } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, fileStem } from './exports.js';
 import { landingTab, incorporatedRows, healthSignals } from './health.js';
 import { buildImplementationFiles } from './implpkg.js';
@@ -68,6 +69,7 @@ function renderUnsafe() {
     case 'fbshare': html = renderFeedbackForm(APP); break;
     case 'note': html = renderNoteIntake(APP); break;
     case 'present': html = renderPresentShare(APP); break;
+    case 'sign': html = renderSignPage(APP); break;
     case 'smeworkspace': html = renderSmeWorkspace(APP); break;
     case 'partner': html = renderPartnerHome(APP); break;
     case 'partnerview': html = renderPartnerProject(APP); break;
@@ -195,6 +197,8 @@ function parseHash() {
   if (m) return { mode: 'note', pid: m[1], token: m[3] };
   m = h.match(/^sme\/([^/]+)$/);                        // durable SME workspace: #sme/replyToken
   if (m) return { mode: 'sme', token: m[1] };
+  m = h.match(/^sign\/([^/]+)$/);                       // e-sign v1: #sign/token
+  if (m) return { mode: 'sign', token: m[1] };
   return null;
 }
 
@@ -206,6 +210,29 @@ async function routeShare(r) {
   APP.shareToken = r.token;
   APP.shareRoute = r;
   APP.shareForm = {};
+  if (r.mode === 'sign') {
+    // E-sign: the token page fetches the request context (which carries the
+    // exact stored snapshot), assembles the full document exactly like a
+    // presentation link, and verifies the send-time fingerprint in the
+    // signer's own browser before asking for a signature.
+    const res = await repo.signContext(r.token);
+    const c = res.data && res.data.ok ? res.data : null;
+    APP.sign = c ? { ...c, token: r.token } : null;
+    if (c && c.snapshot) {
+      const answers = c.snapshot.answers || {};
+      APP.share = { payload: buildSharePayload(
+        { name: c.project, brand_logo: c.logo || '', brand_label: c.brandLabel || '' },
+        answers, c.label, c.seq, 'present', c.snapshot.build || '', null) };
+      try {
+        const fp = await versionFingerprint({ label: c.label, seq: c.seq, snapshot: c.snapshot });
+        APP.sign.computedFp = fp;
+        APP.sign.verified = !!c.fingerprint && fp === c.fingerprint;
+      } catch { APP.sign.computedFp = ''; APP.sign.verified = false; }
+    }
+    APP.view = 'sign';
+    render();
+    return;
+  }
   if (r.mode === 'sme') {
     // Durable SME workspace: the token IS the persistent reply_token, so the
     // link resumes the same thread on any device with no localStorage needed.
@@ -355,7 +382,7 @@ async function openProject(id, tab) {
   APP.docTab = tab || 'document'; APP.landingAuto = !tab; APP.viewSeq = null; APP.fbSeq = null;
   APP.fields = {}; APP.rows = {}; APP.versions = []; APP.comms = []; APP.msgs = {};
   APP.requests = []; APP.discovery = []; APP.reads = {}; APP.snapshots = {}; APP.shares = [];
-  APP.approvals = {}; APP.conflicts = {}; APP.openComms = {}; APP.openDisc = {}; APP.openSecs = {};
+  APP.approvals = {}; APP.signs = {}; APP.intake = null; APP.conflicts = {}; APP.openComms = {}; APP.openDisc = {}; APP.openSecs = {};
   APP.present = false; APP.activeQid = null; lastRevealedSec = null;
   APP.access = { members: [], partners: [] };
   APP.smeSeats = [];
@@ -374,15 +401,16 @@ async function openProject(id, tab) {
   // and only when the caller did not ask for a specific tab.
   if (APP.landingAuto) { APP.docTab = landingTab(APP.versions); APP.landingAuto = false; }
   const parentIds = [...b.comms.map((c) => c.id), ...b.requests.map((r) => r.id)];
-  const [msgs, approvals, shares, attachments, members] = await Promise.all([
+  const [msgs, approvals, shares, attachments, signs, members] = await Promise.all([
     repo.messagesFor(parentIds),
     repo.approvals(b.versions.map((v) => v.id)),
     repo.sharesFor(id),
     repo.attachmentsFor(id),
+    repo.signsFor(id),
     APP.role === 'manager' ? repo.orgMembersNamed(APP.orgId) : Promise.resolve(APP.members || [])
   ]);
   if (APP.pid !== id) return;
-  APP.msgs = msgs; APP.approvals = approvals; APP.shares = shares; APP.attachments = attachments;
+  APP.msgs = msgs; APP.approvals = approvals; APP.shares = shares; APP.attachments = attachments; APP.signs = signs;
   APP.members = members;
   sync.subscribeProject(id, APP.user);
   render();
@@ -569,6 +597,46 @@ async function ensurePresentLink() {
 
 /* ---------------- event delegation ---------------- */
 function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+
+/* Intake file ingestion: txt and md are read exactly; docx is best-effort
+   through mammoth, loaded once from the pinned CDN the CSP already allows.
+   A parse failure degrades to a toast asking for pasted text - it never
+   produces a silent partial plan. PDFs are refused with the same honesty. */
+let mammothLoading = null;
+function loadMammoth() {
+  if (window.mammoth) return Promise.resolve(window.mammoth);
+  if (!mammothLoading) {
+    mammothLoading = new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+      sc.onload = () => res(window.mammoth);
+      sc.onerror = () => { mammothLoading = null; rej(new Error('mammoth load failed')); };
+      document.head.appendChild(sc);
+    });
+  }
+  return mammothLoading;
+}
+async function intakeAddFiles(files) {
+  if (!APP.intake) return;
+  for (const f of files) {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    try {
+      if (ext === 'txt' || ext === 'md' || ext === 'markdown') {
+        APP.intake.files.push({ name: f.name, text: await f.text() });
+      } else if (ext === 'docx') {
+        const m = await loadMammoth();
+        const r = await m.extractRawText({ arrayBuffer: await f.arrayBuffer() });
+        APP.intake.files.push({ name: f.name, text: (r && r.value) || '' });
+      } else {
+        toast('Could not read ' + f.name + ' - txt, md, and docx are supported; paste anything else as text');
+      }
+    } catch {
+      toast('Could not read ' + f.name + ' - paste its text instead');
+    }
+  }
+  APP.intake.plan = null;   // a changed artifact set always re-previews
+  render();
+}
 
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-action]');
@@ -1330,6 +1398,144 @@ async function handleAction(a, id, t, e) {
       render();
       break;
     }
+    /* ---- intake: populate a blank record from documents ---- */
+    case 'intakeopen': APP.intake = { open: true, files: [], text: '', plan: null, include: [], targets: [] }; render(); break;
+    case 'intakeclose': APP.intake = null; render(); break;
+    case 'intakefiledel': {
+      if (!APP.intake) break;
+      APP.intake.files.splice(+t.dataset.i, 1);
+      APP.intake.plan = null;   // a changed artifact set always re-previews
+      render();
+      break;
+    }
+    case 'intakepreview': {
+      const it = APP.intake; if (!it) break;
+      const arts = [...it.files];
+      if ((it.text || '').trim()) arts.push({ name: 'pasted text', text: it.text });
+      if (!arts.length) { toast('Paste some text or add a file first'); break; }
+      it.plan = mapArtifacts(arts);
+      it.include = it.plan.placements.map(() => true);
+      it.targets = it.plan.unplaced.map(() => '');
+      if (!it.plan.placements.length && !it.plan.unplaced.length) toast('Nothing readable found in those documents');
+      render();
+      break;
+    }
+    case 'intakeapply': {
+      const it = APP.intake; if (!it || !it.plan || it.busy) break;
+      const sel = it.plan.placements.filter((p, i) => it.include[i]);
+      const a = assembleAnswers(APP.fields, APP.rows);
+      const { ops, kept } = applyPlan(sel, a);
+      // Unplaced items the user assigned: append to the chosen long field,
+      // chaining when several land in the same target - appending, never
+      // replacing, so the never-overwrite rule holds here too.
+      const acc = {};
+      it.plan.unplaced.forEach((u, i) => {
+        const tgt = it.targets[i]; if (!tgt) return;
+        const base = acc[tgt] != null ? acc[tgt] : String(a[tgt] || '').trim();
+        acc[tgt] = base ? base + '\n\n' + u.body : u.body;
+      });
+      Object.entries(acc).forEach(([qid, value]) => ops.push({ kind: 'field', qid, value }));
+      ops.forEach((op) => { if (op.kind === 'field') op.baseRev = (APP.fields[op.qid] && APP.fields[op.qid].rev) || 0; });
+      if (!ops.length) {
+        toast(kept.length ? 'Nothing to apply - the matched fields already have content, which intake never overwrites' : 'Nothing selected to apply');
+        break;
+      }
+      it.busy = true; it.done = 0; it.total = ops.length; render();
+      const out = await executeOps(repo, APP.pid, ops, (d) => { it.done = d; render(); });
+      const parts = [];
+      if (out.fields) parts.push(out.fields + (out.fields === 1 ? ' answer' : ' answers'));
+      if (out.rows) parts.push(out.rows + (out.rows === 1 ? ' row' : ' rows'));
+      let msg = 'Populated ' + (parts.join(' and ') || 'nothing');
+      if (kept.length) msg += ' · kept ' + kept.length + ' existing answer' + (kept.length === 1 ? '' : 's') + ' untouched';
+      if (out.failed) msg += ' · ' + out.failed + ' write' + (out.failed === 1 ? '' : 's') + ' failed';
+      toast(msg);
+      await loadProject(APP.pid, 'document');
+      break;
+    }
+    /* ---- e-sign v1: team side ---- */
+    case 'signsend': {
+      if (APP.signSendBusy) break;
+      const vid = t.dataset.id, seq = +t.dataset.seq;
+      const email = val('sig-email-' + vid).trim();
+      const name = val('sig-name-' + vid).trim();
+      const role = val('sig-role-' + vid).trim();
+      if (!email) { toast('Enter the signer\u2019s email'); break; }
+      APP.signSendBusy = true; render();
+      try {
+        await ensureSnapshot(seq);
+        const snap = APP.snapshots[seq];
+        const fp = snap ? await versionFingerprint(snap) : '';
+        const r = await repo.signCreate(vid, email, name, role, fp);
+        const out = r.data;
+        if (!out || !out.ok) { toast(out && out.error === 'forbidden' ? 'Only a manager can request signatures' : 'Could not create the signature request'); break; }
+        const link = location.origin + location.pathname + '#sign/' + out.token;
+        let mailed = false;
+        try { const m = await repo.sendSignEmail(out.id); mailed = !(m && m.error); } catch { mailed = false; }
+        try { await copyText(link); } catch { /* clipboard denied */ }
+        toast(mailed ? 'Signature request emailed - link also copied' : 'Request created and link copied - email delivery is not configured, send the link yourself');
+        APP.signs = await repo.signsFor(APP.pid);
+      } finally { APP.signSendBusy = false; render(); }
+      break;
+    }
+    case 'signcopy': {
+      const link = location.origin + location.pathname + '#sign/' + t.dataset.token;
+      try { await copyText(link); toast('Signature link copied'); } catch { toast(link); }
+      break;
+    }
+    case 'signmail': {
+      try {
+        const m = await repo.sendSignEmail(t.dataset.id);
+        toast(m && m.error ? 'Email delivery failed - copy the link instead' : 'Signature request emailed again');
+      } catch { toast('Email delivery failed - copy the link instead'); }
+      break;
+    }
+    case 'signrevoke': {
+      const ok = await repo.signRevoke(t.dataset.id);
+      if (ok.data === true) { APP.signs = await repo.signsFor(APP.pid); toast('Signature link revoked'); render(); }
+      else toast('Only pending requests can be revoked');
+      break;
+    }
+    /* ---- e-sign v1: the signer's page ---- */
+    case 'signdeclineopen': { APP.signDeclineOpen = true; render(); break; }
+    case 'signsubmit': {
+      if (!APP.sign || APP.signBusy) break;
+      const name = val('signName').trim();
+      const consent = !!(document.getElementById('signConsent') || {}).checked;
+      APP.signName = name; APP.signConsent = consent;
+      if (!name) { APP.signError = 'Type your full name to sign.'; render(); break; }
+      if (!consent) { APP.signError = 'Tick the consent box to sign electronically.'; render(); break; }
+      APP.signError = null; APP.signBusy = true; render();
+      try {
+        const r = await repo.signSign(APP.sign.token, name, (navigator && navigator.userAgent) || '');
+        const out = r.data;
+        if (out && out.ok) {
+          APP.sign.status = 'signed';
+          APP.sign.signedName = out.already ? out.signedName : name;
+          APP.sign.signedAt = out.signedAt || new Date().toISOString();
+        } else {
+          APP.signError = out && out.error === 'declined'
+            ? 'This request was declined earlier and can no longer be signed.'
+            : 'Could not record the signature - reload the page and try again.';
+        }
+      } finally { APP.signBusy = false; render(); }
+      break;
+    }
+    case 'signdeclinego': {
+      if (!APP.sign || APP.signBusy) break;
+      APP.signBusy = true; render();
+      try {
+        const r = await repo.signDecline(APP.sign.token, val('signWhy').trim());
+        if (r.data && r.data.ok) { APP.sign.status = 'declined'; APP.sign.declineReason = val('signWhy').trim(); }
+        else APP.signError = 'Could not record the decline - reload and try again.';
+      } finally { APP.signBusy = false; APP.signDeclineOpen = false; render(); }
+      break;
+    }
+    case 'signreceipt': {
+      try { await repo.sendSignReceipt(APP.sign.token); APP.signReceiptSent = true; }
+      catch { APP.signReceiptSent = false; toast('Could not send the receipt email - print this page instead'); }
+      render();
+      break;
+    }
     case 'apprrecord': {
       // A sign-off recorded on an already-approved baseline: insert the slot
       // (the trigger forces it pending), then decide it approved. Provenance
@@ -1476,6 +1682,16 @@ document.addEventListener('change', async (e) => {
     const c = APP.comms.find((x) => x.id === id);
     if (c) c.status = t.value;
     render();
+  } else if (t.id === 'intakeFiles') {
+    const files = [...(t.files || [])];
+    t.value = '';
+    await intakeAddFiles(files);
+  } else if (t.id === 'intakeText') {
+    if (APP.intake) APP.intake.text = t.value;
+  } else if (t.matches('[data-intaketog]')) {
+    if (APP.intake && APP.intake.plan) APP.intake.include[+t.dataset.intaketog] = t.checked;
+  } else if (t.matches('[data-intaketgt]')) {
+    if (APP.intake) APP.intake.targets[+t.dataset.intaketgt] = t.value;
   } else if (t.matches('[data-action="versionsel"]')) {
     APP.viewSeq = t.value === '' ? null : +t.value;
     if (APP.viewSeq != null) await ensureSnapshot(APP.viewSeq);

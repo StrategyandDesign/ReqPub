@@ -4,7 +4,7 @@
    ============================================================================ */
 
 import { esc, escA, ico, IC, brandmark, initials, relTime, themeGet } from './core.js';
-import { SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, reqDiffDetail, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
+import { Q, SECTIONS, qBySec, visQ, isAnswered, assembleAnswers, buildSections, assemble, mdToHtml, reqDiff, reqDiffDetail, BRIEF_SECTIONS, docSecNum, docSecTitle } from './domain.js';
 import { healthSignals, healthPillLabel } from './health.js';
 import { renderTab, newReplyCount } from './views-collab.js';
 import { execSummaryHTML } from './exports.js';
@@ -530,12 +530,81 @@ export function currentDocMd(APP, a) {
 
 /* The document tab body, exported so main.js can live-patch the pane while
    someone types in the worksheet without re-rendering (and unfocusing) it. */
+/* ---------------- intake: populate a blank record from documents ----------
+   Manager-only, working-draft-only. The entry appears while the record has
+   no meaningful content; the card previews a deterministic mapping (see
+   app/js/intake.js) before a single write happens, and hands control back
+   the moment it lands. Intake never overwrites a non-empty field. */
+const INTAKE_QLABEL = {}; Q.forEach((q) => { INTAKE_QLABEL[q.id] = q.prompt; });
+const INTAKE_LONGS = Q.filter((q) => q.type === 'long').map((q) => [q.id, q.prompt]);
+
+export function intakeMeaningful(APP) {
+  const skip = (id) => id.startsWith('ctrl_') || id.startsWith('link_');
+  const f = APP.fields || {};
+  if (Object.keys(f).some((id) => !skip(id) && String((f[id] && f[id].value) || '').trim())) return true;
+  const r = APP.rows || {};
+  return Object.keys(r).some((id) => id !== 'ctrl_approvers' && (r[id] || []).length > 0);
+}
+
+function intakeZone(APP) {
+  if (APP.role !== 'manager' || APP.viewSeq != null) return '';
+  const it = APP.intake;
+  if (!it || !it.open) {
+    if (intakeMeaningful(APP)) return '';
+    return '<div class="page" style="padding-bottom:0"><div class="card" style="padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:220px"><div style="font-weight:620;font-size:14px">Starting from documents?</div>' +
+      '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.55;margin-top:2px">Paste or upload drafts and ReqPub places them into this framework - the right question, the right shape, source stamped - then hands the editor back to you.</div></div>' +
+      '<button class="btn btn-primary btn-sm" data-action="intakeopen">' + ico(IC.plus, 'i-sm') + 'Populate from documents</button></div></div>';
+  }
+  const files = (it.files || []).map((f, i) =>
+    '<span class="pill" style="display:inline-flex;align-items:center;gap:6px;margin:0 6px 6px 0"><span class="mono" style="font-size:11px">' + esc(f.name) + '</span>' +
+    '<span style="color:var(--ink-4);font-size:10px">' + Math.max(1, Math.round((f.text || '').length / 1000)) + 'k chars</span>' +
+    '<button class="icobtn" data-action="intakefiledel" data-i="' + i + '" style="width:18px;height:18px" title="Remove">' + ico(IC.close, 'i-sm') + '</button></span>').join('');
+  let planHtml = '';
+  if (it.plan) {
+    const rows = it.plan.placements.map((p, i) => {
+      const count = p.kind === 'long' ? (p.value.length + ' chars') : (p.rows.length + (p.kind === 'list' ? ' items' : ' rows'));
+      const peek = p.kind === 'long' ? p.value : (p.rows[0] ? Object.values(p.rows[0]).filter(Boolean).join(' · ') : '');
+      return '<label style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line);cursor:pointer">' +
+        '<input type="checkbox" data-intaketog="' + i + '"' + (it.include[i] ? ' checked' : '') + ' style="margin-top:3px">' +
+        '<span style="flex:1;min-width:0"><strong style="font-size:13px">' + esc(INTAKE_QLABEL[p.qid] || p.qid) + '</strong>' +
+        '<span class="pill" style="margin-left:8px;font-size:10px;height:18px">' + esc(count) + '</span>' +
+        '<span style="display:block;font-size:11.5px;color:var(--ink-4);margin-top:2px">' + esc(String(peek).slice(0, 110)) + (String(peek).length > 110 ? '\u2026' : '') +
+        ' <span style="color:var(--ink-4)">· from ' + esc(p.sources.join(', ')) + '</span></span></span></label>';
+    }).join('');
+    const un = it.plan.unplaced.map((u, i) =>
+      '<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)">' +
+      '<span style="flex:1;min-width:0"><strong style="font-size:13px">' + esc(u.title) + '</strong>' +
+      '<span style="display:block;font-size:11.5px;color:var(--ink-4);margin-top:2px">' + esc(u.body.slice(0, 110)) + (u.body.length > 110 ? '\u2026' : '') + ' <span>· from ' + esc(u.source) + '</span></span></span>' +
+      '<select class="input" data-intaketgt="' + i + '" style="height:30px;font-size:12px;width:auto;max-width:220px">' +
+      '<option value="">Skip</option>' + INTAKE_LONGS.map(([id, l]) => '<option value="' + escA(id) + '"' + (it.targets[i] === id ? ' selected' : '') + '>Append to ' + esc(l) + '</option>').join('') +
+      '</select></div>').join('');
+    planHtml =
+      '<div style="margin-top:14px"><div class="eyebrow" style="font-size:9.5px;margin-bottom:2px">Mapped - untick anything that should not land</div>' + (rows || '<div style="font-size:12.5px;color:var(--ink-3);padding:8px 0">No recognized sections yet.</div>') + '</div>' +
+      (un ? '<div style="margin-top:14px"><div class="eyebrow" style="font-size:9.5px;margin-bottom:2px">Not recognized - choose a home or skip</div>' + un + '</div>' : '') +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:14px">' +
+      '<button class="btn btn-primary" data-action="intakeapply"' + (it.busy ? ' disabled' : '') + '>' + (it.busy ? 'Applying\u2026 ' + (it.done || 0) + '/' + (it.total || 0) : 'Apply to the record') + '</button>' +
+      '<span style="font-size:11.5px;color:var(--ink-4)">Writes go through the same rev-checked path as typing. Filled answers are kept, never overwritten.</span></div>';
+  }
+  return '<div class="page" style="padding-bottom:0"><div class="card" style="padding:18px 20px">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-weight:640;font-size:15px;flex:1">Populate from documents</div>' +
+    '<button class="icobtn" data-action="intakeclose" title="Close">' + ico(IC.close) + '</button></div>' +
+    '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6;margin-bottom:12px">Paste text or add files. Preview shows exactly where each section lands before anything is written. Text and Markdown are read exactly; Word files are best-effort; imported requirements carry their source.</div>' +
+    '<textarea class="input" id="intakeText" rows="5" placeholder="Paste a draft here (Markdown headings map best)" style="width:100%;font-size:13px;line-height:1.5">' + esc(it.text || '') + '</textarea>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">' +
+    '<label class="btn btn-sec btn-sm" style="cursor:pointer">' + ico(IC.plus, 'i-sm') + 'Add files<input type="file" id="intakeFiles" multiple accept=".txt,.md,.markdown,.docx" style="display:none"></label>' +
+    '<button class="btn btn-sec btn-sm" data-action="intakepreview">Preview mapping</button>' +
+    '<span style="font-size:11px;color:var(--ink-4)">txt · md · docx</span></div>' +
+    (files ? '<div style="margin-top:10px">' + files + '</div>' : '') +
+    planHtml + '</div></div>';
+}
+
 export function documentTabHTML(APP, a) {
   const d = currentDocMd(APP, a);
   if (d.loading) return '<div class="empty"><div style="font-size:13px">Loading version…</div></div>';
-  return d.md
+  return intakeZone(APP) + (d.md
     ? lastChangeBanner(APP) + '<div class="page"><div class="doc-anim">' + mdToHtml(d.md) + '</div></div>'
-    : '<div class="empty">' + ico(IC.doc) + '<div style="font-size:14.5px;color:var(--ink-2);font-weight:560;margin-bottom:4px">The requirements document builds here as you answer</div><div style="font-size:13px;max-width:240px">Start with Overview on the left.</div></div>';
+    : '<div class="empty">' + ico(IC.doc) + '<div style="font-size:14.5px;color:var(--ink-2);font-weight:560;margin-bottom:4px">The requirements document builds here as you answer</div><div style="font-size:13px;max-width:240px">Start with Overview on the left.</div></div>');
 }
 
 /* Full-screen presentation of the rendered document only. */
