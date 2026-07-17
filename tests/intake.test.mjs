@@ -7,8 +7,7 @@
    a product doc drafted in a chat assistant, pasted or uploaded as-is. */
 import assert from 'node:assert/strict';
 import {
-  segmentText, classifySegment, intakeKind, bulletItems, mdTableIn, splitPair,
-  extractRows, mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape
+  segmentText, classifySegment, intakeKind, bulletItems, mdTableIn, splitPair, extractRows, mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape, pdfMarkdownFromItems, mdTablesAll, inferColumns, htmlToIntakeMd
 } from '../app/js/intake.js';
 
 let n = 0;
@@ -294,6 +293,175 @@ test('mdUnescape cleans mammoth escapes without touching real markdown structure
 test('mdUnescape restores a literal source backslash from its doubled escape', () => {
   assert.equal(mdUnescape('path C:\\\\temp and a kept \\\\. pair'), 'path C:\\temp and a kept \\. pair');
   assert.equal(mdUnescape(null), '');
+});
+
+
+/* ---- v2.28.0: tables from geometry, headerless inference, docx html ---- */
+/* A consulting-grade PRD is mostly tables, and the Authorro PRD proved the
+   old pipeline shredded them: cells interleaved as bare lines, "M M1 T"
+   priority cells became ALLCAPS headings that shattered the document into
+   98 junk segments. The fixture below is REAL geometry, frozen verbatim
+   from page 5 of that PDF (the A-4..A-9 assumptions rows), so the engine
+   is pinned against the exact document that exposed the failure. */
+import { readFileSync } from 'node:fs';
+const GEO_ITEMS = JSON.parse(readFileSync(new URL('./fixtures/authorro-page5-geometry.json', import.meta.url), 'utf8'));
+
+test('the geometry engine rebuilds a real table from real coordinates, wrapped cells merged', () => {
+  const md = pdfMarkdownFromItems([GEO_ITEMS]);
+  const t = mdTablesAll(md)[0];
+  assert.ok(t, 'a pipe table is emitted');
+  const rowsAll = [t.headersRaw, ...t.rows];
+  assert.equal(rowsAll.length, 6, 'A-4 through A-9, one logical row each');
+  const a6 = rowsAll.find((r) => r[0] === 'A-6');
+  assert.ok(/deployable in the tenant runtime, or the hosted equivalent binds identity with equal strength\./.test(a6[1]),
+    'the wrapped statement cell reads as one sentence');
+  const a7 = rowsAll.find((r) => r[0] === 'A-7');
+  assert.equal(a7[2], 'Fact, external timeline', 'the wrapped label cell merges too');
+});
+
+test('the same real table lands as an assumptions list, IDs and labels kept', () => {
+  const md = pdfMarkdownFromItems([GEO_ITEMS]);
+  const { placements } = mapArtifacts([{ name: 'a.pdf', text: '# Assumptions\n' + md }]);
+  const rows = placements.find((p) => p.qid === 'assume').rows.map((r) => r.text);
+  assert.equal(rows.length, 6);
+  assert.ok(rows.some((t2) => /^A-8: Design partner one signs under M0 terms\. \(Dependency, commercial\)$/.test(t2)));
+});
+
+test('items without coordinates degrade to the plain line join, exactly', () => {
+  const pages = [[{ str: 'One line', hasEOL: true }, { str: 'Two', hasEOL: false }]];
+  assert.equal(pdfMarkdownFromItems(pages), pdfTextFromItems(pages));
+});
+
+test('running headers and footers vanish when they repeat across pages, page numbers normalized', () => {
+  const body = ['The ledger reconciles.', 'The gateway decides.', 'The verifier proves.'];
+  const page = (n) => [
+    { str: 'Doc v1 | Internal | Page ' + n, x: 60, y: 780 },
+    { str: body[n - 1], x: 60, y: 700 },
+  ];
+  const md = pdfMarkdownFromItems([page(1), page(2), page(3)]);
+  assert.ok(!/Internal/.test(md), 'the furniture line is gone');
+  assert.ok(/The gateway decides\./.test(md), 'the content stays');
+});
+
+test('a wrapped ID cell never starts a false row: the vertical rhythm decides', () => {
+  const items = [
+    { str: 'EVAL-M2-0', x: 70, y: 300 }, { str: 'Catch rate holds.', x: 126, y: 300 }, { str: '48 of 50.', x: 316, y: 300 }, { str: 'M', x: 464, y: 300 },
+    { str: '1', x: 70, y: 289 }, { str: 'Reproduced on re-run.', x: 126, y: 289 },
+    { str: 'EVAL-M2-02', x: 70, y: 272 }, { str: 'Determinism holds.', x: 126, y: 272 }, { str: 'Bit for bit.', x: 316, y: 272 }, { str: 'M', x: 464, y: 272 },
+  ];
+  const t = mdTablesAll(pdfMarkdownFromItems([items]))[0];
+  assert.equal([t.headersRaw, ...t.rows].length, 2, 'two logical rows, not three');
+  assert.equal(t.headersRaw[0], 'EVAL-M2-0 1', 'the wrapped ID joins in the cell');
+});
+
+test('uniform spacing (no wrapped cells) falls back to the leftmost-column rule', () => {
+  const items = [
+    { str: 'G1', x: 70, y: 300 }, { str: 'First goal.', x: 126, y: 300 }, { str: 'Q1', x: 316, y: 300 },
+    { str: 'G2', x: 70, y: 286 }, { str: 'Second goal.', x: 126, y: 286 }, { str: 'Q2', x: 316, y: 286 },
+    { str: 'G3', x: 70, y: 272 }, { str: 'Third goal.', x: 126, y: 272 }, { str: 'Q3', x: 316, y: 272 },
+  ];
+  const t = mdTablesAll(pdfMarkdownFromItems([items]))[0];
+  assert.equal([t.headersRaw, ...t.rows].length, 3);
+});
+
+test('a one-row page stub (a table split by the page break) survives and is restored as a row', () => {
+  const items = [
+    { str: 'FR-M1-006', x: 70, y: 300 }, { str: 'The system shall store documents.', x: 126, y: 300 },
+    { str: 'Hash matches the upload.', x: 316, y: 300 }, { str: 'M', x: 464, y: 300 }, { str: 'M1', x: 496, y: 300 }, { str: 'T', x: 524, y: 300 },
+  ];
+  const rows = extractRows('fr', pdfMarkdownFromItems([items]), 'a.pdf');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].stmt, 'FR-M1-006: The system shall store documents.');
+  assert.equal(rows[0].fit, 'Hash matches the upload.');
+  assert.equal(rows[0].pri, 'Must');
+});
+
+test('inferColumns reads a headerless table by content: leftmost wide column is the statement even when fit criteria run longer', () => {
+  const t = {
+    headers: ['fr-9', 'short shall text here', 'a much much much longer fit criterion sentence than the statement', 'm'],
+    headersRaw: ['FR-9', 'Short shall text here', 'A much much much longer fit criterion sentence than the statement', 'M'],
+    rows: [['FR-10', 'Another shall text.', 'Another very very long fit criterion for the second row of the table.', 'S']],
+  };
+  const inf = inferColumns(t);
+  assert.equal(inf.idc, 0);
+  assert.equal(inf.pric, 3);
+  assert.ok(inf.stmtc === 1 && inf.fitc === 2, 'statement left, criterion right');
+  assert.equal(inf.headerIsData, true);
+});
+
+test('a wrapped ID is recognized de-spaced and lands normalized, and the Rel column cannot steal the id role', () => {
+  const body = [
+    '| EVAL-M2-0 1 | Catch rate holds. | 48 of 50. | M | M2 | T |',
+    '| --- | --- | --- | --- | --- | --- |',
+    '| EVAL-M2-0 2 | Determinism holds. | Bit for bit. | M | M2 | T |',
+  ].join('\n');
+  const rows = extractRows('eval', body, 'a.pdf');
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].dim, 'EVAL-M2-01: Catch rate holds.');
+  assert.equal(rows[1].dim, 'EVAL-M2-02: Determinism holds.');
+});
+
+test('MoSCoW letters expand: M, S, C, W', () => {
+  const body = [
+    '| ID | Requirement | Fit criterion | Pri |', '| --- | --- | --- | --- |',
+    '| R-1 | Alpha shall run. | It runs. | M |', '| R-2 | Beta shall log. | It logs. | S |',
+    '| R-3 | Gamma shall sing. | It sings. | C |', '| R-4 | Delta shall wait. | It waits. | W |',
+  ].join('\n');
+  const pri = extractRows('fr', body, 'a.pdf').map((r) => r.pri);
+  assert.deepEqual(pri, ['Must', 'Should', 'Could', "Won't"]);
+});
+
+test('the ALLCAPS heading guard: "M M1 T" cannot shatter a document, real headings still do', () => {
+  const segs = segmentText('ASSUMPTIONS\n- one\nM M1 T\n- two', 'x.txt');
+  assert.equal(segs.length, 1, 'one segment, not two');
+  assert.equal(segs[0].title, 'ASSUMPTIONS');
+  assert.ok(segs[0].body.includes('M M1 T'), 'the cell line stays as body');
+});
+
+test('a numbered subsection of a rows section inherits it, whatever its own title says', () => {
+  const doc2 = [
+    '7. Functional Requirements', '',
+    '7.4 Simulation, scoring, and the CI gate',
+    '| ID | Requirement | Fit criterion | Pri |', '| --- | --- | --- | --- |',
+    '| FR-M2-007 | The CI plugin shall fail low scores. | Nonzero exit below threshold. | M |',
+  ].join('\n');
+  const { placements } = mapArtifacts([{ name: 'p.pdf', text: doc2 }]);
+  const fr2 = placements.find((p) => p.qid === 'fr');
+  assert.ok(fr2 && fr2.rows.length === 1 && /CI plugin/.test(fr2.rows[0].stmt), 'the CI gate row is a functional requirement');
+  assert.ok(!placements.find((p) => p.qid === 'gates'), 'nothing leaked into stage gates');
+});
+
+test('under a long-form parent a numbered subsection speaks for itself, and an unknown one stays unplaced', () => {
+  const doc2 = [
+    '1. Overview', 'Prose about the product.',
+    '1.2 Releases',
+    '| Release | Name | Closes |', '| --- | --- | --- |',
+    '| M2 | Simulate and Score. | AT-1, AT-2. |',
+    '1.9 Unrecognized Ritual', 'Mystery content.',
+  ].join('\n');
+  const { placements, unplaced } = mapArtifacts([{ name: 'p.pdf', text: doc2 }]);
+  const g = placements.find((p) => p.qid === 'gates');
+  assert.ok(g && g.rows.length === 1 && g.rows[0].gate === 'M2: Simulate and Score.', 'Releases classifies itself');
+  assert.ok(unplaced.some((u) => u.title === 'Unrecognized Ritual'), 'unplaced beats misplaced');
+});
+
+test('a rows section with neither bullets nor tables contributes nothing: intro prose is not a requirement', () => {
+  assert.deepEqual(extractRows('fr', 'Grouped by surface and engine. Each group opens with its user story.', 'a.pdf'), []);
+});
+
+test('htmlToIntakeMd: mammoth HTML becomes the segmenter markdown with tables intact', () => {
+  const html = '<h1>Functional Requirements</h1>' +
+    '<table><tr><td><p>ID</p></td><td><p>Requirement</p></td><td><p>Fit criterion</p></td><td><p>Pri</p></td></tr>' +
+    '<tr><td><p>FR-1</p></td><td><p>Sync nightly | fully.</p></td><td><p>Done by 06:00 &amp; logged.</p></td><td><p>M</p></td></tr></table>' +
+    '<p>Intro &lt;text&gt;.</p><ul><li>a bullet</li></ul>';
+  const md = htmlToIntakeMd(html);
+  assert.ok(md.startsWith('# Functional Requirements'));
+  assert.ok(md.includes('| FR-1 | Sync nightly / fully. | Done by 06:00 & logged. | M |'), 'cells decode entities, pipes neutralized');
+  assert.ok(md.includes('- a bullet'));
+  assert.ok(md.includes('Intro <text>.'));
+  const rows = extractRows('fr', md, 't.docx');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].pri, 'Must');
 });
 
 console.log(`intake.test: ${n}/${n} passed`);

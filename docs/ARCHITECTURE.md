@@ -108,7 +108,10 @@ v2.26.1 kept the shape: the pdf line-joining and the markdown unescape are
 pure intake.js exports with their own unit checks; main.js gained the two
 library loaders and the ingestion branches, nothing more. v2.27.0 again:
 the whole weekly-update derivation is update.js, pure and unit-pinned;
-main.js gained one route and the delegated handlers.
+main.js gained one route and the delegated handlers. v2.28.0 the same:
+the PDF table geometry, header inference, and HTML-to-markdown conversion
+are pure intake.js exports with a frozen real-geometry fixture; main.js
+only changed what it hands them (fragment coordinates, mammoth HTML).
 The split itself remains scheduled for the first feature that restructures
 routing or dispatch, when its tests ship with it - not as a cosmetic
 refactor before an external review, where restructuring risk exceeds

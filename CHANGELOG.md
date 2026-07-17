@@ -1,5 +1,92 @@
 # Changelog
 
+## 2.28.0 · tables are the document
+
+Intake could read a PRD's prose and lose its substance. A consulting-grade
+requirements document is mostly tables, and the extractor read PDFs as
+text lines only: statement and fit-criterion cells interleaved as bare
+lines, and the priority cells ("M M1 T") landed as standalone lines the
+segmenter mistook for ALLCAPS headings, shattering one real 16-page PRD
+into 98 junk segments. Word documents failed the same way from a different
+cause: mammoth's markdown writer flattens tables into bare paragraphs.
+Reproduced against a real table-built PRD: 9 placements, mostly junk (1
+garbage functional-requirement row against 60 real ones), 98 unplaced
+fragments. This release makes tables first-class in both formats. Same
+file after: 60 of 60 functional requirements with their permanent IDs,
+real fit criteria, and expanded priorities; 21 NFRs; 5 evaluation rows;
+9 metrics; 9 assumptions; 9 personas; 9 interfaces; 15 glossary terms;
+goals, releases, and decisions; unplaced down to 5 honest blocks.
+
+- **A geometry engine rebuilds PDF tables deterministically**
+  (pdfMarkdownFromItems in intake.js). pdf.js reports the exact x and y of
+  every text fragment. Fragments cluster into visual lines by y; recurring
+  x positions are the columns; a new logical row begins when the leftmost
+  column receives text and the vertical rhythm agrees (line spacing inside
+  a row is the smallest gap in the region, so a wrapped ID cell like
+  "EVAL-M2-0" / "1" never starts a false row); wrapped cells merge into
+  their columns. Detected tables emit as markdown pipe tables - the
+  mapper's native form - and everything else stays prose. Running headers
+  and footers (same short line on most pages, digits normalized) are
+  dropped. Four or more aligned fragments on one line are tabular on
+  sight, which is how a one-row stub left by a page break survives.
+  Items without coordinates degrade to the old line join exactly, so the
+  function is a strict superset of the v2.26.1 behavior. Pure, no
+  network, no model calls, fully unit-pinned.
+- **Headerless tables are read by content** (inferColumns). Some PDFs draw
+  the header row as one text run the geometry cannot split, so the first
+  data row lands as the markdown header. Content identifies the columns:
+  an ID column is IDs, a MoSCoW column is single letters, and of the
+  remaining wide columns the left one is the statement and the right one
+  the fit criterion. When the header row itself is data, it is restored
+  as a row from the raw uncased cells. IDs wrapped by a narrow cell are
+  recognized and normalized de-spaced ("EVAL-M2-0 1" lands as
+  EVAL-M2-01), which also keeps a Rel column ("M2") from stealing the id
+  role.
+- **Extraction is table-first for every rows target.** fr, nfr, eval,
+  metrics, glossary, persona, interfaces, gates, and the new decisions
+  target read every pipe table in their section - named headers when
+  present, inferred columns when not. The source's permanent IDs ride as
+  a prefix on the primary text (FR-M1-001: ...), because identifiers are
+  doctrine and must survive intake. MoSCoW letters expand (M, S, C, W
+  become Must, Should, Could, Won't). List-shaped sections (goals,
+  assumptions) accept tables too, one line per row with the ID kept and a
+  Label column carried in parens. Columns the record has no home for
+  (Rel, Ver) are dropped; the uploaded document stays their source of
+  truth. The old whole-body fallback that turned a section's intro prose
+  into one junk row is removed: a rows section with neither bullets nor
+  tables contributes nothing, honestly.
+- **Structure mapping got three corrections.** Two-level numbered
+  headings (7.1, 7.4) segment with their depth and number; a numbered
+  subsection whose number proves the nesting inherits a rows-shaped
+  parent no matter what its own title says ("7.4 ... the CI gate" inside
+  Functional Requirements is functional requirements, not stage gates),
+  while under a long-form parent a subsection speaks for itself (1.1
+  Goals classifies as goals) and an unknown title stays unplaced -
+  unplaced beats misplaced. The ALLCAPS heading rule now requires a real
+  word of three letters, so a stray "M M1 T" line can never split a
+  document again. New classifications: Users lands in personas, Releases
+  in gates, Decisions in the decisions rows, and Data/Privacy/
+  Safeguarding sections land in NFRs, where privacy requirements belong.
+- **Word documents keep their tables** (htmlToIntakeMd). The docx path
+  now converts through mammoth's HTML, which preserves tables, and a
+  bounded pure walker turns that HTML into the segmenter's markdown:
+  tables become pipe tables, headings become #-headings, list items
+  become bullets, entities decode once at the end. mdUnescape stays
+  exported and tested; the docx path no longer needs it.
+- **Pinned against the document that exposed the failure.** 15 new unit
+  checks (41 intake total, 207 suite-wide), including a fixture of real
+  page geometry frozen verbatim from the table-built PRD's assumptions
+  page: the engine must rebuild that exact table, wrapped statement and
+  label cells merged, IDs and labels intact, forever.
+
+Known limits, stated plainly: a table split across a page break relies on
+the per-page repeated header plus one-row stub recovery (the Collection
+Ventures template repeats headers, so it round-trips); a mid-word wrap in
+a narrow cell keeps its space ("Demonstra tion") - cosmetic, and in this
+template confined to a dropped column; user-story prose between a rows
+section's tables is not row data and is not imported. Deploy is a
+frontend push only - no schema change.
+
 ## 2.27.0 · the ten-second read
 
 A weekly client update, published from the record. The reader is the

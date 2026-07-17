@@ -21,10 +21,12 @@ export function segmentText(text, source) {
   const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
   const segs = [];
   let title = '';
+  let depth = 1;
+  let num = '';
   let buf = [];
   const push = () => {
     const body = buf.join('\n').trim();
-    if (title || body) segs.push({ title: title.trim(), body, source: source || '' });
+    if (title || body) segs.push({ title: title.trim(), depth, num, body, source: source || '' });
     buf = [];
   };
   const headOf = (line, next) => {
@@ -33,12 +35,15 @@ export function segmentText(text, source) {
     m = line.match(/^\*\*(.+?)\*\*:?\s*$/);
     if (m) return m[1];
     // ALLCAPS heading: letters, digits, spaces and light punctuation, no
-    // sentence period, short enough to be a title rather than a shout.
-    if (/^[A-Z][A-Z0-9 \/&\-()]{3,60}$/.test(line.trim()) && !/[.]$/.test(line.trim())) return line.trim();
+    // sentence period, short enough to be a title rather than a shout, and
+    // at least one real word of three letters - table cells like "M M1 T"
+    // land as their own lines in a shredded PDF and must never split the
+    // document.
+    if (/^[A-Z][A-Z0-9 \/&\-()]{3,60}$/.test(line.trim()) && !/[.]$/.test(line.trim()) && /[A-Z]{3}/.test(line.trim())) return line.trim();
     // Numbered heading: short, capitalized, and not a list item that happens
     // to start a long sentence.
-    m = line.match(/^\d+[.)]\s+([A-Z].{2,58})$/);
-    if (m && !/[.]$/.test(m[1])) return m[1];
+    m = line.match(/^(\d+(?:\.\d+)?)[.)]?\s+([A-Z].{2,58})$/);
+    if (m && !/[.]$/.test(m[2])) return { t: m[2], d: m[1].includes('.') ? 2 : 1, num: m[1] };
     // Setext: this line is a title if the NEXT line is all = or -.
     if (next != null && /^\s*(={3,}|-{3,})\s*$/.test(next) && line.trim() && line.trim().length <= 70) return line.trim();
     return null;
@@ -46,8 +51,11 @@ export function segmentText(text, source) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (/^\s*(={3,}|-{3,})\s*$/.test(line) && i > 0 && headOf(lines[i - 1], line)) continue; // consumed as setext underline
-    const h = headOf(line, lines[i + 1]);
-    if (h != null) { push(); title = h; continue; }
+    let h = headOf(line, lines[i + 1]);
+    if (h != null) {
+      if (typeof h === 'string') h = { t: h, d: line.trim().startsWith('##') ? 2 : 1 };
+      push(); title = h.t; depth = h.d; num = h.num || ''; continue;
+    }
     buf.push(line);
   }
   push();
@@ -61,13 +69,13 @@ export function segmentText(text, source) {
 const MAP = [
   [/\b(out of scope|non-?goals?|exclusions?|will not|won'?t)\b/, 'sol_out'],
   [/\b(in scope|scope)\b/, 'sol_in'],
-  [/\b(non-?functional|nfrs?|quality attributes?)\b/, 'nfr'],
+  [/\b(non-?functional|nfrs?|quality attributes?|privacy|safeguarding)\b/, 'nfr'],
   [/\b(functional requirements?|features?|user stories)\b/, 'fr'],
   [/\b(acceptance criteria|evaluation criteria|eval(uation)?s?|thresholds?)\b/, 'eval'],
   [/\b(golden (data)?set)\b/, 'golden'],
   [/\b(success metrics?|metrics?|kpis?)\b/, 'metrics'],
   [/\b(goals?|objectives?|okrs?)\b/, 'ov_goals'],
-  [/\b(personas?|target users?|audience)\b/, 'persona'],
+  [/\b(personas?|target users?|users|audience)\b/, 'persona'],
   [/\b(problem|pain points?|challenge)\b/, 'ov_problem'],
   [/\b(vision)\b/, 'ov_vision'],
   [/\b(market|competitive landscape|competitors?)\b/, 'ov_market'],
@@ -77,7 +85,8 @@ const MAP = [
   [/\b(assumptions?)\b/, 'assume'],
   [/\b(dependenc(y|ies))\b/, 'depend'],
   [/\b(constraints?|limitations?)\b/, 'constrain'],
-  [/\b(gates?|milestones?|phases?|timeline)\b/, 'gates'],
+  [/\b(gates?|milestones?|phases?|releases?|timeline)\b/, 'gates'],
+  [/\b(decisions?)\b/, 'decisions'],
   [/\b(interfaces?|integrations?|apis?)\b/, 'interfaces'],
   [/\b(data (entities|model)|entities)\b/, 'data_entities'],
   [/\b(glossary|terminology|definitions?)\b/, 'glossary'],
@@ -96,7 +105,7 @@ const KIND = {
   sol_solution: 'long', golden: 'long', verify_note: 'long',
   ov_goals: 'list', sol_in: 'list', sol_out: 'list', assume: 'list', depend: 'list', constrain: 'list',
   fr: 'rows', nfr: 'rows', eval: 'rows', metrics: 'rows', persona: 'rows',
-  components: 'rows', gates: 'rows', interfaces: 'rows', data_entities: 'rows', glossary: 'rows',
+  components: 'rows', gates: 'rows', interfaces: 'rows', data_entities: 'rows', glossary: 'rows', decisions: 'rows',
 };
 export const intakeKind = (qid) => KIND[qid] || null;
 
@@ -111,12 +120,176 @@ const stripMd = (s) => String(s || '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/
 export function mdUnescape(s) {
   return String(s || '').replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, '$1');
 }
+/* mammoth's HTML output -> the segmenter's markdown, tables intact. The
+   markdown writer in mammoth flattens tables into bare paragraphs - the
+   exact shredding the PDF path suffered - while its HTML preserves them.
+   mammoth emits a small, flat, predictable tag set (h1-h6, p, ul/ol/li,
+   table/tr/td, strong/em/a, br), so a bounded walker converts it: tables
+   become pipe tables, headings become #-headings, list items become
+   bullets, paragraphs become lines, and everything else is stripped to
+   its text. Pure, deterministic, and covered by unit tests. */
+const htmlDecode = (t) => String(t || '')
+  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+const htmlCellText = (h) => htmlDecode(String(h || '').replace(/<[^>]+>/g, ' ')).replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
+/* Block text keeps its entities: the final pass strips real tags first and
+   decodes once at the end, so a decoded "<text>" is never re-eaten. */
+const htmlBlockText = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+export function htmlToIntakeMd(html) {
+  const tables = [];
+  let s2 = String(html || '').replace(/<table[\s\S]*?<\/table>/gi, (m) => {
+    const rows = [...m.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)]
+      .map((tr) => [...tr[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => htmlCellText(c[1])));
+    if (!rows.length) return '\n';
+    const md = ['| ' + rows[0].join(' | ') + ' |', '|' + rows[0].map(() => ' --- ').join('|') + '|',
+      ...rows.slice(1).map((r) => '| ' + r.join(' | ') + ' |')];
+    tables.push(md.join('\n'));
+    return '\n@@T' + (tables.length - 1) + '@@\n';
+  });
+  s2 = s2
+    .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (m, d, t) => '\n' + '#'.repeat(+d) + ' ' + htmlBlockText(t) + '\n')
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (m, t) => '\n- ' + htmlBlockText(t))
+    .replace(/<br\s*\/?>(?=.)/gi, '\n')
+    .replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (m, t) => '\n' + htmlBlockText(t) + '\n')
+    .replace(/<[^>]+>/g, ' ');
+  s2 = htmlDecode(s2).split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n');
+  s2 = s2.replace(/@@T(\d+)@@/g, (m, i) => '\n' + tables[+i] + '\n');
+  return s2.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /* pdf.js text items → plain text with the line structure the segmenter
    needs. Input: one array of {str, hasEOL} items per page, exactly as
    page.getTextContent() returns them. str carries its own spacing; hasEOL
    marks the layout line breaks, so ALLCAPS and numbered headings survive
    as their own lines. Pages join with a blank line. Pure and deterministic:
    the only pdf.js call sites are in main.js; everything testable is here. */
+/* The geometry engine (v2.28.0). A consulting-grade PRD is mostly tables,
+   and a table shredded to text lines is unreadable to the mapper: statement
+   and fit-criterion cells interleave, and Pri/Rel/Ver cells land as bare
+   "M M1 T" lines. pdf.js gives every fragment its exact x and y, and that
+   is enough to rebuild the table deterministically: fragments cluster into
+   visual lines by y; recurring x positions are the columns; a new logical
+   row begins when text lands in the leftmost column; continuation lines
+   merge into the open row's cells. Detected tables are emitted as markdown
+   pipe tables - the mapper's native tongue, same as the docx path - and
+   everything else stays prose. Running headers and footers (same text on
+   most pages, digits normalized) are dropped. Items without coordinates
+   degrade to the plain hasEOL join, so old callers and fixtures keep their
+   exact behavior. Pure and deterministic throughout. */
+const Y_TOL = 2.5, X_SNAP = 3, MIN_COL_SUPPORT = 3;
+export function pdfMarkdownFromItems(pages) {
+  pages = pages || [];
+  const hasGeo = pages.some((its) => (its || []).some((i) => i && typeof i.x === 'number' && typeof i.y === 'number'));
+  if (!hasGeo) return pdfTextFromItems(pages);
+
+  // Visual lines per page: cluster by y, fragments sorted by x.
+  const pageLines = pages.map((items) => {
+    const frags = (items || []).filter((i) => i && String(i.str || '').trim());
+    frags.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+    const lines = [];
+    for (const f of frags) {
+      const cur = lines[lines.length - 1];
+      if (cur && Math.abs(cur.y - f.y) <= Y_TOL) cur.frags.push(f);
+      else lines.push({ y: f.y, frags: [f] });
+    }
+    lines.forEach((l) => l.frags.sort((a, b) => a.x - b.x));
+    return lines;
+  });
+
+  // Running header/footer: identical short lines (digits normalized) on
+  // most pages are page furniture, not content.
+  const furniture = new Set();
+  if (pageLines.length >= 3) {
+    const freq = {};
+    for (const lines of pageLines) {
+      for (const l of lines) {
+        const t = l.frags.map((f) => f.str).join(' ').trim().replace(/\d+/g, '#');
+        if (t && t.length <= 120) freq[t] = (freq[t] || 0) + 1;
+      }
+    }
+    const bar = Math.max(2, Math.ceil(pageLines.length * 0.6));
+    for (const [t, c] of Object.entries(freq)) if (c >= bar) furniture.add(t);
+  }
+
+  const snap = (x, cols) => cols.find((c) => Math.abs(c - x) <= X_SNAP);
+  const out = [];
+  for (const lines of pageLines) {
+    const kept = lines.filter((l) => !furniture.has(l.frags.map((f) => f.str).join(' ').trim().replace(/\d+/g, '#')));
+    // Column candidates for this page: x positions that recur.
+    const xc = {};
+    for (const l of kept) for (const f of l.frags) { const k = Math.round(f.x / X_SNAP) * X_SNAP; xc[k] = (xc[k] || 0) + 1; }
+    const cols = Object.entries(xc).filter(([, c]) => c >= MIN_COL_SUPPORT).map(([x]) => +x).sort((a, b) => a - b);
+    // A line is tabular when every fragment sits on a recurring column and
+    // it is not a lone paragraph opener: two or more fragments, or one
+    // fragment starting at a column other than the first (a wrapped cell
+    // continuing). Independently, four or more aligned fragments on one
+    // visual line are self-evidently tabular even before their columns
+    // recur - that is how a one-row page stub earns its table.
+    const colOf = (f) => { const c = snap(f.x, cols); return c === undefined ? Math.round(f.x / X_SNAP) * X_SNAP : c; };
+    const isTab = (l) => {
+      if (l.frags.length >= 4) return true;
+      if (!cols.length) return false;
+      const snaps = l.frags.map((f) => snap(f.x, cols));
+      if (snaps.some((s) => s === undefined)) return false;
+      return l.frags.length >= 2 || (snaps[0] !== undefined && snaps[0] !== cols[0]);
+    };
+    const chunks = [];
+    for (const l of kept) {
+      const cur = chunks[chunks.length - 1];
+      const tab = isTab(l);
+      if (cur && cur.tab === tab) cur.lines.push(l);
+      else chunks.push({ tab, lines: [l] });
+    }
+    const pageOut = [];
+    for (const ch of chunks) {
+      if (!ch.tab) {
+        pageOut.push(ch.lines.map((l) => l.frags.map((f) => f.str).join(' ').replace(/[ \t]+/g, ' ').trim()).join('\n'));
+        continue;
+      }
+      // Region columns: the x positions this run actually uses.
+      const used = [...new Set(ch.lines.flatMap((l) => l.frags.map((f) => colOf(f))))].sort((a, b) => a - b);
+      // Logical rows. A new row begins when the leftmost column receives
+      // text - but a narrow ID cell can WRAP ("EVAL-M2-0" / "1"), putting
+      // text in the first column mid-row. The vertical rhythm settles it:
+      // line spacing inside a row is the smallest gap in the region, and
+      // real row boundaries sit visibly below it. When every gap is equal
+      // (no cell wraps anywhere), the leftmost-text rule stands alone.
+      const gaps = [];
+      for (let gi = 1; gi < ch.lines.length; gi++) gaps.push(Math.abs(ch.lines[gi - 1].y - ch.lines[gi].y));
+      const g0 = gaps.length ? Math.min(...gaps) : 0;
+      const uniform = !gaps.length || Math.max(...gaps) <= g0 * 1.15;
+      const rows = [];
+      let prevY = null;
+      for (const l of ch.lines) {
+        const first = colOf(l.frags[0]) === used[0];
+        const gapUp = prevY == null ? Infinity : Math.abs(prevY - l.y);
+        const newRow = first && (uniform || gapUp > g0 * 1.3);
+        if (newRow || !rows.length) rows.push(new Map());
+        const row = rows[rows.length - 1];
+        for (const f of l.frags) {
+          const c = colOf(f);
+          row.set(c, ((row.get(c) || '') + ' ' + f.str).trim());
+        }
+        prevY = l.y;
+      }
+      const ok3 = used.length >= 3 && rows.length >= 2;
+      const ok2 = used.length === 2 && rows.length >= 3;
+      const ok1 = used.length >= 4 && rows.length === 1;
+      if (!ok3 && !ok2 && !ok1) {
+        pageOut.push(ch.lines.map((l) => l.frags.map((f) => f.str).join(' ').trim()).join('\n'));
+        continue;
+      }
+      const cell = (row, c) => String(row.get(c) || '').replace(/\|/g, '/').replace(/\s+/g, ' ').trim();
+      const md = [];
+      md.push('| ' + used.map((c) => cell(rows[0], c)).join(' | ') + ' |');
+      md.push('|' + used.map(() => ' --- ').join('|') + '|');
+      for (const r of rows.slice(1)) md.push('| ' + used.map((c) => cell(r, c)).join(' | ') + ' |');
+      pageOut.push(md.join('\n'));
+    }
+    if (pageOut.length) out.push(pageOut.join('\n\n'));
+  }
+  return out.join('\n\n');
+}
 export function pdfTextFromItems(pages) {
   const chunks = (pages || []).map((items) => {
     let out = '';
@@ -144,6 +317,26 @@ export function mdTableIn(body) {
   for (let i = start + 2; i < lines.length && lines[i].startsWith('|'); i++) rows.push(cells(lines[i]));
   return rows.length ? { headers, rows } : null;
 }
+/* Every pipe table in a body, in order. Multi-table sections are the norm
+   for a real PRD: one requirements table per surface, headers repeated per
+   page by the geometry engine. */
+export function mdTablesAll(body) {
+  const lines = String(body || '').split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i].trim().startsWith('|') && /^\|[\s\-|]+\|$/.test(lines[i + 1].trim())) {
+      const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => stripMd(c));
+      const headersRaw = cells(lines[i]);
+      const headers = headersRaw.map((h) => h.toLowerCase());
+      const rows = [];
+      let j = i + 2;
+      for (; j < lines.length && lines[j].trim().startsWith('|'); j++) rows.push(cells(lines[j]));
+      if (rows.length || headersRaw.some((h) => h.trim())) out.push({ headers, headersRaw, rows });
+      i = j - 1;
+    }
+  }
+  return out;
+}
 /* "Head: rest" or "Head - rest" split for pairing bullets into two columns. */
 export function splitPair(text) {
   const m = String(text || '').match(/^(.{2,80}?)(?::\s+| - )(.+)$/);
@@ -156,7 +349,68 @@ const pick = (headers, cellsRow, names) => {
   }
   return '';
 };
-const priOf = (s) => (/\b(must|shall)\b/i.test(s) ? 'Must' : /\bshould\b/i.test(s) ? 'Should' : /\b(could|may|nice[- ]to[- ]have)\b/i.test(s) ? 'Could' : '');
+const priOf = (s) => {
+  const t = String(s || '').trim();
+  // MoSCoW letters, the compact form a requirements table actually uses.
+  if (/^[MSCW]$/i.test(t)) return { m: 'Must', s: 'Should', c: 'Could', w: "Won't" }[t.toLowerCase()];
+  return /\b(must|shall)\b/i.test(t) ? 'Must' : /\bshould\b/i.test(t) ? 'Should' : /\b(could|may|nice[- ]to[- ]have)\b/i.test(t) ? 'Could' : /\bwon'?t\b/i.test(t) ? "Won't" : '';
+};
+/* Permanent identifiers (FR-M1-001, SM-3, D-2) are doctrine in a serious
+   PRD: they never change, so they must survive intake. The record's own
+   row IDs are positional, so a source ID travels as a prefix on the row's
+   primary text. */
+const idColIndex = (headers) => (headers || []).findIndex((h) => ['id', 'ref', '#', 'identifier', 'release'].includes(String(h).trim()));
+const ID_RX = /^[A-Z]{1,6}(-[A-Z0-9]{1,6})*-?\d+[A-Za-z0-9]*$/;
+const idNorm = (v) => { const d = String(v || '').replace(/\s+/g, ''); return ID_RX.test(d) ? d : String(v || '').trim(); };
+const withId = (id, text) => { id = idNorm(id); text = String(text || '').trim(); return id && text ? id + ': ' + text : text || id; };
+/* A serious PRD's requirement tables sometimes arrive headerless: the PDF
+   draws the header row as one text run, so the geometry engine cannot split
+   it, and the first data row lands as the markdown header. Content gives
+   the columns away deterministically: an ID column is IDs (FR-M1-001), a
+   MoSCoW column is single letters, and of what remains the widest column
+   is the statement and the next widest the fit criterion. When the header
+   row itself is data (its first cell is an ID), it is restored as a row
+   from the raw, uncased cells. */
+export function inferColumns(table) {
+  const n = table.headers.length;
+  const all = [table.headersRaw || table.headers, ...table.rows];
+  const share = (i, test) => all.filter((r) => test(String(r[i] || '').trim())).length / all.length;
+  const avg = (i) => all.reduce((a, r) => a + String(r[i] || '').length, 0) / all.length;
+  const cols = [...Array(n).keys()];
+  // A narrow ID cell wraps in the PDF ("EVAL-M2-0 1"), so the pattern is
+  // tested on the de-spaced value; the leftmost qualifying column wins,
+  // which keeps a Rel column ("M2") from stealing the id role.
+  const despace = (c) => String(c || '').replace(/\s+/g, '');
+  const idc = cols.find((i) => share(i, (c) => ID_RX.test(despace(c))) >= 0.6);
+  const pric = cols.find((i) => i !== idc && share(i, (c) => /^[MSCW]$/i.test(c)) >= 0.6);
+  const wide = cols.filter((i) => i !== idc && i !== pric && avg(i) > 4).sort((a, b) => avg(b) - avg(a));
+  // Of the two widest columns, the LEFT one is the statement and the RIGHT
+  // one the fit criterion: column order is semantic in a requirements
+  // table, and fit criteria often out-run their statements in length.
+  const two = wide.slice(0, 2).sort((a, b) => a - b);
+  return {
+    idc: idc == null ? -1 : idc, pric: pric == null ? -1 : pric,
+    stmtc: two.length ? two[0] : -1, fitc: two.length > 1 ? two[1] : -1,
+    headerIsData: ID_RX.test(despace((table.headersRaw || table.headers)[0] || '')),
+  };
+}
+/* A table landing in a list-shaped question: one line per row - the ID, the
+   longest content cells joined, a Label column carried in parens. */
+export function listFromTable(table) {
+  const inf = inferColumns(table);
+  const named = idColIndex(table.headers);
+  const idc = named >= 0 ? named : inf.idc;
+  let labc = table.headers.findIndex((h) => h.trim() === 'label');
+  // A three-column id table without named headers reads as id, statement,
+  // label - the Collection Ventures template's own Assumptions shape.
+  if (labc < 0 && idc >= 0 && inf.fitc >= 0 && table.headers.length === 3) labc = inf.fitc;
+  const rows = inf.headerIsData ? [table.headersRaw || table.headers, ...table.rows] : table.rows;
+  return rows.map((r) => {
+    const parts = r.filter((_, i) => i !== idc && i !== labc).map((c) => String(c || '').trim()).filter(Boolean);
+    const label = labc >= 0 ? String(r[labc] || '').trim() : '';
+    return withId(idc >= 0 ? r[idc] : '', parts.join(' - ')) + (label ? ' (' + label + ')' : '');
+  }).filter((t) => t.trim());
+}
 const fitSplit = (s) => {
   const m = String(s).match(/^(.*?)\s*(?:\bAcceptance:|\bFit:)\s*(.+)$/i);
   return m ? { stmt: m[1].trim().replace(/[.;,]$/, ''), fit: m[2].trim() } : { stmt: s, fit: '' };
@@ -165,38 +419,133 @@ const fitSplit = (s) => {
 /* ---------------- extraction per target ---------------- */
 export function extractRows(qid, body, source) {
   const src = 'Import · ' + (source || 'document');
-  const table = mdTableIn(body);
+  const tables = mdTablesAll(body);
   const items = bulletItems(body);
-  const fallback = items.length ? items : (body.trim() ? [stripMd(body.trim())] : []);
+  // Bullets are the only non-table source of rows. The old whole-body
+  // fallback turned a section's intro prose into one junk row; a rows
+  // section with neither bullets nor tables contributes nothing, honestly.
+  const fallback = items;
+  // Table-first: a real PRD carries its rows as tables, often several per
+  // section. Every table in the body is read; named headers map when they
+  // exist, and headerless tables (the PDF drew the header as one text run)
+  // fall back to inferred columns; the source's permanent IDs ride as a
+  // prefix on the primary text; columns the record has no home for (Rel,
+  // Ver) are dropped and the uploaded document stays their source of truth.
+  const fromTables = (make) => {
+    const out = [];
+    for (const t of tables) {
+      const inf = inferColumns(t);
+      const named = idColIndex(t.headers);
+      const idc = named >= 0 ? named : inf.idc;
+      const rows = inf.headerIsData ? [t.headersRaw || t.headers, ...t.rows] : t.rows;
+      for (const r of rows) { const row = make(t, r, idc >= 0 ? r[idc] : '', inf); if (row) out.push(row); }
+    }
+    return out;
+  };
   switch (qid) {
-    case 'fr': case 'nfr':
-      return fallback.map((t) => {
-        const f = fitSplit(t);
-        return { stmt: f.stmt, fit: f.fit || 'to confirm', pri: priOf(t), comp: '', src };
+    case 'fr': case 'nfr': {
+      if (tables.length) {
+        const rows = fromTables((t, r, id, inf) => {
+          const stmt = pick(t.headers, r, ['requirement', 'statement', 'shall']) || (inf.stmtc >= 0 ? r[inf.stmtc] : '');
+          if (!String(stmt || '').trim() || String(stmt).trim() === id) return null;
+          const fit = pick(t.headers, r, ['fit', 'acceptance', 'criterion', 'criteria']) || (inf.fitc >= 0 ? r[inf.fitc] : '');
+          const pri = pick(t.headers, r, ['pri', 'moscow']) || (inf.pric >= 0 ? r[inf.pric] : '');
+          return { stmt: withId(id, stmt), fit: String(fit || '').trim() || 'to confirm', pri: priOf(pri), comp: '', src };
+        });
+        if (rows.length) return rows;
+      }
+      return fallback.map((tx) => {
+        const f = fitSplit(tx);
+        return { stmt: f.stmt, fit: f.fit || 'to confirm', pri: priOf(tx), comp: '', src };
       });
-    case 'eval':
-      if (table) return table.rows.map((r) => ({
-        dim: pick(table.headers, r, ['dimension', 'quality']), metric: pick(table.headers, r, ['metric', 'method']),
-        thresh: pick(table.headers, r, ['threshold', 'target']), dataset: pick(table.headers, r, ['set', 'dataset']), comp: '' }));
-      return fallback.map((t) => ({ dim: splitPair(t).head, metric: splitPair(t).rest, thresh: 'to confirm', dataset: 'to confirm', comp: '' }));
-    case 'metrics':
-      if (table) return table.rows.map((r) => ({
-        metric: pick(table.headers, r, ['metric', 'kpi', 'name']), target: pick(table.headers, r, ['target', 'goal']),
-        method: pick(table.headers, r, ['method', 'measure', 'how']) }));
-      return fallback.map((t) => { const p = splitPair(t); return { metric: p.head, target: p.rest, method: '' }; });
-    case 'glossary':
-      return fallback.map((t) => { const p = splitPair(t); return { term: p.head, def: p.rest }; }).filter((r) => r.term);
-    case 'persona':
-      return fallback.map((t) => { const p = splitPair(t); return { persona: p.head, needs: p.rest }; });
+    }
+    case 'eval': {
+      if (tables.length) {
+        const rows = fromTables((t, r, id, inf) => {
+          const dim = pick(t.headers, r, ['dimension', 'quality', 'requirement']) || (inf.stmtc >= 0 ? r[inf.stmtc] : '');
+          if (!String(dim || '').trim() || String(dim).trim() === id) return null;
+          return { dim: withId(id, dim),
+                   metric: pick(t.headers, r, ['metric', 'method', 'fit']) || (inf.fitc >= 0 ? r[inf.fitc] : '') || 'to confirm',
+                   thresh: pick(t.headers, r, ['threshold', 'target']) || 'to confirm',
+                   dataset: pick(t.headers, r, ['set', 'dataset']) || 'to confirm', comp: '' };
+        });
+        if (rows.length) return rows;
+      }
+      return fallback.map((tx) => ({ dim: splitPair(tx).head, metric: splitPair(tx).rest, thresh: 'to confirm', dataset: 'to confirm', comp: '' }));
+    }
+    case 'metrics': {
+      if (tables.length) {
+        const rows = fromTables((t, r, id, inf) => {
+          const metric = pick(t.headers, r, ['metric', 'kpi', 'name']) || (inf.stmtc >= 0 ? r[inf.stmtc] : '');
+          if (!String(metric || '').trim() || String(metric).trim() === id) return null;
+          return { metric: withId(id, metric), target: pick(t.headers, r, ['target', 'goal']) || (inf.fitc >= 0 ? r[inf.fitc] : ''),
+                   method: pick(t.headers, r, ['method', 'measure', 'verified', 'how']) };
+        });
+        if (rows.length) return rows;
+      }
+      return fallback.map((tx) => { const p = splitPair(tx); return { metric: p.head, target: p.rest, method: '' }; });
+    }
+    case 'glossary': {
+      if (tables.length) {
+        const rows = fromTables((t, r, id, inf) => {
+          const term = pick(t.headers, r, ['term', 'word']) || String(r[0] || '');
+          const def = pick(t.headers, r, ['meaning', 'definition']) || String(r[1] || '');
+          return String(term).trim() && String(def).trim() ? { term: term.trim(), def: def.trim() } : null;
+        });
+        if (rows.length) return rows;
+      }
+      return fallback.map((tx) => { const p = splitPair(tx); return { term: p.head, def: p.rest }; }).filter((r) => r.term);
+    }
+    case 'persona': {
+      if (tables.length) {
+        const rows = fromTables((t, r) => {
+          const persona = pick(t.headers, r, ['persona', 'user', 'role', 'who']) || String(r[0] || '');
+          const needs = pick(t.headers, r, ['job', 'needs', 'description', 'goal']) || String(r[1] || '');
+          return String(persona).trim() && String(needs).trim() ? { persona: persona.trim(), needs: needs.trim() } : null;
+        });
+        if (rows.length) return rows;
+      }
+      return fallback.map((tx) => { const p = splitPair(tx); return { persona: p.head, needs: p.rest }; });
+    }
     case 'components':
       return fallback.map((t) => { const p = splitPair(t); return { name: p.head, owner: '', status: '', desc: p.rest }; });
-    case 'interfaces':
-      return fallback.map((t) => { const p = splitPair(t); return { iface: p.head, req: p.rest, fit: '' }; });
-    case 'gates':
-      if (table) return table.rows.map((r) => ({
-        gate: pick(table.headers, r, ['gate', 'milestone', 'phase']), criteria: pick(table.headers, r, ['criteria', 'exit', 'done']),
-        decider: pick(table.headers, r, ['decider', 'owner', 'who']), target: pick(table.headers, r, ['date', 'target', 'when']) }));
-      return fallback.map((t) => { const p = splitPair(t); return { gate: p.head, criteria: p.rest, decider: '', target: '' }; });
+    case 'interfaces': {
+      if (tables.length) {
+        const rows = fromTables((t, r, id, inf) => {
+          const iface = pick(t.headers, r, ['interface', 'iface', 'requirement']) || (inf.stmtc >= 0 ? r[inf.stmtc] : '');
+          if (!String(iface || '').trim() || String(iface).trim() === id) return null;
+          return { iface: withId(id, iface), req: '',
+                   fit: pick(t.headers, r, ['fit', 'criterion', 'acceptance']) || (inf.fitc >= 0 ? r[inf.fitc] : '') };
+        });
+        if (rows.length) return rows;
+      }
+      return fallback.map((tx) => { const p = splitPair(tx); return { iface: p.head, req: p.rest, fit: '' }; });
+    }
+    case 'gates': {
+      if (tables.length) {
+        const rows = fromTables((t, r, id, inf) => {
+          const gate = pick(t.headers, r, ['gate', 'milestone', 'phase', 'name']) || (inf.stmtc >= 0 ? r[inf.stmtc] : '');
+          if (!String(gate || '').trim() || String(gate).trim() === id) return null;
+          return { gate: withId(id, gate), criteria: pick(t.headers, r, ['criteria', 'exit', 'done', 'closes']) || (inf.fitc >= 0 ? r[inf.fitc] : ''),
+                   decider: pick(t.headers, r, ['decider', 'owner', 'who']), target: pick(t.headers, r, ['date', 'target', 'when']) };
+        });
+        if (rows.length) return rows;
+      }
+      return fallback.map((tx) => { const p = splitPair(tx); return { gate: p.head, criteria: p.rest, decider: '', target: '' }; });
+    }
+    case 'decisions': {
+      if (tables.length) {
+        const rows = fromTables((t, r, id, inf) => {
+          const decision = pick(t.headers, r, ['decision']) || (inf.stmtc >= 0 ? r[inf.stmtc] : '');
+          if (!String(decision || '').trim() || String(decision).trim() === id) return null;
+          return { decision: withId(id, decision), options: pick(t.headers, r, ['options', 'alternatives']),
+                   rationale: pick(t.headers, r, ['basis', 'rationale', 'why']) || (inf.fitc >= 0 ? r[inf.fitc] : ''),
+                   owner: pick(t.headers, r, ['decided', 'owner', 'who']), date: pick(t.headers, r, ['date', 'when']), supersedes: '' };
+        });
+        if (rows.length) return rows;
+      }
+      return fallback.map((tx) => { const p = splitPair(tx); return { decision: p.head, options: '', rationale: p.rest, owner: '', date: '', supersedes: '' }; });
+    }
     case 'data_entities':
       return fallback.map((t) => { const p = splitPair(t); return { entity: p.head, sens: p.rest }; });
     default:
@@ -212,8 +561,18 @@ export function mapArtifacts(files) {
   const byQid = {};
   const unplaced = [];
   for (const f of files || []) {
+    let parent = { qid: null, num: '' };
     for (const seg of segmentText(f.text, f.name)) {
-      const qid = classifySegment(seg.title);
+      // A numbered subsection whose number proves the nesting (7.4 under 7)
+      // belongs to its rows-shaped parent no matter what its own title
+      // says: "the CI gate" inside Functional Requirements is functional
+      // requirements, not stage gates. Everywhere else a section speaks
+      // for itself (1.1 Goals under Overview classifies as goals), and an
+      // unrecognized title stays unplaced - unplaced beats misplaced.
+      let qid = classifySegment(seg.title);
+      const nested = seg.num && parent.num && seg.num.indexOf(parent.num + '.') === 0;
+      if (seg.depth > 1 && nested && parent.qid && intakeKind(parent.qid) === 'rows') qid = parent.qid;
+      if (seg.depth === 1) parent = { qid: classifySegment(seg.title), num: seg.num || '' };
       if (!qid) {
         if (seg.body) unplaced.push({ title: seg.title || '(untitled)', body: seg.body, source: f.name || 'pasted text' });
         continue;
@@ -222,7 +581,13 @@ export function mapArtifacts(files) {
       const p = byQid[qid] || (byQid[qid] = { qid, kind, sources: [], value: '', rows: [] });
       if (!p.sources.includes(f.name || 'pasted text')) p.sources.push(f.name || 'pasted text');
       if (kind === 'long') p.value = p.value ? p.value + '\n\n' + seg.body : seg.body;
-      else if (kind === 'list') p.rows.push(...bulletItems(seg.body).map((t) => ({ text: t })));
+      else if (kind === 'list') {
+        const bl = bulletItems(seg.body);
+        // A list-shaped section arriving as a table (Goals, Assumptions with
+        // ID and Label columns) lands one line per row, ID and label kept.
+        const rows = bl.length ? bl : mdTablesAll(seg.body).flatMap(listFromTable);
+        p.rows.push(...rows.map((t) => ({ text: t })));
+      }
       else p.rows.push(...extractRows(qid, seg.body, f.name));
     }
   }

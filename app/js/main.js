@@ -9,7 +9,7 @@ import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
-import { mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape } from './intake.js';
+import { mapArtifacts, applyPlan, executeOps, pdfMarkdownFromItems, htmlToIntakeMd } from './intake.js';
 import { assembleUpdate, UPDATE_CAPS } from './update.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace, renderSignPage, renderUpdatePage, updateArtifactHTML } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, fileStem } from './exports.js';
@@ -612,10 +612,13 @@ async function ensurePresentLink() {
 function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
 
 /* Intake file ingestion: txt and md are read exactly; docx converts to
-   MARKDOWN through mammoth (convertToMarkdown, not extractRawText) so the
-   headings and bullets Word actually contains reach the segmenter as the
-   markdown it classifies - raw text flattened both, and a docx landed as
-   one unplaced blob. pdf extracts text lines through pdf.js. Both
+   HTML through mammoth and then to the segmenter's markdown
+   (htmlToIntakeMd) because mammoth's own markdown writer flattens tables
+   into bare paragraphs - and a consulting-grade PRD is mostly tables. pdf
+   extracts text items WITH their coordinates and the geometry engine
+   (pdfMarkdownFromItems) rebuilds each table deterministically from the
+   recurring column positions, so requirements arrive as pipe tables the
+   mapper reads natively instead of shredded cell fragments. Both
    libraries load once from the pinned CDN the CSP already allows; the
    pdf.js worker is served from THIS origin (app/vendor/pdf.worker.min.js,
    the same 3.11.174 build as the library) because the browser will not
@@ -657,9 +660,12 @@ async function pdfToText(buf) {
   try {
     const pages = [];
     for (let i = 1; i <= doc.numPages; i++) {
-      pages.push((await (await doc.getPage(i)).getTextContent()).items);
+      const tc = await (await doc.getPage(i)).getTextContent();
+      // str + exact position per fragment: transform[4]/[5] are x and y.
+      // The geometry is what lets a table be a table again.
+      pages.push(tc.items.map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], hasEOL: it.hasEOL })));
     }
-    return pdfTextFromItems(pages);
+    return pdfMarkdownFromItems(pages);
   } finally { doc.destroy(); }
 }
 async function intakeAddFiles(files) {
@@ -671,10 +677,10 @@ async function intakeAddFiles(files) {
         APP.intake.files.push({ name: f.name, text: await f.text() });
       } else if (ext === 'docx') {
         const m = await loadMammoth();
-        const r = await m.convertToMarkdown({ arrayBuffer: await f.arrayBuffer() });
-        // mammoth escapes markdown punctuation in its output; unescaped
-        // here so "month\." never lands in a stored answer.
-        APP.intake.files.push({ name: f.name, text: mdUnescape((r && r.value) || '') });
+        const r = await m.convertToHtml({ arrayBuffer: await f.arrayBuffer() });
+        // HTML keeps Word's tables; htmlToIntakeMd hands the segmenter
+        // real pipe tables plus the headings and bullets it already read.
+        APP.intake.files.push({ name: f.name, text: htmlToIntakeMd((r && r.value) || '') });
       } else if (ext === 'pdf') {
         const text = await pdfToText(await f.arrayBuffer());
         if (text) APP.intake.files.push({ name: f.name, text });
