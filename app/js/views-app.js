@@ -53,6 +53,45 @@ function themeRow() {
 
 export function overlays(APP) {
   let out = '';
+  if (APP.pasteQ) {
+    const pq = APP.pasteQ;
+    const n2 = pq.preview ? pq.preview.length : 0;
+    const prim = (r) => r.stmt || r.dim || r.metric || r.term || r.persona || r.iface || r.gate || r.decision || r.entity || '';
+    out += '<div class="ovl" data-action="pastecancel"><div class="modal" style="max-width:640px" onclick="event.stopPropagation()">' +
+      '<div style="font-weight:660;margin-bottom:6px">Paste rows</div>' +
+      '<p class="hint" style="margin:0 0 10px">Paste a list, or a table copied from Word or Excel. Parsing is deterministic: named headers map, headerless tables are read by content, MoSCoW letters expand, IDs stay as prefixes. Nothing is added until you approve the preview.</p>' +
+      '<textarea id="pasteText" class="input" rows="8" style="width:100%;font-family:var(--mono);font-size:12.5px" placeholder="Paste here">' + esc(pq.text || '') + '</textarea>' +
+      (pq.preview ? '<div class="hint" style="margin:10px 0 4px"><b>' + n2 + ' row' + (n2 === 1 ? '' : 's') + '</b> parsed' + (n2 ? ':' : '. Adjust the text and preview again.') + '</div>' +
+        (n2 ? '<ul style="margin:0 0 6px 18px;font-size:12.5px;color:var(--ink-3)">' + pq.preview.slice(0, 3).map((r) => '<li>' + esc(String(prim(r)).slice(0, 90)) + '</li>').join('') + (n2 > 3 ? '<li>\u2026 and ' + (n2 - 3) + ' more</li>' : '') + '</ul>' : '') : '') +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">' +
+      '<button class="btn btn-sec btn-sm" data-action="pastecancel">Cancel</button>' +
+      '<button class="btn btn-sec btn-sm" data-action="pastepreview">Preview</button>' +
+      (n2 ? '<button class="btn btn-primary btn-sm" data-action="pasteapply">Add ' + n2 + ' row' + (n2 === 1 ? '' : 's') + '</button>' : '') +
+      '</div></div></div>';
+  }
+  if (APP.kbHelp) {
+    const row = (k, d) => '<div style="display:flex;gap:14px;align-items:baseline;margin:6px 0"><span class="kbd" style="font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:6px;padding:2px 8px;min-width:86px;text-align:center">' + k + '</span><span style="font-size:13px;color:var(--ink-2)">' + d + '</span></div>';
+    out += '<div class="ovl" data-action="kbclose"><div class="modal" style="max-width:420px" onclick="event.stopPropagation()">' +
+      '<div style="font-weight:660;margin-bottom:10px">Keyboard</div>' +
+      row('\u2318/Ctrl K', 'Command palette, with your recent questions on top') +
+      row('j / k', 'Next / previous question') +
+      row('Enter', 'Open the current question for editing') +
+      row('Alt Enter', 'Add a row to the question you are editing') +
+      row('\u2318/Ctrl Enter', 'Send the message you are writing') +
+      row('?', 'This sheet') + row('Esc', 'Close') +
+      '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-sec btn-sm" data-action="kbclose">Close</button></div></div></div>';
+  }
+  if (APP.tplSave) {
+    out += '<div class="ovl" data-action="tplsavecancel"><div class="modal" style="max-width:460px" onclick="event.stopPropagation()">' +
+      '<div style="font-weight:660;margin-bottom:6px">Save as firm template</div>' +
+      '<p class="hint" style="margin:0 0 10px">Saves the standing structure of this record for reuse at creation: non-functional requirements and the glossary, plus organization and document type. No client content. Every template shows its last-reviewed date.</p>' +
+      '<input id="tplName" class="input" placeholder="Template name" maxlength="80" value="' + escA(APP.tplSave.name || '') + '">' +
+      (APP.tplSave.error ? '<div class="hint" style="color:var(--bad);margin-top:6px">' + esc(APP.tplSave.error) + '</div>' : '') +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">' +
+      '<button class="btn btn-sec btn-sm" data-action="tplsavecancel">Cancel</button>' +
+      '<button class="btn btn-primary btn-sm" data-action="tplsaveconfirm">Save template</button>' +
+      '</div></div></div>';
+  }
   if (APP.menuOpen) {
     const name = (APP.ctx && APP.ctx.display_name) || '';
     const email = (APP.user && APP.user.email) || '';
@@ -196,6 +235,14 @@ function deleteModal(APP) {
 /* ---------------- command palette ---------------- */
 export function paletteItems(APP) {
   const items = [];
+  // Recent questions first: the last places edited are the most likely
+  // next destination for a power user. Session memory only.
+  if (APP.view === 'workspace' && (APP.recentQ || []).length) {
+    APP.recentQ.forEach((qid) => {
+      const q = Q.find((x) => x.id === qid);
+      if (q) items.push({ label: q.prompt || qid, hint: 'Recent', ico: IC.fwd, action: 'jumpq', id: qid });
+    });
+  }
   (APP.projects || []).forEach((p) => items.push({ label: p.name, hint: 'Open project', ico: IC.doc, action: 'open', id: p.id }));
   if (APP.view === 'workspace') {
     [['document', 'Document · Read'], ['summary', 'Document · Summary'], ['changes', 'Document · Changes'], ['versions', 'Document · Versions'],
@@ -204,6 +251,7 @@ export function paletteItems(APP) {
       .forEach(([t, lbl]) => items.push({ label: 'Go to ' + lbl, hint: 'View', ico: IC.fwd, action: 'tab', id: t }));
     if (APP.role === 'manager') items.push({ label: 'Generate a version', hint: 'Baseline', ico: IC.layers, action: 'genopen' });
     if (APP.role === 'manager') items.push({ label: 'Share this project', hint: 'Access', ico: IC.send, action: 'shareopen' });
+    if (APP.role === 'manager') items.push({ label: 'Save as firm template', hint: 'Reuse', ico: IC.layers, action: 'tplsaveopen' });
     items.push({ label: 'Presentation mode', hint: 'Document', ico: IC.expand, action: 'present' });
     items.push({ label: 'Export Word document', hint: 'Export', ico: IC.word, action: 'word' });
     items.push({ label: 'Print / save as PDF', hint: 'Export', ico: IC.print, action: 'print' });
@@ -357,7 +405,26 @@ export function viewProjects(APP) {
           const on = (APP.newTpl || 'blank') === t.key;
           return '<button class="btn btn-sm" data-action="tplsel" data-val="' + escA(t.key) + '" style="height:30px;border-radius:999px;padding:0 12px;font-size:12px;' +
             (on ? 'background:var(--ink);color:var(--bg)' : 'border:1px solid var(--line);color:var(--ink-3)') + '">' + esc(t.label) + '</button>';
-        }).join('') + '</div>' +
+        }).join('') +
+        (() => {
+          const chip = (val2, label, title, on) => '<button class="btn btn-sm" data-action="tplsel" data-val="' + escA(val2) + '" title="' + escA(title || '') + '" style="height:30px;border-radius:999px;padding:0 12px;font-size:12px;' +
+            (on ? 'background:var(--ink);color:var(--bg)' : 'border:1px solid var(--line);color:var(--ink-3)') + '">' + esc(label) + '</button>';
+          const sel = APP.newTpl || 'blank';
+          let out2 = chip('documents', 'Documents', 'Upload the PRD or client documents first. Preview shows where every section lands; nothing is written without approval.', sel === 'documents');
+          out2 += ((APP.recordTemplates || []).map((rt) => chip('rt:' + rt.id, rt.name,
+            'Firm template. Reviewed ' + (rt.reviewed_at ? new Date(rt.reviewed_at).toLocaleDateString() : 'never') + '.', sel === 'rt:' + rt.id)).join(''));
+          const clonables = (APP.projects || []).filter((x) => !x.archived);
+          if (clonables.length) {
+            out2 += '<select class="input" data-role="clonesel" style="height:30px;padding:0 10px;font-size:12px;border-radius:999px;max-width:240px' +
+              (String(sel).startsWith('clone:') ? ';border-color:var(--ink)' : '') + '">' +
+              '<option value="">Clone a record\u2026</option>' +
+              clonables.map((x) => '<option value="clone:' + escA(x.id) + '"' + (sel === 'clone:' + x.id ? ' selected' : '') + '>' +
+                esc(x.name) + ' \u00b7 updated ' + esc(new Date(x.updated_at).toLocaleDateString()) + '</option>').join('') + '</select>';
+          }
+          return out2;
+        })() + '</div>' +
+        ((APP.newTpl || '') === 'documents' ? '<div class="hint" style="margin-top:8px">The project opens straight into Populate from documents. Structure copied: none. Content: whatever the preview approves.</div>' : '') +
+        (String(APP.newTpl || '').startsWith('clone:') ? '<div class="hint" style="margin-top:8px">Clone copies the standing structure only: non-functional requirements and the glossary, plus organization and document type. No client content, no versions, no approvals.</div>' : '') +
         '<div style="font-size:11.5px;color:var(--ink-4);line-height:1.5;margin-top:7px">' +
         esc((TEMPLATES.find((t) => t.key === (APP.newTpl || 'blank')) || TEMPLATES[0]).desc) + '</div></div>'
       : '') +
@@ -505,7 +572,8 @@ export function fieldHTML(APP, q, a, editingBy) {
         '<button class="icobtn" data-action="delrow" data-qid="' + escA(q.id) + '" data-rowid="' + escA(r.id) + '" title="Remove">' + ico(IC.close, 'i-sm') + '</button></div></div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">' + cells + '</div></div>';
     }).join('') +
-      '<button class="btn btn-ghost btn-sm" data-action="addrow" data-qid="' + escA(q.id) + '">' + ico(IC.plus, 'i-sm') + esc(q.add || 'Add row') + '</button>';
+      '<button class="btn btn-ghost btn-sm" data-action="addrow" data-qid="' + escA(q.id) + '">' + ico(IC.plus, 'i-sm') + esc(q.add || 'Add row') + '</button>' +
+      '<button class="btn btn-ghost btn-sm" data-action="pasteopen" data-qid="' + escA(q.id) + '" title="Paste a list or a table copied from Word or Excel. Deterministic parsing, preview before anything is added.">' + ico(IC.doc, 'i-sm') + 'Paste rows</button>';
   }
   const ro = (APP.role !== 'manager' && (q.type === 'short' || q.type === 'long'))
     ? control.replace('<input ', '<input readonly ').replace('<textarea ', '<textarea readonly ') : control;

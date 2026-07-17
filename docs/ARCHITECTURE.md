@@ -118,3 +118,9 @@ refactor before an external review, where restructuring risk exceeds
 reading cost. Every other module
 stays under a quarter of its size, and pure logic lives in domain, health,
 exports, implpkg, and zipstore, where the unit suites pin it.
+
+Firm templates (schema section 17, v2.30.0) store an org's standing
+structure (organization, document type, NFRs, glossary) as jsonb behind
+RLS reads and RPC-only writes; the app applies them, and clones, through
+the same rev-checked field and row RPCs as live editing, so a template is
+just a replayed edit session, never a second write path.

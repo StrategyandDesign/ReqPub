@@ -113,6 +113,35 @@ export const repo = {
       .eq('org_id', orgId).eq('archived', false).order('updated_at', { ascending: false }));
     return r.data || [];
   },
+  /* Standing-structure read for clone-from-record: only the whitelisted
+     field ids ever leave the source project. Members of the source can
+     read it; RLS enforces that, this just narrows the request. */
+  async answersSubset(pid, ids) {
+    const [f, r] = await Promise.all([
+      durable(() => sb.from('project_fields').select('field_id,value').eq('project_id', pid).in('field_id', ids)),
+      durable(() => sb.from('field_rows').select('field_id,data,pos').eq('project_id', pid).in('field_id', ids).eq('deleted', false).order('pos'))
+    ]);
+    if (f.error || r.error) return { error: f.error || r.error };
+    const fields = {}; (f.data || []).forEach((x) => { fields[x.field_id] = x.value; });
+    const rows = {}; (r.data || []).forEach((x) => { (rows[x.field_id] = rows[x.field_id] || []).push({ data: x.data }); });
+    return { data: { fields, rows } };
+  },
+  recordTemplateSave(orgId, name, payload) {
+    return durable(() => sb.rpc('record_template_put', { p_org: orgId, p_name: name, p_payload: payload }));
+  },
+  async recordTemplatesList(orgId) {
+    const r = await durable(() => sb.rpc('record_templates_list', { p_org: orgId }));
+    return r.error ? [] : (r.data || []);
+  },
+  recordTemplateGet(id) {
+    return durable(() => sb.rpc('record_template_get', { p_id: id }));
+  },
+  recordTemplateDelete(id) {
+    return durable(() => sb.rpc('record_template_delete', { p_id: id }));
+  },
+  recordTemplateTouch(id) {
+    return durable(() => sb.rpc('record_template_touch', { p_id: id }));
+  },
   async createProject(orgId, id, name) {
     return durable(() => sb.from('projects').insert({ id, org_id: orgId, name }));
   },

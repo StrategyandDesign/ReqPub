@@ -17,13 +17,15 @@ where schemaname = 'public' and tablename in
   ('user_profiles','projects','project_fields','field_rows','versions',
    'version_approvals','comms','messages','input_requests','discovery_entries','activity');
 
-select 'rpcs exist' as check, count(*) >= 18 as pass
+select 'rpcs exist' as check, count(*) >= 23 as pass
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname in
   ('save_field','upsert_row','delete_row','create_version','version_set_status',
    'approval_decide','share_put','share_revoke','submit_share_v2','sme_thread','sme_reply',
    'request_view','request_submit','partner_projects_v2','partner_thread_v2','partner_post',
-   'partner_reply','v2_context','url_token','log_activity');
+   'partner_reply','v2_context','url_token','log_activity',
+   'record_template_put','record_templates_list','record_template_get',
+   'record_template_delete','record_template_touch');
 
 select 'broadcast triggers wired' as check, count(*) = 9 as pass
 from pg_trigger where tgname like '%_bcast' and not tgisinternal;

@@ -9,14 +9,14 @@ import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
-import { mapArtifacts, applyPlan, executeOps, pdfMarkdownFromItems, htmlToIntakeMd, pdfEmptyDiagnosis } from './intake.js';
+import { mapArtifacts, applyPlan, executeOps, pdfMarkdownFromItems, htmlToIntakeMd, pdfEmptyDiagnosis, pasteToRows } from './intake.js';
 import { assembleUpdate, UPDATE_CAPS } from './update.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace, renderSignPage, renderUpdatePage, updateArtifactHTML } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, printSowExhibit, fileStem } from './exports.js';
 import { landingTab, incorporatedRows, healthSignals } from './health.js';
 import { buildImplementationFiles } from './implpkg.js';
 import { zipStore } from './zipstore.js';
-import { TEMPLATES, templateByKey, applyTemplate } from './templates.js';
+import { TEMPLATES, templateByKey, applyTemplate, applyAnswerSet, buildTemplatePayload } from './templates.js';
 
 /* ---------------- state ---------------- */
 const APP = {
@@ -339,6 +339,9 @@ async function enterOrg(m) {
   sync.initPresence(APP.user);
   sync.subscribeOrg(APP.orgId);
   APP.projects = await repo.projects(APP.orgId);
+  // Firm templates ride along with the dashboard load; members read them,
+  // managers write them. A failure here degrades to no chips, never an error.
+  APP.recordTemplates = await repo.recordTemplatesList(APP.orgId);
   render();
   refreshDashboardStats();
   refreshMyApprovals();
@@ -395,7 +398,10 @@ async function openProject(id, tab) {
   APP.docTab = tab || 'document'; APP.landingAuto = !tab; APP.viewSeq = null; APP.fbSeq = null;
   APP.fields = {}; APP.rows = {}; APP.versions = []; APP.comms = []; APP.msgs = {};
   APP.requests = []; APP.discovery = []; APP.reads = {}; APP.snapshots = {}; APP.shares = [];
-  APP.approvals = {}; APP.signs = {}; APP.intake = null; APP.conflicts = {}; APP.openComms = {}; APP.openDisc = {}; APP.openSecs = {};
+  APP.approvals = {}; APP.signs = {}; APP.conflicts = {}; APP.openComms = {}; APP.openDisc = {}; APP.openSecs = {};
+  // Document-first creation lands with the intake panel already open.
+  APP.intake = APP.openWithIntake ? { open: true, text: '', files: [], plan: null } : null;
+  APP.openWithIntake = false;
   APP.present = false; APP.activeQid = null; lastRevealedSec = null;
   APP.access = { members: [], partners: [] };
   APP.smeSeats = [];
@@ -823,7 +829,32 @@ async function handleAction(a, id, t, e) {
       // Apply the chosen starter through the same rev-checked RPCs as live
       // editing, BEFORE the project opens, so the bundle loads it complete.
       const tplKey = APP.newTpl || 'blank';
-      if (tplKey !== 'blank') {
+      if (tplKey === 'documents') {
+        // Document-first creation: the project opens straight into the
+        // intake panel. Same deterministic mapper, same preview, nothing
+        // written without approval - the panel just meets the PM at the
+        // start instead of hiding behind it.
+        APP.openWithIntake = true;
+      } else if (tplKey.startsWith('rt:')) {
+        const rt = (APP.recordTemplates || []).find((x) => 'rt:' + x.id === tplKey);
+        toast('Starting from ' + ((rt && rt.name) || 'firm template') + '…');
+        const g = await repo.recordTemplateGet(tplKey.slice(3));
+        if (g.error || !g.data) toast('Could not load that template - the project is blank');
+        else {
+          const applied = await applyAnswerSet(repo, idNew, g.data.payload || {}, name);
+          if (!applied.ok) toast('Template partially applied (' + applied.failed + ' write' + (applied.failed === 1 ? '' : 's') + ' failed) - check the worksheet');
+        }
+      } else if (tplKey.startsWith('clone:')) {
+        const srcId = tplKey.slice(6);
+        const src = APP.projects.find((x) => x.id === srcId);
+        toast('Cloning the standing structure of ' + ((src && src.name) || 'the record') + '…');
+        const g = await repo.answersSubset(srcId, ['ctrl_org', 'ctrl_doctype', 'nfr', 'glossary']);
+        if (g.error) toast('Could not read the source record - the project is blank');
+        else {
+          const applied = await applyAnswerSet(repo, idNew, buildTemplatePayload(g.data || { fields: {}, rows: {} }), name);
+          if (!applied.ok) toast('Clone partially applied (' + applied.failed + ' write' + (applied.failed === 1 ? '' : 's') + ' failed) - check the worksheet');
+        }
+      } else if (tplKey !== 'blank') {
         const tpl = templateByKey(tplKey);
         toast('Starting from ' + ((tpl && tpl.label) || 'template') + '…');
         const applied = await applyTemplate(repo, idNew, tplKey, name);
@@ -1064,6 +1095,53 @@ async function handleAction(a, id, t, e) {
       APP.activeQid = q;
       render();
       revealActiveSection(true);
+      break;
+    }
+    case 'pasteopen': APP.pasteQ = { qid: t.dataset.qid, text: '', preview: null }; render(); break;
+    case 'pastecancel': APP.pasteQ = null; render(); break;
+    case 'pastepreview': {
+      if (!APP.pasteQ) break;
+      APP.pasteQ.text = val('pasteText');
+      APP.pasteQ.preview = pasteToRows(APP.pasteQ.qid, APP.pasteQ.text);
+      render();
+      break;
+    }
+    case 'pasteapply': {
+      const pq = APP.pasteQ;
+      if (!pq || !pq.preview || !pq.preview.length) break;
+      APP.pasteQ = null; render();
+      let added = 0;
+      for (const row of pq.preview) {
+        const { src, ...data } = row;
+        const r = await sync.addRow(pq.qid, data);
+        if (r) added++;
+      }
+      noteRecent(pq.qid);
+      toast(added === pq.preview.length ? 'Added ' + added + ' row' + (added === 1 ? '' : 's')
+        : 'Added ' + added + ' of ' + pq.preview.length + ' rows - check the section');
+      break;
+    }
+    case 'kbclose': APP.kbHelp = false; render(); break;
+    case 'jumpq': {
+      closeModals();
+      render();
+      requestAnimationFrame(() => {
+        const el = document.querySelector('[data-q="' + CSS.escape(t.dataset.id) + '"]');
+        if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('kb-focus'); setTimeout(() => el.classList.remove('kb-focus'), 1200); }
+      });
+      break;
+    }
+    case 'tplsaveopen': APP.tplSave = { name: '' }; render(); break;
+    case 'tplsavecancel': APP.tplSave = null; render(); break;
+    case 'tplsaveconfirm': {
+      const name = val('tplName').trim();
+      if (!name) { APP.tplSave.error = 'Name the template'; render(); break; }
+      const payload = buildTemplatePayload({ fields: APP.fields, rows: APP.rows });
+      const r = await repo.recordTemplateSave(APP.orgId, name, payload);
+      if (r.error || !r.data || !r.data.ok) { APP.tplSave.error = 'Could not save the template'; render(); break; }
+      APP.tplSave = null;
+      toast('Template saved - it appears on the New project screen with today as its reviewed date');
+      render();
       break;
     }
     case 'addrow': {
@@ -1888,6 +1966,9 @@ document.addEventListener('change', async (e) => {
     const files = [...(t.files || [])];
     t.value = '';
     await intakeAddFiles(files);
+  } else if (t.matches && t.matches('[data-role="clonesel"]')) {
+    APP.newTpl = t.value || 'blank';
+    render();
   } else if (t.id === 'intakeText') {
     // Re-render so the preview button arms the moment pasted text lands.
     if (APP.intake) { APP.intake.text = t.value; render(); }
@@ -1934,6 +2015,7 @@ document.addEventListener('change', async (e) => {
     }
   } else if (t.matches('select[data-rowfield]')) {
     sync.editRow(t.dataset.rowfield, t.dataset.rowid, { [t.dataset.colkey]: t.value });
+    noteRecent(t.dataset.rowfield);
     sync.flushNow();
     deferredRender();
   }
@@ -1944,7 +2026,7 @@ document.addEventListener('change', async (e) => {
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.matches('[data-field]')) { sync.editField(t.dataset.field, t.value); APP.activeQid = t.dataset.field; patchDocPane(); }
-  else if (t.matches('input[data-rowfield], textarea[data-rowfield]')) { sync.editRow(t.dataset.rowfield, t.dataset.rowid, { [t.dataset.colkey]: t.value }); APP.activeQid = t.dataset.rowfield; patchDocPane(); }
+  else if (t.matches('input[data-rowfield], textarea[data-rowfield]')) { sync.editRow(t.dataset.rowfield, t.dataset.rowid, { [t.dataset.colkey]: t.value }); APP.activeQid = t.dataset.rowfield; noteRecent(t.dataset.rowfield); patchDocPane(); }
   else if (t.matches('[data-draft]')) APP.drafts[t.dataset.draft] = t.value;
   else if (t.matches('[data-ibsearch]')) { APP.inboxFilter.q = t.value; deferredRender(); }
   else if (t.matches('[data-discsearch]')) { APP.discQ = t.value; deferredRender(); }
@@ -1979,8 +2061,52 @@ document.addEventListener('focusout', (e) => {
 });
 
 /* keyboard */
+const isEditable = (el) => !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+// The current question card: the one whose top sits nearest the reading
+// line. Stateless on purpose - scroll position is the state.
+function currentQCard() {
+  const cards = [...document.querySelectorAll('.qcard[data-q]')];
+  if (!cards.length) return { cards, idx: -1 };
+  const line = 120;
+  let idx = 0;
+  for (let i = 0; i < cards.length; i++) {
+    if (cards[i].getBoundingClientRect().top <= line + 1) idx = i; else break;
+  }
+  return { cards, idx };
+}
+function kbGo(delta) {
+  const { cards, idx } = currentQCard();
+  if (!cards.length) return;
+  const next = Math.min(Math.max(idx + delta, 0), cards.length - 1);
+  cards[next].scrollIntoView({ block: 'start' });
+  window.scrollBy(0, -96);
+  cards.forEach((c) => c.classList.remove('kb-focus'));
+  cards[next].classList.add('kb-focus');
+  setTimeout(() => cards[next].classList.remove('kb-focus'), 1200);
+}
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); return; }
+  // Alt+Enter inside any row cell adds a row to that question. Works in
+  // inputs, textareas, and selects alike, and never collides with typing.
+  if (e.altKey && e.key === 'Enter' && e.target && e.target.matches && e.target.matches('[data-rowfield]')) {
+    e.preventDefault();
+    const btn2 = document.querySelector('[data-action="addrow"][data-qid="' + CSS.escape(e.target.dataset.rowfield) + '"]');
+    if (btn2) btn2.click();
+    return;
+  }
+  // Expert accelerators live outside editable fields, so typing is never
+  // hijacked: j and k walk the worksheet, Enter opens the current card,
+  // ? shows the sheet.
+  if (!isEditable(e.target) && !APP.palOpen && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (e.key === 'j' || e.key === 'k') { e.preventDefault(); kbGo(e.key === 'j' ? 1 : -1); return; }
+    if (e.key === 'Enter' && APP.pid && !APP.pasteQ && !APP.kbHelp && !APP.tplSave) {
+      const { cards, idx } = currentQCard();
+      const f = idx >= 0 && cards[idx] ? cards[idx].querySelector('input, textarea, select') : null;
+      if (f) { e.preventDefault(); f.focus(); }
+      return;
+    }
+    if (e.key === '?') { e.preventDefault(); APP.kbHelp = true; render(); return; }
+  }
   // Enter in the new-project name field creates the project. It routes through
   // the same guarded 'new' handler, so key auto-repeat and an Enter-then-click
   // pair collapse to one creation (part of the one-click-one-project fix).
@@ -2004,7 +2130,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'Escape') {
     if (APP.present) { APP.present = false; render(); return; }
-    if (APP.palOpen || APP.menuOpen || APP.profileOpen || APP.orgOpen || APP.genOpen || APP.delPending || APP.shareOpen) {
+    if (APP.palOpen || APP.menuOpen || APP.profileOpen || APP.orgOpen || APP.genOpen || APP.delPending || APP.shareOpen || APP.pasteQ || APP.kbHelp || APP.tplSave) {
       closeModals(); render();
     }
     return;
@@ -2017,11 +2143,18 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Recent-edits jump list for the palette: the last eight questions touched,
+// most recent first, session memory only.
+function noteRecent(qid) {
+  if (!qid) return;
+  APP.recentQ = [qid, ...(APP.recentQ || []).filter((x) => x !== qid)].slice(0, 8);
+}
 function closeModals() {
   APP.palOpen = false; APP.menuOpen = false; APP.profileOpen = false;
   APP.orgOpen = false; APP.genOpen = false; APP.delPending = null; APP.delError = null;
   APP.shareOpen = false; APP.pprofOpen = false;
   APP.wsMenuOpen = false; APP.wsCreating = false; APP.briefPickOpen = false;
+  APP.pasteQ = null; APP.kbHelp = false; APP.tplSave = null;
 }
 
 /* Per-project memory of which brief sections the team last shared. */

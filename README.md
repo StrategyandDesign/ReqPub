@@ -53,16 +53,16 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── msgdedup.test.mjs               5 optimistic/realtime dedupe tests
 │   ├── engagement.test.mjs             17 charter + gate-plan + AI-acceptance + PRD-invariance tests
 │   ├── health.test.mjs                 24 readiness / evidence-line / pill-label tests
-│   ├── templates.test.mjs              10 template validation + RPC-application tests
+│   ├── templates.test.mjs              13 template validation + RPC-application + payload-whitelist tests
 │   ├── fingerprint.test.mjs            16 canonical-JSON / client-report / gate-packet / SOW-exhibit tests
-│   ├── views.test.mjs                  9 view-render contracts (picker, guard, roles, promotion)
+│   ├── views.test.mjs                  12 view-render contracts (picker, guard, roles, creation paths)
 │   ├── projdedup.test.mjs              8 project-list reconciliation + retry-semantics tests
 │   ├── zipstore.test.mjs               8 STORE-zip writer tests (independent reader, CRC, determinism)
 │   ├── implpkg.test.mjs                12 implementation-package tests (spec bundle, acceptance block, fingerprint symmetry)
-│   ├── intake.test.mjs                 42 segmenter / geometry-table / inference / mapping / apply tests
+│   ├── intake.test.mjs                 47 segmenter / geometry-table / inference / paste / apply tests
 │   ├── fixtures/                        real page geometry frozen from a table-heavy PRD PDF
 │   ├── update.test.mjs                 10 weekly-update assembler tests (derivation, grading, window, closed diff, determinism)
-│   └── backend-e2e/                     290 checks against a real embedded Postgres
+│   └── backend-e2e/                     316 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
 │       ├── sme-workspace.test.mjs       durable SME workspace (16)
@@ -76,7 +76,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── version-integrity.test.mjs   baselines immutable at the table; build tag gated + logged (16)
 │       ├── esign.test.mjs               e-sign v1: token lifecycle, approval landing, boundaries, trail (29)
 │       ├── name-sync.test.mjs           projects.name tracks the worksheet rename; jsonb-safe; repair (10)
-│       └── updates.test.mjs             weekly updates: publish authz, immutability, token page, withdrawal (20)
+│       ├── updates.test.mjs             weekly updates: publish authz, immutability, token page, withdrawal (20)
+│       └── record-templates.test.mjs    firm templates: caps, roles, RLS, review dates, revoked writes (18)
 ├── tools/                               PRD seed generator (validated against the builders)
 ├── docs/
 │   ├── ARCHITECTURE.md                  design rationale + citations
@@ -90,7 +91,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 211 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
+npm test                        # 221 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
 npm i && npm run test:backend   # 290 checks on an embedded Postgres
 ```
 

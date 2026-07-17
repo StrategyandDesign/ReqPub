@@ -183,3 +183,59 @@ export async function applyTemplate(repo, pid, key, name) {
   for (const [id, arr] of Object.entries(t.rows || {})) await pushRows(id, arr, (data) => data);
   return out;
 }
+
+/* ---- Firm templates and clone-from-record (v2.30.0) ----
+   A template or a clone carries the STANDING structure of an engagement
+   and nothing else: organization, document type, the non-functional
+   requirements, and the glossary. Client content (the product name, the
+   overview, functional requirements, versions, approvals) never travels.
+   The whitelist is enforced on save and again on apply, so a hand-edited
+   payload cannot smuggle other sections in. */
+export const TPL_SCALARS = ['ctrl_org', 'ctrl_doctype'];
+export const TPL_ROWS = ['nfr', 'glossary'];
+
+/* From live state ({fields, rows} as data.js loads them) to a payload.
+   Pure. Values pass through String() and rows keep only their data. */
+export function buildTemplatePayload(state) {
+  const fields = (state && state.fields) || {};
+  const rows = (state && state.rows) || {};
+  const payload = { scalars: {}, rows: {} };
+  for (const id of TPL_SCALARS) {
+    const f = fields[id];
+    const v = f && typeof f === 'object' && 'value' in f ? f.value : f;
+    if (v != null && String(v).trim()) payload.scalars[id] = String(v);
+  }
+  for (const id of TPL_ROWS) {
+    const list = Array.isArray(rows[id]) ? rows[id] : [];
+    const data = list.map((r) => (r && r.data && typeof r.data === 'object' ? r.data : null))
+      .filter((d) => d && Object.values(d).some((v) => String(v == null ? '' : v).trim()));
+    if (data.length) payload.rows[id] = data;
+  }
+  return payload;
+}
+
+/* Apply a stored payload (template or clone) to a freshly created project
+   through the same rev-checked RPCs as live editing. Same contract as
+   applyTemplate: sequential writes, never throws, returns counts. */
+export async function applyAnswerSet(repo, pid, payload, name) {
+  const out = { ok: true, fields: 0, rows: 0, failed: 0 };
+  const p = payload && typeof payload === 'object' ? payload : {};
+  const scalars = { ...(name ? { ctrl_product: name } : {}) };
+  for (const id of TPL_SCALARS) {
+    const v = p.scalars && p.scalars[id];
+    if (v != null && String(v).trim()) scalars[id] = String(v);
+  }
+  for (const [id, value] of Object.entries(scalars)) {
+    const r = await repo.saveField(pid, id, value, 0);
+    if (r.error || !r.data || !r.data.ok) { out.failed++; out.ok = false; } else out.fields++;
+  }
+  for (const id of TPL_ROWS) {
+    const list = Array.isArray(p.rows && p.rows[id]) ? p.rows[id] : [];
+    for (const data of list) {
+      if (!data || typeof data !== 'object') continue;
+      const r = await repo.upsertRow(pid, id, null, data);
+      if (r.error || !r.data || !r.data.ok) { out.failed++; out.ok = false; } else out.rows++;
+    }
+  }
+  return out;
+}

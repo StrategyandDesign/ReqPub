@@ -364,3 +364,4 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:0}
   .md h2#docsec-functional + table{box-shadow:none!important;border:1.5px solid var(--brand)!important}
 }
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+.qcard.kb-focus{outline:2px solid var(--brand);outline-offset:2px;transition:outline-color .2s}

@@ -1,5 +1,70 @@
 # Changelog
 
+## 2.30.2 · problem section tightened
+
+The problem and why-now paragraphs are shorter and the figures carry
+dollar signs: $585 billion, $1 billion or more. Claims unchanged and
+still attributed to Gartner and RAND. Copy only; checks unchanged at
+221 unit and 316 backend. Deploy is a frontend push.
+
+## 2.30.1 · hero copy
+
+The hero subtitle now reads exactly as directed: "All parties sign the
+measurable definition of done. Acceptance thresholds. Requirements with
+fit criteria. Named approvals. One immutable baseline. One fingerprint
+verified outside the platform." The buyer-naming and dual-use sentences
+came out. The title is unchanged. Copy only; no code, no schema, checks
+unchanged at 221 unit and 316 backend. Deploy is a frontend push.
+
+## 2.30.0 · the power package
+
+A design-team pass over the internal platform, decided by outside
+evidence and approved in full: four features that make output faster for
+the PM already inside the tool, and one loudly rejected. Nothing here is
+a tracker, a dashboard, or generated content.
+
+- **Document-first project creation.** The creation screen offers
+  Documents beside the starter templates. Choosing it opens the new
+  project straight into Populate from documents: the same deterministic
+  mapper, the same preview of where every section lands, nothing written
+  without approval. The fastest path off Word and email now starts at
+  the start.
+- **Bulk paste into rows.** Every rows section carries a Paste rows
+  action. A list or a table copied from Word or Excel parses through the
+  intake extraction: named headers map, headerless tables are read by
+  content, MoSCoW letters expand, IDs stay as prefixes. The overlay
+  states the parsed count, previews the first rows, and adds only on the
+  approve click. Input caps at 256 KB.
+- **Keyboard-first worksheet.** j and k walk the questions, Enter opens
+  the current one, Alt+Enter adds a row to the question being edited,
+  ? shows the sheet, and the palette lists the eight most recently
+  edited questions on top. Accelerators fire only outside editable
+  fields, so typing is never hijacked. The recent list is session
+  memory, on purpose.
+- **Firm templates and clone-from-record** (supabase/
+  fix-record-templates.sql, schema section 17). A manager saves the
+  standing structure of a record: organization, document type,
+  non-functional requirements, glossary. Never client content; the
+  whitelist holds on save and again on apply, so a hand-edited payload
+  cannot smuggle sections in. Members start new records from a template
+  chip that shows its last-reviewed date, or clone a prior record's
+  standing structure from a picker. Server caps: name 80 characters,
+  payload 64 KB, 50 templates per org. Reads pass RLS; writes pass
+  RPCs; direct table writes are revoked; template actions land on the
+  activity log.
+- **Rejected: talk-to-text.** Two independent reasons, either
+  sufficient. Structured-field entry is where speech measurably loses
+  to keying once correction time counts. And the browser's default
+  speech path streams client-confidential audio to a third-party
+  server, with on-device processing still Chrome-desktop-only and
+  recently regressed. Revisit only if on-device speech becomes stable
+  across the browsers consulting firms actually run.
+
+Checks: 221 unit (five paste, three payload-whitelist, two creation
+contracts), 316 backend (a new 18-check firm-templates suite on a real
+Postgres: caps, roles, RLS, review dates, revoked writes). Deploy: run
+supabase/fix-record-templates.sql once, then push the frontend.
+
 ## 2.29.0 · the position, on the record
 
 Two research passes over the live market settled the positioning: ReqPub

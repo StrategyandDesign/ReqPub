@@ -120,6 +120,45 @@ const stripMd = (s) => String(s || '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/
 export function mdUnescape(s) {
   return String(s || '').replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, '$1');
 }
+/* Bulk paste (v2.30.0). A requirements list usually already exists in
+   Word or Excel; re-keying it cell by cell is the slowest path in the
+   product. Pasted text normalizes to the markdown the extractor already
+   speaks: a pipe table passes through; tab-separated lines (an Excel or
+   Word table on the clipboard) become a pipe table, with the first line
+   kept as the header only when its cells look like headers; plain lines
+   become bullets. The same deterministic extraction, the same inference,
+   the same preview-before-apply. Input is capped at 256 KB. */
+const PASTE_CAP = 262144;
+const HEADER_VOCAB = new Set(['id', 'ref', 'identifier', 'requirement', 'statement', 'shall', 'fit',
+  'fit criterion', 'criterion', 'criteria', 'acceptance', 'pri', 'priority', 'moscow', 'ver',
+  'verification', 'rel', 'release', 'dimension', 'metric', 'threshold', 'target', 'dataset', 'set',
+  'term', 'meaning', 'definition', 'persona', 'user', 'role', 'job', 'name', 'gate', 'milestone',
+  'decision', 'basis', 'rationale', 'owner', 'date', 'interface', 'description', 'label', 'method',
+  'verified by', 'notes', 'comp', 'component']);
+export function pasteRowsMd(text) {
+  let t = String(text || '');
+  if (t.length > PASTE_CAP) t = t.slice(0, PASTE_CAP);
+  t = t.replace(/\r\n?/g, '\n');
+  const lines = t.split('\n').map((l) => l.replace(/\s+$/, '')).filter((l) => l.trim());
+  if (!lines.length) return '';
+  if (lines.some((l) => l.trim().startsWith('|'))) return lines.join('\n');
+  if (lines.some((l) => l.includes('\t'))) {
+    const cells = (l) => l.split('\t').map((c) => c.replace(/\|/g, '/').trim());
+    const first = cells(lines[0]);
+    const headery = first.filter((c) => HEADER_VOCAB.has(c.toLowerCase())).length >= Math.max(1, Math.ceil(first.length / 2));
+    const row = (cs) => '| ' + cs.join(' | ') + ' |';
+    const sep = '|' + first.map(() => ' --- ').join('|') + '|';
+    if (headery) return [row(first), sep, ...lines.slice(1).map((l) => row(cells(l)))].join('\n');
+    // No header on the clipboard: a blank header row keeps every pasted
+    // line as data and hands the column roles to content inference.
+    return [row(first.map(() => ' ')), sep, ...lines.map((l) => row(cells(l)))].join('\n');
+  }
+  return lines.map((l) => (/^[-*\u2022]\s/.test(l.trim()) ? '- ' + l.trim().replace(/^[-*\u2022]\s+/, '') : '- ' + l.trim())).join('\n');
+}
+export function pasteToRows(qid, text) {
+  return extractRows(qid, pasteRowsMd(text), 'paste');
+}
+
 /* When a PDF yields no text at all, the reason decides the advice, and the
    page operators tell the reason. A scan draws one big image per page and
    little else: run OCR or paste the text. Outlined text (a design-tool
