@@ -10,7 +10,8 @@ import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
 import { mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape } from './intake.js';
-import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace, renderSignPage } from './views-external.js';
+import { assembleUpdate, UPDATE_CAPS } from './update.js';
+import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace, renderSignPage, renderUpdatePage, updateArtifactHTML } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, fileStem } from './exports.js';
 import { landingTab, incorporatedRows, healthSignals } from './health.js';
 import { buildImplementationFiles } from './implpkg.js';
@@ -70,6 +71,7 @@ function renderUnsafe() {
     case 'note': html = renderNoteIntake(APP); break;
     case 'present': html = renderPresentShare(APP); break;
     case 'sign': html = renderSignPage(APP); break;
+    case 'update': html = renderUpdatePage(APP); break;
     case 'smeworkspace': html = renderSmeWorkspace(APP); break;
     case 'partner': html = renderPartnerHome(APP); break;
     case 'partnerview': html = renderPartnerProject(APP); break;
@@ -199,6 +201,8 @@ function parseHash() {
   if (m) return { mode: 'sme', token: m[1] };
   m = h.match(/^sign\/([^/]+)$/);                       // e-sign v1: #sign/token
   if (m) return { mode: 'sign', token: m[1] };
+  m = h.match(/^update\/([^/]+)$/);                     // weekly update: #update/token
+  if (m) return { mode: 'update', token: m[1] };
   return null;
 }
 
@@ -230,6 +234,15 @@ async function routeShare(r) {
       } catch { APP.sign.computedFp = ''; APP.sign.verified = false; }
     }
     APP.view = 'sign';
+    render();
+    return;
+  }
+  if (r.mode === 'update') {
+    // Weekly update: token-keyed, immutable at the row - the page renders
+    // exactly what was published, or says plainly that it was withdrawn.
+    const res = await repo.updateContext(r.token);
+    APP.updatePage = res.data || null;
+    APP.view = 'update';
     render();
     return;
   }
@@ -821,6 +834,7 @@ async function handleAction(a, id, t, e) {
     case 'tab': {
       APP.docTab = t.dataset.val; APP.docShow = true;
       if (APP.docTab === 'activity') APP.activityLog = await repo.activity(APP.pid);
+      if (APP.docTab === 'updates') { APP.updatesList = await repo.updatesFor(APP.pid); render(); }
       if (APP.docTab === 'access') loadAccessData();
       if (APP.docTab === 'changes' || APP.docTab === 'document' || APP.docTab === 'summary') {
         const seq = APP.viewSeq != null ? APP.viewSeq : (APP.versions.length ? APP.versions[APP.versions.length - 1].seq : null);
@@ -1532,6 +1546,88 @@ async function handleAction(a, id, t, e) {
       const ok = await repo.signRevoke(t.dataset.id);
       if (ok.data === true) { APP.signs = await repo.signsFor(APP.pid); toast('Signature link revoked'); render(); }
       else toast('Only pending requests can be revoked');
+      break;
+    }
+    /* ---- weekly updates (v2.27.0) ---- */
+    case 'updcompose': {
+      // Assemble the draft from record truth: activity in the window since
+      // the last live update, plus the derived asks and open items. The
+      // whole transformation is pure (update.js); this handler only feeds it.
+      const acts = await repo.activity(APP.pid, 200);
+      const prev = (APP.updatesList || []).find((u) => !u.revoked);
+      const draft = assembleUpdate({
+        answers: assembleAnswers(APP.fields, APP.rows),
+        versions: APP.versions || [], approvalsByVersion: APP.approvals || {},
+        signsByVersion: APP.signs || (APP.signs = await repo.signsFor(APP.pid)),
+        activity: acts,
+        prevPayload: prev ? prev.payload : null,
+        windowFrom: prev ? prev.window_to : null,
+        windowTo: new Date().toISOString(), now: new Date(),
+      });
+      APP.upd = { draft, busy: false };
+      render();
+      break;
+    }
+    case 'updcancel': APP.upd = null; render(); break;
+    case 'updpublish': {
+      if (!APP.upd || APP.upd.busy) break;
+      const d = APP.upd.draft;
+      // The composer's picks are read from the DOM at the moment of truth,
+      // capped by the one-page discipline. A typed note lands stamped.
+      const picked = (sel, list, idp) => Array.from(document.querySelectorAll('input[data-' + sel + ']:checked'))
+        .map((el) => ({ i: +el.dataset[sel.replace(/-/g, '')], v: val(idp + el.dataset[sel.replace(/-/g, '')]).trim() }))
+        .filter((x) => x.v && list[x.i]);
+      const asks = picked('updask', d.asks, 'upda-').slice(0, UPDATE_CAPS.asks)
+        .map((x) => ({ text: x.v, why: d.asks[x.i].why, src: d.asks[x.i].src }));
+      const note = val('updnote').trim();
+      const moved = picked('updmoved', d.moved, 'updm-').slice(0, UPDATE_CAPS.moved - (note ? 1 : 0))
+        .map((x) => ({ text: x.v, ref: d.moved[x.i].ref, note: false }));
+      if (note) moved.push({ text: note, ref: '', note: true });
+      const payload = {
+        strip: d.strip, asks, moved,
+        open: d.open.slice(0, UPDATE_CAPS.open), openMore: d.openMore,
+        closed: d.closed, next: val('updnext').trim().slice(0, 240), window: d.window,
+      };
+      const latest = (APP.versions || []).slice().sort((x, y) => y.seq - x.seq)[0];
+      if (latest) {
+        try {
+          await ensureSnapshot(latest.seq);
+          const snap = APP.snapshots[latest.seq];
+          payload.baseline = { label: latest.label, fp: snap ? await versionFingerprint(snap) : '' };
+        } catch { payload.baseline = { label: latest.label, fp: '' }; }
+      }
+      APP.upd.busy = true; render();
+      try {
+        const r = await repo.updatePublish(APP.pid, payload, d.window.from, val('updprep').trim());
+        const out = r.data;
+        if (!out || !out.ok) { toast(out && out.error === 'forbidden' ? 'Only a manager can publish an update' : 'Could not publish - try again'); break; }
+        APP.upd = null;
+        APP.updatesList = await repo.updatesFor(APP.pid);
+        const link = location.origin + location.pathname + '#update/' + out.token;
+        try { await copyText(link); } catch { /* clipboard denied */ }
+        toast('Update no. ' + out.seq + ' published - link copied');
+        render();
+      } finally { if (APP.upd) { APP.upd.busy = false; render(); } }
+      break;
+    }
+    case 'updcopy': {
+      const link = location.origin + location.pathname + '#update/' + t.dataset.token;
+      try { await copyText(link); toast('Update link copied'); } catch { toast(link); }
+      break;
+    }
+    case 'updrevoke': {
+      const ok = await repo.updateRevoke(t.dataset.id);
+      if (ok.data === true) { APP.updatesList = await repo.updatesFor(APP.pid); toast('Update withdrawn - its link says so now'); render(); }
+      else toast('Could not withdraw the update');
+      break;
+    }
+    case 'updprint': {
+      const g = APP.updatePage;
+      if (!g || !g.ok || g.revoked) { toast('Nothing to print'); break; }
+      const area = document.getElementById('printArea');
+      if (!area) break;
+      area.innerHTML = updateArtifactHTML(g);
+      window.print();
       break;
     }
     /* ---- e-sign v1: the signer's page ---- */

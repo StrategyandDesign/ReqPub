@@ -199,7 +199,7 @@ export function paletteItems(APP) {
   (APP.projects || []).forEach((p) => items.push({ label: p.name, hint: 'Open project', ico: IC.doc, action: 'open', id: p.id }));
   if (APP.view === 'workspace') {
     [['document', 'Document · Read'], ['summary', 'Document · Summary'], ['changes', 'Document · Changes'], ['versions', 'Document · Versions'],
-     ['health', 'Document · Health'], ['inbox', 'Inbox · Messages'], ['feedback', 'Inbox · App feedback'], ['notes', 'Inbox · Notes'], ['discovery', 'Discovery'],
+     ['health', 'Document · Health'], ['updates', 'Document · Updates'], ['inbox', 'Inbox · Messages'], ['feedback', 'Inbox · App feedback'], ['notes', 'Inbox · Notes'], ['discovery', 'Discovery'],
      ['access', 'Share · Access'], ['people', 'Share · People'], ['activity', 'Activity']]
       .forEach(([t, lbl]) => items.push({ label: 'Go to ' + lbl, hint: 'View', ico: IC.fwd, action: 'tab', id: t }));
     if (APP.role === 'manager') items.push({ label: 'Generate a version', hint: 'Baseline', ico: IC.layers, action: 'genopen' });
@@ -627,7 +627,7 @@ function renderDoc(APP, a, ac, total) {
   // underlying content still keys off APP.docTab, so every view is preserved -
   // just regrouped by job. Activity moves to a toolbar icon (see docActions).
   const NAV = [
-    { key: 'document', label: 'Document', subs: [['document', 'Read'], ['summary', 'Summary'], ['changes', 'Changes'], ['versions', 'Versions'], ['health', 'Health']] },
+    { key: 'document', label: 'Document', subs: [['document', 'Read'], ['summary', 'Summary'], ['changes', 'Changes'], ['versions', 'Versions'], ['health', 'Health'], ['updates', 'Updates']] },
     { key: 'inbox', label: 'Inbox', subs: [['inbox', 'Messages'], ['feedback', 'App'], ['notes', 'Notes']] },
     { key: 'discovery', label: 'Discovery', subs: [['discovery', 'Discovery']] },
     { key: 'share', label: 'Share', subs: [['access', 'Access'], ['people', 'People']] }

@@ -273,6 +273,21 @@ export const repo = {
   sendSignReceipt(token) {
     return sb.functions.invoke('send-sign-receipt', { body: { token } });
   },
+  updatePublish(pid, payload, windowFrom, preparedBy) {
+    return rpc('update_publish', { p_project: pid, p_payload: payload, p_window_from: windowFrom, p_prepared_by: preparedBy });
+  },
+  async updatesFor(pid) {
+    const r = await durable(() => sb.from('updates')
+      .select('id,seq,token,window_from,window_to,prepared_by,payload,published_at,revoked')
+      .eq('project_id', pid).order('seq', { ascending: false }));
+    return r.data || [];
+  },
+  updateContext(token) {
+    return rpc('update_context', { p_token: token });
+  },
+  updateRevoke(id) {
+    return rpc('update_revoke', { p_id: id });
+  },
   async sharesFor(pid) {
     const r = await durable(() => sb.from('shares')
       .select('token,kind,version_seq,revoked,updated_at,sections:payload->sections').eq('project_id', pid));

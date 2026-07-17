@@ -446,3 +446,82 @@ export function renderNoOrg(APP) {
     '<div style="text-align:center;margin-top:14px"><button class="btn btn-ghost btn-sm" data-action="signout">Sign out</button></div>' +
     '</div></div></div><div id="toast-slot" aria-live="polite" aria-atomic="true"></div>';
 }
+
+/* ---- Weekly update: the client's ten-second read (v2.27.0) ----
+   One white page. Position and weight carry priority: a three-fact strip,
+   then the asks, then everything the second read may never reach. The
+   artifact builder is shared by the live page and print, so the PDF and
+   the link can never disagree. Every line arrived derived from the record;
+   a hand-typed line carries its "note" stamp. */
+const updFmtDay = (d) => { const x = d ? new Date(d) : null; return x && !isNaN(+x) ? x.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''; };
+
+export function updateArtifactHTML(g) {
+  const p = g.payload || {};
+  const strip = p.strip || {};
+  const asks = p.asks || [];
+  const moved = p.moved || [];
+  const open = (p.open || []).slice(0, 6);
+  const closed = p.closed || [];
+  const winFrom = updFmtDay(g.windowFrom || (p.window || {}).from);
+  const winTo = updFmtDay(g.windowTo || (p.window || {}).to || g.publishedAt);
+  const hr = (strong) => '<div style="border-top:1px solid ' + (strong ? 'var(--ink-2)' : 'var(--line)') + ';margin:16px 0 12px"></div>';
+  const sec = (t) => '<div style="font-size:12.5px;font-weight:640;letter-spacing:.01em;margin:0 0 7px">' + t + '</div>';
+  const logo = g.logo ? '<img src="' + escA(g.logo) + '" alt="" style="max-height:26px;max-width:120px;object-fit:contain">'
+    : (g.brandLabel ? '<span style="font-size:12px;color:var(--ink-4)">' + esc(g.brandLabel) + '</span>' : '');
+
+  const asksHtml = asks.length
+    ? asks.map((a, i) =>
+      '<div style="display:flex;gap:10px;margin:0 0 8px;font-size:14px;line-height:1.55">' +
+      '<span style="color:var(--brand);font-weight:640;flex:0 0 auto">' + (i + 1) + '</span>' +
+      '<span style="min-width:0"><span style="font-weight:600">' + esc(a.text) + (/[.?!]$/.test(String(a.text || '').trim()) ? '' : '.') + '</span>' +
+      (a.why ? ' <span style="color:var(--ink-3)">' + esc(a.why) + (/[.?!]$/.test(String(a.why).trim()) ? '' : '.') + '</span>' : '') +
+      (a.src === 'note' ? ' <span style="color:var(--ink-4);font-size:11px">note</span>' : '') + '</span></div>').join('')
+    : '<div style="font-size:13.5px;color:var(--ink-3)">Nothing needed from you this week.</div>';
+
+  const movedHtml = moved.map((m) =>
+    '<div style="font-size:13.5px;line-height:1.6;margin:0 0 4px">' + esc(m.text) +
+    (m.ref ? ' <span style="color:var(--ink-4);font-size:11.5px">' + esc(updFmtDay(m.ref) || m.ref) + '</span>' : '') +
+    (m.note ? ' <span style="color:var(--ink-4);font-size:11px">note</span>' : '') + '</div>').join('');
+
+  const openHtml = open.map((o) =>
+    '<div style="font-size:13.5px;line-height:1.6;margin:0 0 4px">' +
+    (o.grade === 'high' ? '<span style="font-weight:640">High</span>' : '<span style="color:var(--ink-3)">Watch</span>') +
+    ' · ' + esc(o.text) + (o.lead ? ' · ' + esc(o.lead) : '') + (o.by ? ' · by ' + esc(o.by) : '') + '</div>').join('') +
+    (p.openMore ? '<div style="font-size:12px;color:var(--ink-4);margin-top:3px">and ' + p.openMore + ' more on the record</div>' : '') +
+    closed.map((c) => '<div style="font-size:13px;color:var(--ink-4);text-decoration:line-through;margin-top:3px">Closed · ' + esc(c.text) + '</div>').join('');
+
+  return '<div style="background:#fff;color:#0f1114;border-radius:14px;padding:34px 38px;border:1px solid var(--line)">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">' +
+    '<div style="min-width:0"><div style="font-size:20px;font-weight:640;letter-spacing:-.015em">' + esc(g.project || 'Project') + '</div>' +
+    '<div style="font-size:11.5px;color:var(--ink-4);margin-top:3px">Weekly update no. ' + (g.seq || 1) +
+    (winFrom || winTo ? ' · ' + (winFrom ? winFrom + ' to ' : 'through ') + winTo : '') +
+    (g.preparedBy ? ' · prepared by ' + esc(g.preparedBy) : '') + '</div></div>' + logo + '</div>' +
+    hr(true) +
+    '<div style="display:flex;gap:16px">' +
+    '<div style="flex:1.1"><div style="font-size:10px;color:var(--ink-4);letter-spacing:.05em;text-transform:uppercase">Needed from you</div>' +
+    '<div style="font-size:16.5px;font-weight:640;color:var(--brand)">' + (asks.length ? asks.length + (asks.length === 1 ? ' decision' : ' decisions') : 'Nothing') + '</div></div>' +
+    '<div style="flex:1;border-left:1px solid var(--line);padding-left:14px"><div style="font-size:10px;color:var(--ink-4);letter-spacing:.05em;text-transform:uppercase">Health</div>' +
+    '<div style="font-size:16.5px;font-weight:640">' + esc(strip.health || '') + '</div></div>' +
+    '<div style="flex:1.5;border-left:1px solid var(--line);padding-left:14px"><div style="font-size:10px;color:var(--ink-4);letter-spacing:.05em;text-transform:uppercase">Next milestone</div>' +
+    '<div style="font-size:16.5px;font-weight:640;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc((strip.next || {}).text || 'To be set') + '</div></div></div>' +
+    hr() + sec('Needed from you this week') + asksHtml +
+    (moved.length ? hr() + sec('What moved') + movedHtml : '') +
+    (open.length || closed.length ? hr() + sec('Open on the record') + openHtml : '') +
+    (p.next ? hr() + sec('Next') + '<div style="font-size:13.5px;line-height:1.6">' + esc(p.next) + '</div>' : '') +
+    '<div style="border-top:1px solid var(--ink-2);margin-top:18px;padding-top:10px;font-size:10.5px;color:var(--ink-4);line-height:1.6">Produced from the ReqPub record' +
+    ((p.baseline || {}).label ? ' · baseline v' + esc(p.baseline.label) : '') +
+    ((p.baseline || {}).fp ? ' · fingerprint sha256:' + esc(String(p.baseline.fp).slice(0, 12)) + '\u2026' : '') +
+    (g.publishedAt ? ' · published ' + esc(updFmtDay(g.publishedAt)) : '') +
+    ' · this link always renders exactly this update</div></div>';
+}
+
+export function renderUpdatePage(APP) {
+  const g = APP.updatePage;
+  if (!g || !g.ok) return wrap(invalidCard('update'), 720);
+  if (g.revoked) return wrap(
+    '<div class="card" style="padding:40px;text-align:center"><div style="font-size:16px;font-weight:620;margin-bottom:6px">This update was withdrawn</div>' +
+    '<div style="color:var(--ink-3);font-size:14px;line-height:1.5">The team replaced it. Ask your contact for the current one.</div></div>', 720);
+  const bar = '<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px">' +
+    '<button class="btn btn-sec btn-sm" data-action="updprint">' + ico(IC.print, 'i-sm') + 'Print / save PDF</button></div>';
+  return wrap(bar + updateArtifactHTML(g), 720);
+}

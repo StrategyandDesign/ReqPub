@@ -1,5 +1,59 @@
 # Changelog
 
+## 2.27.0 · the ten-second read
+
+A weekly client update, published from the record. The reader is the
+client executive; the user is the consultant who forwards it Friday
+morning; the job is that the reader knows what is needed from him in ten
+seconds and trusts every line under it. The design constraint that shapes
+the whole feature: this product's doctrine forbids RAID logs and status
+dashboards, so nothing in an update is hand-maintained - it is an
+evidence digest, not a status report.
+
+- **Everything derives; nothing is typed into being.** A pure assembler
+  (app/js/update.js) builds the draft from record truth: pending
+  approvals, live signature links, and named gate deciders become the
+  asks; the activity trail inside the window since the last update
+  becomes What moved; health signals, past-due and undated gates, open
+  sign-offs, and pending signatures become the open-items register,
+  graded by a fixed rubric (high blocks a gate or a review; watch is
+  everything else) and sorted high first. Items open last week and
+  resolved now appear struck as Closed once, then age off - a pure key
+  diff against the frozen previous payload, no bookkeeping anywhere. 10
+  new unit checks pin the derivation, the grading, the window, the diff,
+  and byte-for-byte determinism.
+- **The composer picks; the record decides.** On the new Updates tab
+  (Document group, beside Health), a manager composes the week: pick up
+  to three asks and reword freely, untick any internal movement line, add
+  at most one line the record does not carry yet - published stamped as a
+  note - and one editorial sentence in their own voice. The open-items
+  register renders in the composer but cannot be edited there; the
+  interface itself holds the no-RAID line. Fix the record to change it.
+- **Published means frozen.** update_publish is manager-gated, allocates
+  seq under a project lock (the create_version discipline), generates the
+  token server-side, caps the payload, and writes the activity trail.
+  Direct writes to the updates table are revoked from the application
+  role: no rewrite, no insert, no delete, by anyone, through any path but
+  the RPCs. A bad publish can be withdrawn - the link then says so
+  plainly - but never edited. 20 new backend checks pin authorization,
+  allocation, the caps, row-level security, immutability at the grant,
+  the token page, and withdrawal.
+- **The page is the client's, quietly ours.** One white page, no colored
+  panels, no chips: position and weight carry priority. A three-fact
+  strip (needed from you, health, next milestone), then the asks with
+  what each unblocks, then What moved, the register, and Next. The
+  engagement lead's own name sits in the masthead; ReqPub sits in the
+  footer as the system of record, with the baseline label and fingerprint
+  and the archive-copy promise the sign links established: this link
+  always renders exactly this update. The same builder renders the live
+  page and the print, so the PDF and the link can never disagree. One
+  hard page discipline: asks cap at three, movement at four including the
+  note, the register at six with the remainder counted.
+- Suites: 192 unit + 290 backend = 482 checks green on a clean copy.
+
+Deploy: run supabase/fix-updates.sql once on the live database, then push
+the frontend. No function or secret changes.
+
 ## 2.26.1 · every surface tells the truth
 
 Three drifts between what the product said and what was so, each closed at

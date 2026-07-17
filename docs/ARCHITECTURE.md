@@ -106,7 +106,9 @@ as modules - intake.js pure and unit-pinned, e-sign in schema RPCs and the
 view layers - and main.js grew only delegated handlers and one hash route.
 v2.26.1 kept the shape: the pdf line-joining and the markdown unescape are
 pure intake.js exports with their own unit checks; main.js gained the two
-library loaders and the ingestion branches, nothing more.
+library loaders and the ingestion branches, nothing more. v2.27.0 again:
+the whole weekly-update derivation is update.js, pure and unit-pinned;
+main.js gained one route and the delegated handlers.
 The split itself remains scheduled for the first feature that restructures
 routing or dispatch, when its tests ship with it - not as a cosmetic
 refactor before an external review, where restructuring risk exceeds

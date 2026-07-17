@@ -24,6 +24,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── health.js                    record health: readiness signals + counts (pure, tested)
 │       ├── templates.js                 validated project starters applied via the live RPCs (tested)
 │       ├── intake.js                    populate a blank record from documents: deterministic mapper + executor (pure, tested)
+│       ├── update.js                    weekly client update: derived-only assembler (pure, tested)
 │       ├── data.js                      Supabase client + repository (durable, retried writes)
 │       ├── sync.js                      concurrency engine: rev-checked saves, realtime, presence
 │       ├── exports.js                   Word / Markdown / print / executive summary / client baseline report
@@ -59,7 +60,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── zipstore.test.mjs               8 STORE-zip writer tests (independent reader, CRC, determinism)
 │   ├── implpkg.test.mjs                12 implementation-package tests (spec bundle, acceptance block, fingerprint symmetry)
 │   ├── intake.test.mjs                 26 intake tests (segment, classify, extract, pdf lines, md unescape, plan, never-overwrite, executor)
-│   └── backend-e2e/                     270 checks against a real embedded Postgres
+│   ├── update.test.mjs                 10 weekly-update assembler tests (derivation, grading, window, closed diff, determinism)
+│   └── backend-e2e/                     290 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
 │       ├── sme-workspace.test.mjs       durable SME workspace (16)
@@ -72,7 +74,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── discovery-promote.test.mjs   discovery promotion back-link: column, fix, RLS, durability (11)
 │       ├── version-integrity.test.mjs   baselines immutable at the table; build tag gated + logged (16)
 │       ├── esign.test.mjs               e-sign v1: token lifecycle, approval landing, boundaries, trail (29)
-│       └── name-sync.test.mjs           projects.name tracks the worksheet rename; jsonb-safe; repair (10)
+│       ├── name-sync.test.mjs           projects.name tracks the worksheet rename; jsonb-safe; repair (10)
+│       └── updates.test.mjs             weekly updates: publish authz, immutability, token page, withdrawal (20)
 ├── tools/                               PRD seed generator (validated against the builders)
 ├── docs/
 │   ├── ARCHITECTURE.md                  design rationale + citations
@@ -86,8 +89,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 182 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
-npm i && npm run test:backend   # 270 checks on an embedded Postgres
+npm test                        # 192 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
+npm i && npm run test:backend   # 290 checks on an embedded Postgres
 ```
 
 The backend suite runs as a non-root user and needs the `en_US.UTF-8` locale

@@ -55,6 +55,7 @@ export function renderTab(APP, a) {
     case 'access': return renderAccess(APP);
     case 'activity': return renderActivity(APP);
     case 'health': return renderHealth(APP, a);
+    case 'updates': return renderUpdates(APP, a);
     case 'versions': default: return renderVersions(APP);
   }
 }
@@ -668,4 +669,75 @@ function renderActivity(APP) {
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Activity</h2>' +
     '<p class="hint" style="margin:0 0 18px">The audit trail is append-only and written by the database itself - entries cannot be edited or deleted from the app.</p>' +
     '<div class="tl">' + items + '</div></div>';
+}
+
+/* ---------------- weekly updates (v2.27.0) ---------------- */
+/* The composer's contract: everything on screen arrived derived from the
+   record; the manager picks, may reword, adds at most one stamped note and
+   one editorial sentence, and publishes. Open items are shown but not
+   editable - that is the no-RAID line, held in the interface itself. The
+   published list below is the archive: immutable rows, live links. */
+export function renderUpdates(APP, a) {
+  const isMgr = APP.role === 'manager';
+  const list = APP.updatesList || [];
+  const last = list.find((u) => !u.revoked);
+  const updLink = (t) => location.origin + location.pathname + '#update/' + t;
+  const d = APP.upd && APP.upd.draft;
+
+  const listRows = list.map((u) =>
+    '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:12.5px">' +
+    '<span class="pill mono" style="height:20px;font-size:10.5px;flex:0 0 auto">no. ' + u.seq + '</span>' +
+    '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+    esc(fmtDate(u.published_at)) + (u.prepared_by ? ' · ' + esc(u.prepared_by) : '') +
+    (u.revoked ? ' · <span style="color:var(--ink-4)">withdrawn</span>' : '') + '</span>' +
+    (u.revoked ? '' :
+      '<a class="btn btn-ghost btn-sm" href="' + escA(updLink(u.token)) + '" target="_blank" rel="noopener" style="font-size:11px">Open</a>' +
+      '<button class="btn btn-ghost btn-sm" data-action="updcopy" data-token="' + escA(u.token) + '" style="font-size:11px">Copy link</button>' +
+      (isMgr ? '<button class="icobtn" data-action="updrevoke" data-id="' + escA(u.id) + '" title="Withdraw this update - the link will say so" style="width:26px;height:26px">' + ico(IC.close, 'i-sm') + '</button>' : '')) +
+    '</div>').join('');
+
+  let composer = '';
+  if (isMgr && d) {
+    const chk = (name, i, on) => '<input type="checkbox" data-' + name + '="' + i + '"' + (on ? ' checked' : '') + ' style="flex:0 0 auto;margin-top:8px">';
+    const askRows = d.asks.length ? d.asks.map((c, i) =>
+      '<div style="display:flex;gap:8px;align-items:flex-start;margin:0 0 6px">' + chk('updask', i, i < 3) +
+      '<div style="flex:1;min-width:0"><input class="input" id="upda-' + i + '" value="' + escA(c.text) + '" style="height:30px;font-size:12.5px;width:100%">' +
+      (c.why ? '<div style="font-size:10.5px;color:var(--ink-4);margin-top:2px">' + esc(c.why) + '</div>' : '') + '</div></div>').join('')
+      : '<div style="font-size:12px;color:var(--ink-3)">No open asks derived - pending approvals, signature links, and gate deciders appear here.</div>';
+    const movedRows = d.moved.length ? d.moved.map((m, i) =>
+      '<div style="display:flex;gap:8px;align-items:center;margin:0 0 6px">' + chk('updmoved', i, true) +
+      '<input class="input" id="updm-' + i + '" value="' + escA(m.text) + '" style="height:30px;font-size:12.5px;flex:1">' +
+      '<span class="mono" style="font-size:10px;color:var(--ink-4);flex:0 0 auto">' + esc(m.ref || '') + '</span></div>').join('')
+      : '<div style="font-size:12px;color:var(--ink-3)">No record activity in this window yet.</div>';
+    const openRows = d.open.slice(0, 6).map((o) =>
+      '<div style="font-size:12px;color:var(--ink-2);margin:0 0 3px">' +
+      (o.grade === 'high' ? '<strong>High</strong>' : '<span style="color:var(--ink-3)">Watch</span>') + ' · ' + esc(o.text) +
+      (o.lead ? ' · ' + esc(o.lead) : '') + '</div>').join('') +
+      (d.openMore ? '<div style="font-size:11px;color:var(--ink-4)">and ' + d.openMore + ' more</div>' : '') +
+      d.closed.map((c) => '<div style="font-size:11.5px;color:var(--ink-4);text-decoration:line-through;margin-top:2px">Closed · ' + esc(c.text) + '</div>').join('');
+    composer =
+      '<div style="border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px;background:var(--bg)">' +
+      '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px"><div style="font-weight:640;font-size:13.5px;flex:1">This week\u2019s draft</div>' +
+      '<span style="font-size:11px;color:var(--ink-4)">' + esc(d.strip.health) + (d.strip.next.text ? ' · next: ' + esc(d.strip.next.text) : '') +
+      ' · covers ' + (d.window.from ? 'since ' + esc(fmtDate(d.window.from)) : 'the whole record') + '</span></div>' +
+      '<div class="eyebrow" style="font-size:9px;margin-bottom:5px">Needed from the client - pick up to three, reword freely</div>' + askRows +
+      '<div class="eyebrow" style="font-size:9px;margin:12px 0 5px">What moved - derived from activity, untick anything internal</div>' + movedRows +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">' +
+      '<input class="input" id="updnote" placeholder="One line the record does not carry yet (published stamped as a note)" style="height:30px;font-size:12.5px;flex:1"></div>' +
+      '<div class="eyebrow" style="font-size:9px;margin:12px 0 5px">Open on the record - derived, not editable here; fix the record to change it</div>' + (openRows || '<div style="font-size:12px;color:var(--ink-3)">Nothing open.</div>') +
+      '<div class="eyebrow" style="font-size:9px;margin:12px 0 5px">Next - one sentence in your voice</div>' +
+      '<input class="input" id="updnext" placeholder="e.g. Gate V authorization, then the observation window locks" style="height:30px;font-size:12.5px;width:100%">' +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">' +
+      '<input class="input" id="updprep" value="' + escA((last && last.prepared_by) || (APP.ctx && APP.ctx.display_name) || '') + '" placeholder="Prepared by" style="height:30px;font-size:12.5px;flex:1;min-width:150px">' +
+      '<button class="btn btn-primary btn-sm" data-action="updpublish"' + (APP.upd.busy ? ' disabled' : '') + '>' + (APP.upd.busy ? 'Publishing\u2026' : 'Publish and copy link') + '</button>' +
+      '<button class="btn btn-ghost btn-sm" data-action="updcancel">Discard</button></div>' +
+      '<div style="font-size:10.5px;color:var(--ink-4);margin-top:7px">Publishing freezes this page at a permanent link. It is never edited afterward; a bad one can be withdrawn.</div></div>';
+  }
+
+  return '<div class="page" style="padding-bottom:24px"><div class="card" style="padding:18px 20px">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><div style="font-weight:640;font-size:15px;flex:1">Weekly updates</div>' +
+    (isMgr && !d ? '<button class="btn btn-sec btn-sm" data-action="updcompose">' + ico(IC.plus, 'i-sm') + 'Compose this week\u2019s update</button>' : '') + '</div>' +
+    '<div style="font-size:12px;color:var(--ink-3);line-height:1.55;margin-bottom:4px">The client\u2019s ten-second read: what you need from them, what moved, what stays open - every line derived from this record, published to a permanent link.' +
+    (last ? ' Last published ' + esc(relTime(last.published_at)) + '.' : ' Nothing published yet.') + '</div>' +
+    composer + (listRows ? '<div style="margin-top:10px">' + listRows + '</div>' : '') + '</div></div>';
 }

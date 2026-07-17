@@ -79,4 +79,7 @@ lines, and the one-page visual: `docs/POSITIONING.md` and
 
 Never build, on any pull: Gantt, RAG rollups, RAID logs, timelines,
 notification engines, auto-advancing workflows, portfolio dashboards. Each
-converts the record into a tracker.
+converts the record into a tracker. The weekly update (v2.27.0) is the
+sanctioned form and the proof the wall holds, not an exception to it:
+every line derives from record truth, nothing is hand-maintained, and the
+open-items register cannot be typed into - only the record can change it.
