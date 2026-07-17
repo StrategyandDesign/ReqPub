@@ -12,7 +12,7 @@ import { projectStatsOf } from './views-collab.js';
 import { mapArtifacts, applyPlan, executeOps, pdfMarkdownFromItems, htmlToIntakeMd, pdfEmptyDiagnosis } from './intake.js';
 import { assembleUpdate, UPDATE_CAPS } from './update.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace, renderSignPage, renderUpdatePage, updateArtifactHTML } from './views-external.js';
-import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, fileStem } from './exports.js';
+import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, printSowExhibit, fileStem } from './exports.js';
 import { landingTab, incorporatedRows, healthSignals } from './health.js';
 import { buildImplementationFiles } from './implpkg.js';
 import { zipStore } from './zipstore.js';
@@ -1162,6 +1162,26 @@ async function handleAction(a, id, t, e) {
       download(fileStem({ product, label: snap.label }) + '-implementation.zip', 'application/zip',
         zipStore(files.map((f) => ({ name: f.name, data: f.text })), (v && v.created_at) || snap.created_at || new Date()));
       toast('Implementation package downloaded - same fingerprint as the client report');
+      break;
+    }
+    case 'sowexhibit': {
+      if (!APP.versions.length) { toast('Generate a version first - the exhibit is produced from a baseline'); break; }
+      const seq = APP.viewSeq != null ? APP.viewSeq : APP.versions[APP.versions.length - 1].seq;
+      await ensureSnapshot(seq);
+      const snap = APP.snapshots[seq];
+      if (!snap) { toast('Could not load that baseline - try again'); break; }
+      const answers = snap.snapshot.answers || {};
+      const fingerprint = await versionFingerprint(snap);
+      const v = APP.versions.find((x) => x.seq === seq);
+      printSowExhibit({
+        product: answers.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
+        org: answers.ctrl_org || '', label: snap.label, status: v ? v.status : snap.status,
+        baselined: (v && v.created_at) || snap.created_at || '',
+        approvals: v ? (APP.approvals[v.id] || []) : [],
+        logo: (APP.project && APP.project.brand_logo) || '',
+        brandLabel: (APP.project && APP.project.brand_label) || '',
+        fingerprint
+      }, answers);
       break;
     }
     case 'clientprint': {

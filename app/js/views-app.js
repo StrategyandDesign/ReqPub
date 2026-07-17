@@ -208,6 +208,7 @@ export function paletteItems(APP) {
     items.push({ label: 'Export Word document', hint: 'Export', ico: IC.word, action: 'word' });
     items.push({ label: 'Print / save as PDF', hint: 'Export', ico: IC.print, action: 'print' });
     items.push({ label: 'Client baseline report (PDF)', hint: 'Export', ico: IC.shield, action: 'clientprint' });
+    items.push({ label: 'SOW exhibit (PDF)', hint: 'Export', ico: IC.shield, action: 'sowexhibit' });
     items.push({ label: 'Implementation package (ZIP)', hint: 'Export', ico: IC.download, action: 'implpkg' });
     items.push({ label: 'Gate packet (PDF)', hint: 'Export', ico: IC.check, action: 'gatepacket' });
   }
@@ -687,6 +688,7 @@ function renderDoc(APP, a, ac, total) {
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
       '<button class="btn btn-sec btn-sm" data-action="execdl">' + ico(IC.dl, 'i-sm') + 'Download summary (.md)</button>' +
       '<button class="btn btn-sec btn-sm" data-action="clientprint" title="Executive summary + the client-safe brief content + revision record, behind a fingerprinted cover">' + ico(IC.shield, 'i-sm') + 'Client baseline report (PDF)</button>' +
+      '<button class="btn btn-sec btn-sm" data-action="sowexhibit" title="The acceptance baseline formatted to attach to a statement of work: acceptance table, requirements with fit criteria, recorded sign-offs, the fingerprint and its recipe. Bracketed fields are for counsel.">' + ico(IC.shield, 'i-sm') + 'SOW exhibit (PDF)</button>' +
       '<button class="btn btn-sec btn-sm" data-action="implpkg" title="For the build team: requirements.json + acceptance checklist + per-column changes + full PRD, sealed to the same fingerprint as the client report">' + ico(IC.download, 'i-sm') + 'Implementation package (ZIP)</button>' +
       '<button class="btn btn-sec btn-sm" data-action="gatepacket" title="The steering-committee artifact: gate name, criteria state at baseline, per-column changes since the prior baseline, approvals, fingerprint">' + ico(IC.check, 'i-sm') + 'Gate packet (PDF)</button></div></div>';
   } else if (APP.docTab === 'changes') {

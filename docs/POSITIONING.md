@@ -112,3 +112,69 @@ a tracker and hands back the only ground that is uncontested.
 
 `docs/positioning.svg` - one page, two layers, four audience lines. Brand-
 neutral, names nobody, safe for any room.
+
+
+## The informed position (July 2026): the signed acceptance record for enterprise AI programs
+
+Adopted after two research passes over the live market. The lane above
+(record next to the tracker) stands; this section names the money flow the
+record attaches to and the words the site now leads with.
+
+### The position
+
+ReqPub is the signed acceptance record for enterprise AI programs. The
+client signs a measurable definition of done: acceptance thresholds
+(dimension, metric, threshold), requirements with fit criteria and
+priorities, named approvals, one immutable fingerprinted baseline that
+verifies outside the platform. The buyer is the consulting partner or PM
+on the hook for the outcome. The beachhead is programs where a vendor's
+forward-deployed engineers build inside the client's systems.
+
+### The facts underneath it (sourced July 2026)
+
+- Gartner forecasts 585 billion dollars of AI services spending in 2026
+  (press release, May 19, 2026). Fact.
+- RAND (Ryseff and Narayanan, RRA2680-1, 2025): by some estimates more
+  than 80 percent of AI projects fail, twice the rate of non-AI IT. Fact.
+- In 2026 Anthropic (Ode, 1.5 billion committed), OpenAI (Deployment
+  Company, more than 4 billion raised), Amazon (1 billion internal FDE
+  organization), and Microsoft (Frontier, 2.5 billion) each stood up
+  forward-deployed engineering at a billion dollars or more. Facts as
+  reported; structures differ.
+- A reported 2025 MIT Sloan figure: 73 percent of failed AI projects had
+  no agreed definition of success before starting. Reported, not verified
+  to the primary source. Use in rooms with that label; do not print it on
+  the site.
+- No commercial product sells a client-signed acceptance record for AI or
+  FDE engagements. The incumbent is Word plus email. Fact as of the
+  research date.
+
+### Claims we make, each mapped to a shipped capability
+
+- "The client signs the acceptance thresholds": the eval section rows the
+  client approves.
+- "One fingerprint that verifies outside the platform": SHA-256 over the
+  stored snapshot, recipe printed on every export.
+- "Named approvals advance the version": approval_decide, v2.28.1.
+- "The contract gets an exhibit from the record": the SOW exhibit export,
+  v2.29.0, generated entirely from the baseline.
+
+### Claims we never make
+
+- That ReqPub prevents or reduces AI project failure.
+- That ReqPub wins, prevents, or decides scope disputes.
+- That ReqPub satisfies the EU AI Act or any regulation.
+- That ReqPub scores, tests, monitors, or certifies an AI system.
+- Any use of "AI acceptance criteria" as a product name; that phrase
+  belongs to agile ticket generators. The product phrase is "acceptance
+  record" or "acceptance baseline".
+
+### Kill criteria
+
+- If five straight partner conversations do not connect "signed
+  acceptance criteria" to their own risk in one sentence, fall back to
+  the scope-defense framing.
+- If buyers say counsel already handles acceptance criteria free inside
+  the SOW, reprice the exhibit as packaging, not the pitch.
+- If pilots expect scoring or monitoring of the AI system itself, stop;
+  that is a different product and a forbidden drift.

@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.29.0 · the position, on the record
+
+Two research passes over the live market settled the positioning: ReqPub
+is the signed acceptance record for enterprise AI programs, sold to the
+consulting partner on the hook for the outcome, with vendor
+forward-deployed engineering programs as the first beachhead. This
+release puts that position on the public page, adds the one artifact the
+position was missing, and writes the claims discipline into the repo so
+it survives any single conversation.
+
+- **The public page leads with the position.** New hero: "The signed
+  acceptance record for enterprise AI programs." The lead names the
+  buyer and the mechanics in five sentences. A why-now paragraph carries
+  only attributed facts: Gartner's 585 billion dollar AI services
+  forecast for 2026, RAND's finding that more than 80 percent of AI
+  projects fail, and the 2026 wave of forward-deployed engineering
+  commitments from Anthropic, OpenAI, Amazon, and Microsoft. The
+  doctrine section now names forward-deployed engineers explicitly and
+  keeps the line the company owns: a gate review on a dashboard is a
+  meeting; a gate on a fingerprinted baseline is evidence. A new
+  section gives partners the one-sentence and one-paragraph versions
+  they can repeat inside their firms without help.
+- **The SOW exhibit ships** (sowExhibitMd and printSowExhibit in
+  exports.js; button beside the client baseline report; palette entry).
+  One click on a baseline produces the acceptance baseline formatted to
+  attach to a statement of work: the acceptance table (dimension,
+  metric, threshold, eval set), the requirements with fit criteria and
+  priorities, the recorded sign-offs, a signature table for the
+  agreement, and the fingerprint with its printed recipe. Bracketed
+  fields are for counsel. Every other line derives from the record. The
+  exhibit states plainly when no sign-offs are recorded and makes no
+  claim beyond what the record contains. The client report, the
+  implementation package, and the exhibit carry the same SHA-256.
+- **The claims discipline is in the repo** (docs/POSITIONING.md, new
+  section). Every claim the site makes is mapped to a shipped
+  capability. The claims ReqPub never makes are written down: no
+  failure-prevention claims, no dispute-winning claims, no regulatory
+  compliance claims, no scoring or monitoring of AI systems, and never
+  "AI acceptance criteria" as a product name. Kill criteria for the
+  position are recorded so a failed premise gets caught, not argued.
+- **The meta-PRD carries the exhibit** as a Must requirement with its
+  fit criterion, and the seeds regenerated (335 rows).
+
+Checks: 211 unit (two new exhibit contracts in fingerprint.test), 298
+backend. No schema change; deploy is a frontend push.
+
 ## 2.28.2 · say why, not just no
 
 A 20-page PRD uploaded to intake produced "No selectable text - likely a

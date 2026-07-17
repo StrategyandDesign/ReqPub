@@ -250,6 +250,44 @@ export function gatePacketMd(meta, curAnswers, prevAnswers, prevLabel) {
   }
   return P.join('\n\n');
 }
+/* ---- SOW exhibit ----
+   The acceptance baseline formatted to attach to a statement of work. Every
+   line derives from the record: the signed acceptance table, the
+   requirements with fit criteria, the recorded sign-offs, the fingerprint
+   with its recipe. Bracketed fields are for counsel; the record supplies
+   everything else. This is an artifact of the record, not legal advice, and
+   it makes no claim beyond what the record contains. */
+export function sowExhibitMd(meta, answers) {
+  const a = answers || {};
+  const rows = (k) => Array.isArray(a[k]) ? a[k].filter((r) => r && Object.values(r).some((v) => String(v || '').trim())) : [];
+  const P = [];
+  P.push('## Incorporation\n\nExhibit [letter] to the Statement of Work dated [date] between [client legal name] (Client) and [consultant legal name] (Consultant). This exhibit is the acceptance baseline for the work described in that statement. Bracketed fields are for counsel. Every other line derives from ReqPub record v' + meta.label + '.');
+  const ev = rows('eval');
+  if (ev.length) P.push('## Acceptance criteria\n\nThe Client accepts the work when each row below meets its threshold.\n\n' +
+    mdTable(['Dimension', 'Metric', 'Threshold', 'Eval set'], ev.map((r) => [r.dim || '', r.metric || '', r.thresh || '', r.dataset || ''])));
+  const fr = rows('fr');
+  if (fr.length) P.push('## Functional requirements\n\n' +
+    mdTable(['Requirement', 'Fit criterion', 'Priority'], fr.map((r) => [r.stmt || '', r.fit || '', r.pri || ''])));
+  const nfr = rows('nfr');
+  if (nfr.length) P.push('## Non-functional requirements\n\n' +
+    mdTable(['Requirement', 'Fit criterion', 'Priority'], nfr.map((r) => [r.stmt || '', r.fit || '', r.pri || ''])));
+  const ap = (meta.approvals || []).filter((x) => x && (x.approver_role || x.approver_name));
+  P.push('## Recorded sign-offs\n\n' + (ap.length
+    ? mdTable(['Role', 'Name', 'Status', 'Decided'], ap.map((x) => [x.approver_role || '', x.approver_name || '', x.status || '', x.decided_at ? new Date(x.decided_at).toLocaleDateString() : '']))
+    : 'No sign-offs are recorded on this baseline yet.'));
+  P.push('## Signatures for the agreement\n\n' + mdTable([' ', 'Client', 'Consultant'], [
+    ['Signature', ' ', ' '], ['Name', ' ', ' '], ['Title', ' ', ' '], ['Date', ' ', ' ']]));
+  if (meta.fingerprint) P.push('## Verification\n\n' + mdTable(['Field', 'Value'], [
+    ['Baseline', 'v' + meta.label],
+    ['Fingerprint (SHA-256)', '`' + meta.fingerprint + '`'],
+    ['Recipe', 'SHA-256 over the canonical JSON (object keys sorted, arrays in order, UTF-8) of {label, seq, snapshot} for this version, as stored.']
+  ]) + '\n\nThe client baseline report and the implementation package for this version carry the same fingerprint. The fingerprint identifies the exact snapshot; it is not a signature or a trusted timestamp.');
+  return P.join('\n\n');
+}
+export function printSowExhibit(meta, answers) {
+  printDoc(sowExhibitMd(meta, answers), { ...meta, eyebrow: 'SOW Exhibit · Acceptance Baseline' });
+}
+
 export function printGatePacket(meta, curAnswers, prevAnswers, prevLabel) {
   printDoc(gatePacketMd(meta, curAnswers, prevAnswers, prevLabel),
     { ...meta, eyebrow: meta.eyebrow || 'Gate Decision' });
