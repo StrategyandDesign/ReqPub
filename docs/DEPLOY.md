@@ -83,3 +83,9 @@ converts the record into a tracker. The weekly update (v2.27.0) is the
 sanctioned form and the proof the wall holds, not an exception to it:
 every line derives from record truth, nothing is hand-maintained, and the
 open-items register cannot be typed into - only the record can change it.
+The same test admits the approval advance (v2.28.1): a version's status now
+derives from its own sign-off decisions - last approval in, version
+Approved - because a pill saying Draft above a row saying Approved was a
+hand-maintained status contradicting the record. Deriving status from
+decisions is record truth; moving work items along a pipeline is a
+tracker. The wall separates those two, not automation from typing.

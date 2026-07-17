@@ -546,7 +546,7 @@ export function intakeMeaningful(APP) {
   return Object.keys(r).some((id) => id !== 'ctrl_approvers' && (r[id] || []).length > 0);
 }
 
-function intakeZone(APP) {
+export function intakeZone(APP) {
   if (APP.role !== 'manager' || APP.viewSeq != null) return '';
   const it = APP.intake;
   if (!it || !it.open) {
@@ -593,7 +593,11 @@ function intakeZone(APP) {
     '<textarea class="input" id="intakeText" rows="5" placeholder="Paste a draft here (Markdown headings map best)" style="width:100%;font-size:13px;line-height:1.5">' + esc(it.text || '') + '</textarea>' +
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">' +
     '<label class="btn btn-sec btn-sm" style="cursor:pointer">' + ico(IC.plus, 'i-sm') + 'Add files<input type="file" id="intakeFiles" multiple accept=".txt,.md,.markdown,.docx,.pdf" style="display:none"></label>' +
-    '<button class="btn btn-sec btn-sm" data-action="intakepreview">Preview mapping</button>' +
+    // The next step must be unmissable: the moment files or pasted text
+    // exist and no plan does, the preview button is the primary action.
+    ((((it.files || []).length || (it.text || '').trim()) && !it.plan)
+      ? '<button class="btn btn-primary btn-sm" data-action="intakepreview">Preview mapping before applying</button>'
+      : '<button class="btn btn-sec btn-sm" data-action="intakepreview">Preview mapping</button>') +
     '<span style="font-size:11px;color:var(--ink-4)">txt · md · docx · pdf</span></div>' +
     (files ? '<div style="margin-top:10px">' + files + '</div>' : '') +
     planHtml + '</div></div>';

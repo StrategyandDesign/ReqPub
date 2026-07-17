@@ -90,7 +90,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 207 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
+npm test                        # 208 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
 npm i && npm run test:backend   # 290 checks on an embedded Postgres
 ```
 

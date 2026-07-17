@@ -607,7 +607,7 @@ function renderVersions(APP) {
       '</div>';
   }).join('');
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Version history</h2>' +
-    '<p class="hint" style="margin:0 0 18px">Baselines are immutable. Send for review moves a version to In review and lets you add approvers. Assign a teammate and they get a waiting on you flag in the app (no email) and can approve their own sign-off; or record a manual sign-off yourself. A version cannot be marked Approved while any approver is still pending.</p>' +
+    '<p class="hint" style="margin:0 0 18px">Baselines are immutable. Approvals advance the version by themselves: the first approval moves a draft into review, and when every approver has approved, the version is Approved - no separate step. A changes request moves the version to Changes requested. Assign a teammate and they get a waiting on you flag in the app (no email) and can approve their own sign-off; or record a manual sign-off yourself. Send for review still works as the explicit kickoff. A version is never Approved while any approver is still pending.</p>' +
     '<div class="tl">' + items + '</div></div>';
 }
 

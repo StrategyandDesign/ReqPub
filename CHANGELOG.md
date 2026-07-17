@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.28.1 · the decision is the status
+
+Two corrections from live use, both the same disease: the interface asked
+for ceremony the record did not need.
+
+- **An approval decision advances the version by itself.** Before: an
+  approver assigned on a draft could click Approve, watch their row flip
+  to Approved, and watch the version pill keep saying Draft until someone
+  also clicked Send for review - the record contradicting itself on
+  screen. Now the rule lives where the decision lands (approval_decide,
+  rewritten in supabase/fix-approval-advance.sql and schema.sql 9.4): the
+  first approval moves a draft into review; the last approval moves the
+  version to Approved; a changes request moves it to Changes requested;
+  reopening a decision on an approved version drops it back to In review,
+  because a version is never Approved while any slot is not. The
+  waiting-on-you feed now includes draft-version assignments, since an
+  assignee's single click is enough. Send for review remains as the
+  explicit kickoff; it is no longer a required ceremony. The RPC returns
+  jsonb with the resulting version status so the pill updates in place,
+  and the auto transition is logged to activity with via=approval. This
+  is derivation, not workflow automation: the status now derives from the
+  sign-off decisions instead of being hand-maintained beside them - the
+  doctrine's own test, applied to the doctrine's own object.
+  fix-approver-assignment.sql's superseded function bodies were removed
+  so re-running that historical patch can never downgrade a deployment.
+- **The intake next step is unmissable.** After adding files or pasting
+  text, the user had to know to click Preview mapping. The button now
+  arms as the primary action the moment there is anything to map and no
+  plan yet, and its label states the order of operations: "Preview
+  mapping before applying." Pasting text arms it on blur. Once a plan
+  exists, Apply to the record is the primary action, as before.
+
+Checks: 208 unit (one new render contract pins the armed button), 298
+backend (the approvals suite grew from 18 to 26 checks and now proves the
+draft-to-approved single click, the mixed-decision path, the reopen
+fallback, and the activity log entry). Deploy: run
+supabase/fix-approval-advance.sql once, then push the frontend.
+
 ## 2.28.0 · tables are the document
 
 Intake could read a PRD's prose and lose its substance. A consulting-grade

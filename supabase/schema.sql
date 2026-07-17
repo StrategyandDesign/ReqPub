@@ -815,7 +815,12 @@ begin
 end; $$;
 grant execute on function create_version(text, boolean, text, jsonb, text) to authenticated;
 
--- 9.4 Version status state machine + approvals.
+-- 9.4 Version status state machine + approvals. Since v2.28.1 an approval
+-- decision advances the version by itself: first approval moves a draft to
+-- in_review, the last approval moves it to approved, a changes request
+-- moves the version to changes_requested, and reopening a decision on an
+-- approved version drops it to in_review. version_set_status remains the
+-- manual path and keeps the same invariant.
 create or replace function version_set_status(p_version uuid, p_status text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare v versions%rowtype; v_allowed boolean;
@@ -866,26 +871,49 @@ grant execute on function version_set_build(uuid, text) to authenticated;
 -- still stamps decided_by/decided_at from auth.uid(), so a sign-off is always
 -- attributed to whoever actually made it.
 create or replace function approval_decide(p_approval uuid, p_status text, p_comment text default '')
-returns boolean language plpgsql security definer set search_path = public as $$
-declare v_ver versions%rowtype; v_uid uuid; v_self boolean;
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_ver versions%rowtype; v_uid uuid; v_self boolean; v_pending int; v_new text;
 begin
   select v.* into v_ver from versions v
     join version_approvals a on a.version_id = v.id where a.id = p_approval;
-  if v_ver.id is null then return false; end if;
+  if v_ver.id is null then return jsonb_build_object('ok', false, 'error', 'not_found'); end if;
   select approver_user_id into v_uid from version_approvals where id = p_approval;
   v_self := v_uid is not null and v_uid = auth.uid();
   if not (is_project_manager(v_ver.project_id)
           or (v_self and is_project_member(v_ver.project_id))) then
-    return false;
+    return jsonb_build_object('ok', false, 'error', 'forbidden');
   end if;
-  if p_status not in ('pending','approved','changes_requested') then return false; end if;
+  if p_status not in ('pending','approved','changes_requested') then
+    return jsonb_build_object('ok', false, 'error', 'bad_status');
+  end if;
   update version_approvals
      set status = p_status, comment = coalesce(p_comment, ''),
          decided_by = auth.uid(), decided_at = case when p_status = 'pending' then null else now() end
    where id = p_approval;
   perform log_activity(project_org(v_ver.project_id), v_ver.project_id, 'approval.' || p_status,
     'approval', p_approval::text, 'v' || v_ver.label || ' approval ' || p_status, '{}'::jsonb);
-  return true;
+
+  -- The decision advances the version. No slot count is trusted from the
+  -- client: it is re-read here, after the update, inside the function.
+  select count(*) into v_pending from version_approvals
+   where version_id = v_ver.id and status <> 'approved';
+  v_new := v_ver.status;
+  if p_status = 'approved' then
+    if v_pending = 0 then v_new := 'approved';
+    elsif v_ver.status in ('draft','changes_requested') then v_new := 'in_review';
+    end if;
+  elsif p_status = 'changes_requested' and v_ver.status in ('draft','in_review') then
+    v_new := 'changes_requested';
+  elsif p_status = 'pending' and v_ver.status = 'approved' and v_pending > 0 then
+    v_new := 'in_review';   -- an approved version cannot stand with a slot reopened
+  end if;
+  if v_new <> v_ver.status then
+    update versions set status = v_new where id = v_ver.id;
+    perform log_activity(project_org(v_ver.project_id), v_ver.project_id, 'version.status', 'version',
+      v_ver.id::text, 'v' || v_ver.label || ' → ' || v_new,
+      jsonb_build_object('from', v_ver.status, 'to', v_new, 'via', 'approval'));
+  end if;
+  return jsonb_build_object('ok', true, 'version_status', v_new);
 end; $$;
 grant execute on function approval_decide(uuid, text, text) to authenticated;
 
@@ -901,7 +929,7 @@ language sql security definer set search_path = public as $$
     join projects p on p.id = v.project_id
    where a.approver_user_id = auth.uid()
      and a.status = 'pending'
-     and v.status = 'in_review'
+     and v.status in ('draft','in_review')
    order by v.seq desc;
 $$;
 grant execute on function my_open_approvals() to authenticated;

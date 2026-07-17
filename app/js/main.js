@@ -1731,10 +1731,24 @@ async function handleAction(a, id, t, e) {
     case 'apprdecide': {
       const r = await repo.decideApproval(id, t.dataset.val, '');
       if (r && r.error) { toast('Could not record that decision'); break; }
-      if (r && r.data === false) { toast('You are not an approver on this version'); break; }
+      if (!r || !r.data || r.data.ok !== true) {
+        toast(r && r.data && r.data.error === 'forbidden' ? 'You are not an approver on this version' : 'Could not record that decision');
+        break;
+      }
+      // The decision advances the version server-side; the returned status
+      // updates the pill without a refetch, so the row and the version can
+      // never contradict each other on screen.
       for (const vid of Object.keys(APP.approvals)) {
         const ap = APP.approvals[vid].find((x) => x.id === id);
-        if (ap) ap.status = t.dataset.val;
+        if (!ap) continue;
+        ap.status = t.dataset.val;
+        const v = APP.versions.find((x) => x.id === vid);
+        if (v && r.data.version_status && v.status !== r.data.version_status) {
+          v.status = r.data.version_status;
+          if (v.status === 'approved') toast('All sign-offs in - v' + v.label + ' is approved');
+          else if (v.status === 'in_review') toast('v' + v.label + ' is now in review');
+          else if (v.status === 'changes_requested') toast('Changes requested on v' + v.label);
+        }
       }
       refreshMyApprovals();
       render();
@@ -1835,7 +1849,8 @@ document.addEventListener('change', async (e) => {
     t.value = '';
     await intakeAddFiles(files);
   } else if (t.id === 'intakeText') {
-    if (APP.intake) APP.intake.text = t.value;
+    // Re-render so the preview button arms the moment pasted text lands.
+    if (APP.intake) { APP.intake.text = t.value; render(); }
   } else if (t.matches('[data-intaketog]')) {
     if (APP.intake && APP.intake.plan) APP.intake.include[+t.dataset.intaketog] = t.checked;
   } else if (t.matches('[data-intaketgt]')) {
