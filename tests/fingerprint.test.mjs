@@ -6,7 +6,7 @@
    share payload, so the scoping boundary is the content boundary. */
 import assert from 'node:assert/strict';
 import { canonicalJson, sha256Hex, versionFingerprint, fmtFingerprint } from '../app/js/core.js';
-import { clientDocMd, gatePacketMd } from '../app/js/exports.js';
+import { clientDocMd, gatePacketMd, sowExhibitMd } from '../app/js/exports.js';
 import { buildSharePayload } from '../app/js/data.js';
 import { defaultBriefSections } from '../app/js/domain.js';
 
@@ -136,6 +136,27 @@ test('the client report Verification section lists the stored record state', () 
     snapHealth: [{ level: 'gap', count: 1, label: 'Must requirement without a fit criterion' }] }, null, null, []);
   assert.ok(md.includes('**Record state at baseline.** 1 gap · 0 warnings'));
   assert.ok(md.includes('- Gap: Must requirement without a fit criterion'));
+});
+
+test('the SOW exhibit derives every line from the record and leaves only bracketed fields for counsel', () => {
+  const md = sowExhibitMd({ label: '2.0', fingerprint: 'a'.repeat(64), approvals: [
+    { approver_role: 'Client sponsor', approver_name: 'M. Reyes', status: 'approved', decided_at: '2026-07-01T10:00:00Z' }] },
+    { eval: [{ dim: 'Seeded catch rate', metric: 'share of planted violations caught', thresh: '48 of 50 or better', dataset: 'gt-v1' }],
+      fr: [{ stmt: 'FR-1: The system shall sync nightly.', fit: 'Sync completes by 06:00.', pri: 'Must' }],
+      nfr: [] });
+  assert.ok(md.includes('Exhibit [letter] to the Statement of Work dated [date]'), 'incorporation line with counsel brackets');
+  assert.ok(md.includes('| Seeded catch rate | share of planted violations caught | 48 of 50 or better | gt-v1 |'), 'the signed acceptance row');
+  assert.ok(md.includes('| FR-1: The system shall sync nightly. | Sync completes by 06:00. | Must |'), 'requirement with fit criterion');
+  assert.ok(md.includes('| Client sponsor | M. Reyes | approved |'), 'recorded sign-off');
+  assert.ok(md.includes('`' + 'a'.repeat(64) + '`'), 'the full fingerprint');
+  assert.ok(md.includes('it is not a signature or a trusted timestamp'), 'the honesty line stays');
+  assert.ok(!/gantt|dashboard|milestone/i.test(md), 'no tracker language');
+});
+
+test('the SOW exhibit states when no sign-offs are recorded instead of inventing any', () => {
+  const md = sowExhibitMd({ label: '1.0', fingerprint: '', approvals: [] }, { fr: [{ stmt: 'X', fit: 'Y', pri: 'Must' }] });
+  assert.ok(md.includes('No sign-offs are recorded on this baseline yet.'));
+  assert.ok(!md.includes('## Verification'), 'no fingerprint section without a fingerprint');
 });
 
 console.log('\nfingerprint.test: ' + n + '/' + n + ' passed');
