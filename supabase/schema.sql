@@ -1619,3 +1619,54 @@ begin
   return true;
 end; $$;
 grant execute on function sign_request_revoke(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 15) Project name sync (v2.26.1)
+--     The worksheet's "Product or project name" answer (ctrl_product) is the
+--     name people actually edit, but the dashboard, the approvals feed,
+--     invites, the signer's page (sign_request_context), and both signature
+--     mailers read projects.name - written once at creation and never again.
+--     Rename the record in the worksheet and every other surface, including
+--     the email a client signs from, kept the stale name. The sync is a
+--     trigger, not a client write: it runs inside the same transaction as
+--     the save, covers every write path (save_field, seeds, migrations),
+--     and cannot be forgotten by a future caller.
+--     jsonb note: value holds a jsonb string ("RecordMade"); value #>> '{}'
+--     extracts the bare text of a top-level scalar. value::text keeps the
+--     JSON quotes and would rename the project to "RecordMade" with literal
+--     quotation marks on every surface.
+--     Live databases get this from supabase/fix-project-name-sync.sql,
+--     which also repairs records that drifted before the trigger existed.
+-- ----------------------------------------------------------------------------
+create or replace function sync_project_name()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_name text;
+begin
+  if new.field_id <> 'ctrl_product' then return new; end if;
+  -- Only a jsonb string syncs. SQL null, jsonb null, and non-string shapes
+  -- leave the name alone rather than guessing at a cast.
+  if new.value is null or jsonb_typeof(new.value) <> 'string' then return new; end if;
+  v_name := left(btrim(new.value #>> '{}'), 200);
+  -- A cleared answer never blanks the project: the last real name stands
+  -- until a new one is typed. 200 chars caps what a rename can push into
+  -- every list, email subject, and receipt (the field itself allows 256 KB).
+  if v_name = '' then return new; end if;
+  update projects set name = v_name, updated_at = now()
+   where id = new.project_id and name is distinct from v_name;
+  return new;
+end; $$;
+drop trigger if exists pf_sync_name on project_fields;
+create trigger pf_sync_name after insert or update of value on project_fields
+  for each row execute function sync_project_name();
+
+-- Convergence for databases built by re-running this file: same expression
+-- as the trigger, `is distinct from` makes it a no-op when nothing drifted.
+update projects p
+   set name = left(btrim(pf.value #>> '{}'), 200), updated_at = now()
+  from project_fields pf
+ where pf.project_id = p.id
+   and pf.field_id = 'ctrl_product'
+   and pf.value is not null
+   and jsonb_typeof(pf.value) = 'string'
+   and btrim(pf.value #>> '{}') <> ''
+   and p.name is distinct from left(btrim(pf.value #>> '{}'), 200);

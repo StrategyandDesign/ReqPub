@@ -17,6 +17,7 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 ├── config.js                            Supabase URL + anon key
 ├── app/
 │   ├── index.html  app.css
+│   ├── vendor/pdf.worker.min.js         pdf.js 3.11.174 worker, served same-origin (a cross-origin worker will not start)
 │   └── js/
 │       ├── core.js                      utilities, icons, theme, baseline fingerprint, shared helpers
 │       ├── domain.js                    question bank + deterministic PRD builders (pure, tested)
@@ -57,8 +58,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │   ├── projdedup.test.mjs              8 project-list reconciliation + retry-semantics tests
 │   ├── zipstore.test.mjs               8 STORE-zip writer tests (independent reader, CRC, determinism)
 │   ├── implpkg.test.mjs                12 implementation-package tests (spec bundle, acceptance block, fingerprint symmetry)
-│   ├── intake.test.mjs                 20 intake tests (segment, classify, extract, plan, never-overwrite, executor)
-│   └── backend-e2e/                     260 checks against a real embedded Postgres
+│   ├── intake.test.mjs                 26 intake tests (segment, classify, extract, pdf lines, md unescape, plan, never-overwrite, executor)
+│   └── backend-e2e/                     270 checks against a real embedded Postgres
 │       ├── run.mjs                      core schema, RLS, RPCs, migration (79)
 │       ├── brand-overlay.test.mjs       live-brand overlay on shared views (12)
 │       ├── sme-workspace.test.mjs       durable SME workspace (16)
@@ -70,7 +71,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 │       ├── new-reply.test.mjs           team-level new-reply flag: post/reply flags, any teammate clears (11)
 │       ├── discovery-promote.test.mjs   discovery promotion back-link: column, fix, RLS, durability (11)
 │       ├── version-integrity.test.mjs   baselines immutable at the table; build tag gated + logged (16)
-│       └── esign.test.mjs               e-sign v1: token lifecycle, approval landing, boundaries, trail (29)
+│       ├── esign.test.mjs               e-sign v1: token lifecycle, approval landing, boundaries, trail (29)
+│       └── name-sync.test.mjs           projects.name tracks the worksheet rename; jsonb-safe; repair (10)
 ├── tools/                               PRD seed generator (validated against the builders)
 ├── docs/
 │   ├── ARCHITECTURE.md                  design rationale + citations
@@ -84,8 +86,8 @@ In v1 every shared structure was a JSON blob under one key, pushed whole with la
 Deploying or migrating: read `DEPLOY.md` (the cutover runbook). Design rationale: `docs/ARCHITECTURE.md`.
 
 ```bash
-npm test                        # 176 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
-npm i && npm run test:backend   # 260 checks on an embedded Postgres
+npm test                        # 182 domain + concurrency + share + health + package + fingerprint + intake checks (node only)
+npm i && npm run test:backend   # 270 checks on an embedded Postgres
 ```
 
 The backend suite runs as a non-root user and needs the `en_US.UTF-8` locale

@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import {
   segmentText, classifySegment, intakeKind, bulletItems, mdTableIn, splitPair,
-  extractRows, mapArtifacts, applyPlan, executeOps
+  extractRows, mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape
 } from '../app/js/intake.js';
 
 let n = 0;
@@ -245,6 +245,55 @@ await awaited('executeOps counts failures honestly and keeps going', async () =>
     { kind: 'row', qid: 'fr', data: {} }, { kind: 'row', qid: 'fr', data: {} }, { kind: 'field', qid: 'ov_vision', value: 'x' },
   ]);
   assert.deepEqual(out, { ok: false, fields: 1, rows: 1, failed: 1 });
+});
+
+/* pdf.js hands main.js {str, hasEOL} items per page; this pure helper is the
+   whole transformation, so the line structure the segmenter depends on is
+   pinned here without a browser or a worker in sight. */
+test('pdfTextFromItems rebuilds lines from hasEOL and joins pages with a blank line', () => {
+  const pages = [
+    [{ str: 'GOALS', hasEOL: true }, { str: 'Cut close time ', hasEOL: false }, { str: 'to 3 days', hasEOL: true }],
+    [{ str: 'Second page opens here.', hasEOL: true }],
+  ];
+  assert.equal(pdfTextFromItems(pages), 'GOALS\nCut close time to 3 days\n\nSecond page opens here.');
+});
+test('pdf lines feed the segmenter: an ALLCAPS heading on its own line still classifies', () => {
+  const text = pdfTextFromItems([[
+    { str: 'ASSUMPTIONS', hasEOL: true },
+    { str: '- Partners deliver statements nightly', hasEOL: true },
+  ]]);
+  const segs = segmentText(text, 'brief.pdf');
+  assert.equal(segs.length, 1);
+  assert.equal(classifySegment(segs[0].title), 'assume');
+  assert.deepEqual(bulletItems(segs[0].body), ['Partners deliver statements nightly']);
+});
+test('pdfTextFromItems strips trailing spaces before breaks and drops empty pages', () => {
+  const pages = [
+    [{ str: 'SCOPE   ', hasEOL: true }, { str: 'Nightly ingestion', hasEOL: true }],
+    [],
+    [{ str: '   ', hasEOL: true }],
+  ];
+  assert.equal(pdfTextFromItems(pages), 'SCOPE\nNightly ingestion');
+});
+test('pdfTextFromItems is safe on degenerate input: nulls, missing fields, no pages', () => {
+  assert.equal(pdfTextFromItems(null), '');
+  assert.equal(pdfTextFromItems([]), '');
+  assert.equal(pdfTextFromItems([[null, { hasEOL: true }, { str: 'ok' }]]), 'ok');
+});
+
+/* mammoth's convertToMarkdown escapes punctuation; mdUnescape is the exact
+   inverse main.js applies before the text reaches the segmenter. */
+test('mdUnescape cleans mammoth escapes without touching real markdown structure', () => {
+  const md = '# Problem\n\nFinance closes late every month\\. Costs \\#1 concern \\- truly\\.\n\n- Cut close time';
+  const out = mdUnescape(md);
+  assert.equal(out, '# Problem\n\nFinance closes late every month. Costs #1 concern - truly.\n\n- Cut close time');
+  const segs = segmentText(out, 'brief.docx');
+  assert.equal(classifySegment(segs[0].title), 'ov_problem');
+  assert.ok(!segs[0].body.includes('\\'));
+});
+test('mdUnescape restores a literal source backslash from its doubled escape', () => {
+  assert.equal(mdUnescape('path C:\\\\temp and a kept \\\\. pair'), 'path C:\\temp and a kept \\. pair');
+  assert.equal(mdUnescape(null), '');
 });
 
 console.log(`intake.test: ${n}/${n} passed`);

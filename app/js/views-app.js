@@ -589,12 +589,12 @@ function intakeZone(APP) {
   return '<div class="page" style="padding-bottom:0"><div class="card" style="padding:18px 20px">' +
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-weight:640;font-size:15px;flex:1">Populate from documents</div>' +
     '<button class="icobtn" data-action="intakeclose" title="Close">' + ico(IC.close) + '</button></div>' +
-    '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6;margin-bottom:12px">Paste text or add files. Preview shows exactly where each section lands before anything is written. Text and Markdown are read exactly; Word files are best-effort; imported requirements carry their source.</div>' +
+    '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.6;margin-bottom:12px">Paste text or add files. Preview shows exactly where each section lands before anything is written. Text and Markdown are read exactly; Word converts to Markdown so its headings and bullets map; PDF extracts text lines; imported requirements carry their source.</div>' +
     '<textarea class="input" id="intakeText" rows="5" placeholder="Paste a draft here (Markdown headings map best)" style="width:100%;font-size:13px;line-height:1.5">' + esc(it.text || '') + '</textarea>' +
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">' +
-    '<label class="btn btn-sec btn-sm" style="cursor:pointer">' + ico(IC.plus, 'i-sm') + 'Add files<input type="file" id="intakeFiles" multiple accept=".txt,.md,.markdown,.docx" style="display:none"></label>' +
+    '<label class="btn btn-sec btn-sm" style="cursor:pointer">' + ico(IC.plus, 'i-sm') + 'Add files<input type="file" id="intakeFiles" multiple accept=".txt,.md,.markdown,.docx,.pdf" style="display:none"></label>' +
     '<button class="btn btn-sec btn-sm" data-action="intakepreview">Preview mapping</button>' +
-    '<span style="font-size:11px;color:var(--ink-4)">txt · md · docx</span></div>' +
+    '<span style="font-size:11px;color:var(--ink-4)">txt · md · docx · pdf</span></div>' +
     (files ? '<div style="margin-top:10px">' + files + '</div>' : '') +
     planHtml + '</div></div>';
 }

@@ -102,6 +102,32 @@ export const intakeKind = (qid) => KIND[qid] || null;
 
 /* ---------------- extraction primitives ---------------- */
 const stripMd = (s) => String(s || '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/`(.+?)`/g, '$1').trim();
+/* mammoth's markdown writer escapes punctuation so its output round-trips
+   as markdown ("closes late every month\."). Left alone, those backslashes
+   land verbatim in stored answers. This undoes exactly that escape set - a
+   backslash before markdown punctuation - and nothing else: real headings
+   and bullets were never escaped, and a literal backslash in the source
+   arrives doubled, so one pass restores it. */
+export function mdUnescape(s) {
+  return String(s || '').replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, '$1');
+}
+/* pdf.js text items → plain text with the line structure the segmenter
+   needs. Input: one array of {str, hasEOL} items per page, exactly as
+   page.getTextContent() returns them. str carries its own spacing; hasEOL
+   marks the layout line breaks, so ALLCAPS and numbered headings survive
+   as their own lines. Pages join with a blank line. Pure and deterministic:
+   the only pdf.js call sites are in main.js; everything testable is here. */
+export function pdfTextFromItems(pages) {
+  const chunks = (pages || []).map((items) => {
+    let out = '';
+    for (const it of items || []) {
+      out += String((it && it.str) || '');
+      if (it && it.hasEOL) out += '\n';
+    }
+    return out.replace(/[ \t]+\n/g, '\n').trim();
+  }).filter(Boolean);
+  return chunks.join('\n\n');
+}
 export function bulletItems(body) {
   return String(body || '').split('\n')
     .map((l) => l.match(/^\s*(?:[-*\u2022]|\d+[.)])\s+(.+)$/))

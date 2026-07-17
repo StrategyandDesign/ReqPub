@@ -1,5 +1,71 @@
 # Changelog
 
+## 2.26.1 · every surface tells the truth
+
+Three drifts between what the product said and what was so, each closed at
+the layer that owns it: the project name now follows the worksheet, uploads
+now carry the structure the mapper needs, and the e-sign surfaces now state
+only what actually happened.
+
+- **The project name follows the worksheet, everywhere, forever.** The
+  "Product or project name" answer (ctrl_product) is the name people
+  actually edit, but the dashboard, the approvals feed, invites, the
+  signer's page, and both signature mailers read projects.name - written
+  once at creation and never again. Rename the record and the email a
+  client signed from still carried the old name. Now a trigger (schema
+  section 15) syncs projects.name inside the same transaction as the save,
+  through every write path - save_field, seeds, migrations - with the
+  jsonb-safe extraction (value #>> '{}'; value::text keeps the JSON quotes
+  and would have renamed the project to "RecordMade" with literal quotation
+  marks). Guard rails: a cleared answer never blanks the name, non-string
+  shapes are left alone, the synced name is trimmed and capped at 200
+  characters. supabase/fix-project-name-sync.sql carries the trigger plus a
+  one-time repair for records that drifted before it existed, from the same
+  expression so the two cannot disagree. 10 new backend checks pin the
+  repair, its idempotence, the live path, the extraction, every guard, and
+  the surface the drift actually hurt: sign_request_context now serves the
+  renamed project.
+- **Word uploads reach the mapper as Markdown, and PDFs are read.** Intake
+  ran docx through mammoth's extractRawText, which flattens headings and
+  drops bullet markers - so a structured Word document landed as one
+  unplaced blob (demonstrated: the same file classifies three sections as
+  markdown, zero as raw text). docx now converts through convertToMarkdown,
+  and mammoth's punctuation escapes are undone by a pure, tested inverse
+  (mdUnescape) so "month\." never lands in a stored answer. pdf joins the
+  accept list: pdf.js 3.11.174 extracts text lines (pdfTextFromItems
+  rebuilds line structure from the hasEOL layout marks, so ALLCAPS and
+  numbered headings still classify), the worker ships vendored at
+  app/vendor/pdf.worker.min.js and loads same-origin because the browser
+  will not start a cross-origin worker script, and a scanned PDF with no
+  selectable text is refused with a plain ask to paste - never a silent
+  empty artifact. Both transformations are pure intake.js exports; 6 new
+  unit checks pin the line joining, the segmenter handoff, the unescape,
+  and the degenerate inputs.
+- **The e-sign surfaces stop overstating.** Three fixes, one discipline.
+  The receipt page's "Email me this receipt" trusted a resolved promise,
+  but functions.invoke resolves with {data, error} on an HTTP failure - it
+  does not throw - so a refused send still rendered "Receipt sent"; success
+  is now only what the function itself says. The Signatures chip read
+  "Sent" on a pending request, asserting a delivery that may never have
+  happened (email is best-effort and the link is often only copied); it
+  now reads "Awaiting signature", and the row beside it says "requested",
+  not "sent". And send-sign-receipt is rewritten to look up through
+  sign_request_context - the same definer RPC the signer's page reads -
+  instead of service-role table queries: one round trip replaces three,
+  the recipient still comes only from the row, and the function no longer
+  holds the service role key at all; the anon key suffices because the
+  token is the credential and the RPC enforces it. Stated trade: the RPC
+  payload carries the snapshot the page renders, acceptable for a
+  per-click receipt send.
+- Suites: 182 unit + 270 backend = 452 checks green on a clean copy.
+
+Deploy: run supabase/fix-project-name-sync.sql once on the live database
+(trigger + one-time repair; re-running is safe), then redeploy the receipt
+mailer: `supabase functions deploy send-sign-receipt --no-verify-jwt`. The
+frontend push must include the new app/vendor/pdf.worker.min.js. No other
+function or secret changes; send-sign-receipt stops needing the service
+role key it previously read.
+
 ## 2.26.0 · sign here, start here
 
 Two capabilities the client asked to have immediately functional, shipped

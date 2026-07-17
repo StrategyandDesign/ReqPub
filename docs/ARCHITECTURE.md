@@ -104,6 +104,9 @@ is already visible (dispatch, handlers, document-meta builders). v2.26.0
 held the line the deferral drew: both new capabilities landed their logic
 as modules - intake.js pure and unit-pinned, e-sign in schema RPCs and the
 view layers - and main.js grew only delegated handlers and one hash route.
+v2.26.1 kept the shape: the pdf line-joining and the markdown unescape are
+pure intake.js exports with their own unit checks; main.js gained the two
+library loaders and the ingestion branches, nothing more.
 The split itself remains scheduled for the first feature that restructures
 routing or dispatch, when its tests ship with it - not as a cosmetic
 refactor before an external review, where restructuring risk exceeds

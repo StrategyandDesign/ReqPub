@@ -559,13 +559,16 @@ function renderVersions(APP) {
     const signRows = signs.map((sg) => {
       const chip = sg.status === 'signed' ? '<span class="stchip approved" style="height:20px;font-size:10px">Signed</span>'
         : sg.status === 'declined' ? '<span class="stchip changes_requested" style="height:20px;font-size:10px">Declined</span>'
-        : '<span class="stchip draft" style="height:20px;font-size:10px">Sent</span>';
+        // "Sent" asserted a delivery that may never have happened: email is
+        // best-effort and the link is often only copied. The status row is
+        // the honest fact - the request exists and awaits the signer.
+        : '<span class="stchip draft" style="height:20px;font-size:10px">Awaiting signature</span>';
       return '<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:12.5px">' +
         chip + '<span style="flex:1;min-width:0"><strong>' + esc(sg.signer_email) + '</strong>' +
         (sg.signer_role ? ' · ' + esc(sg.signer_role) : '') +
         (sg.status === 'signed' ? '<span style="color:var(--ink-4)"> · signed ' + esc(fmtDate(sg.signed_at)) + ' as ' + esc(sg.signed_name) + '</span>'
           : sg.status === 'declined' ? (sg.decline_reason ? '<span style="color:var(--ink-4)"> · ' + esc(sg.decline_reason) + '</span>' : '')
-          : '<span style="color:var(--ink-4)"> · sent ' + esc(fmtDate(sg.sent_at)) + '</span>') + '</span>' +
+          : '<span style="color:var(--ink-4)"> · requested ' + esc(fmtDate(sg.sent_at)) + '</span>') + '</span>' +
         '<a class="btn btn-ghost btn-sm" href="' + escA(signLink(sg.token)) + '" target="_blank" rel="noopener" style="font-size:11px">' + (sg.status === 'signed' ? 'Receipt' : 'Open') + '</a>' +
         '<button class="btn btn-ghost btn-sm" data-action="signcopy" data-token="' + escA(sg.token) + '" style="font-size:11px">Copy link</button>' +
         (isMgr && sg.status === 'pending' ? '<button class="btn btn-ghost btn-sm" data-action="signmail" data-id="' + escA(sg.id) + '" style="font-size:11px">Email again</button>' +

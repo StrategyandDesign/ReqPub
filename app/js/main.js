@@ -9,7 +9,7 @@ import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
-import { mapArtifacts, applyPlan, executeOps } from './intake.js';
+import { mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape } from './intake.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace, renderSignPage } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, fileStem } from './exports.js';
 import { landingTab, incorporatedRows, healthSignals } from './health.js';
@@ -598,10 +598,16 @@ async function ensurePresentLink() {
 /* ---------------- event delegation ---------------- */
 function val(id) { const el = document.getElementById(id); return el ? el.value : ''; }
 
-/* Intake file ingestion: txt and md are read exactly; docx is best-effort
-   through mammoth, loaded once from the pinned CDN the CSP already allows.
-   A parse failure degrades to a toast asking for pasted text - it never
-   produces a silent partial plan. PDFs are refused with the same honesty. */
+/* Intake file ingestion: txt and md are read exactly; docx converts to
+   MARKDOWN through mammoth (convertToMarkdown, not extractRawText) so the
+   headings and bullets Word actually contains reach the segmenter as the
+   markdown it classifies - raw text flattened both, and a docx landed as
+   one unplaced blob. pdf extracts text lines through pdf.js. Both
+   libraries load once from the pinned CDN the CSP already allows; the
+   pdf.js worker is served from THIS origin (app/vendor/pdf.worker.min.js,
+   the same 3.11.174 build as the library) because the browser will not
+   start a cross-origin worker script. A parse failure degrades to a toast
+   asking for pasted text - it never produces a silent partial plan. */
 let mammothLoading = null;
 function loadMammoth() {
   if (window.mammoth) return Promise.resolve(window.mammoth);
@@ -616,6 +622,33 @@ function loadMammoth() {
   }
   return mammothLoading;
 }
+let pdfjsLoading = null;
+function loadPdfjs() {
+  if (!pdfjsLoading) {
+    pdfjsLoading = window.pdfjsLib ? Promise.resolve(window.pdfjsLib) : new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+      sc.onload = () => res(window.pdfjsLib);
+      sc.onerror = () => { pdfjsLoading = null; rej(new Error('pdf.js load failed')); };
+      document.head.appendChild(sc);
+    });
+  }
+  return pdfjsLoading.then((lib) => {
+    lib.GlobalWorkerOptions.workerSrc = '/app/vendor/pdf.worker.min.js';
+    return lib;
+  });
+}
+async function pdfToText(buf) {
+  const lib = await loadPdfjs();
+  const doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise;
+  try {
+    const pages = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      pages.push((await (await doc.getPage(i)).getTextContent()).items);
+    }
+    return pdfTextFromItems(pages);
+  } finally { doc.destroy(); }
+}
 async function intakeAddFiles(files) {
   if (!APP.intake) return;
   for (const f of files) {
@@ -625,10 +658,16 @@ async function intakeAddFiles(files) {
         APP.intake.files.push({ name: f.name, text: await f.text() });
       } else if (ext === 'docx') {
         const m = await loadMammoth();
-        const r = await m.extractRawText({ arrayBuffer: await f.arrayBuffer() });
-        APP.intake.files.push({ name: f.name, text: (r && r.value) || '' });
+        const r = await m.convertToMarkdown({ arrayBuffer: await f.arrayBuffer() });
+        // mammoth escapes markdown punctuation in its output; unescaped
+        // here so "month\." never lands in a stored answer.
+        APP.intake.files.push({ name: f.name, text: mdUnescape((r && r.value) || '') });
+      } else if (ext === 'pdf') {
+        const text = await pdfToText(await f.arrayBuffer());
+        if (text) APP.intake.files.push({ name: f.name, text });
+        else toast('No selectable text in ' + f.name + ' - likely a scanned PDF; paste its text instead');
       } else {
-        toast('Could not read ' + f.name + ' - txt, md, and docx are supported; paste anything else as text');
+        toast('Could not read ' + f.name + ' - txt, md, docx, and pdf are supported; paste anything else as text');
       }
     } catch {
       toast('Could not read ' + f.name + ' - paste its text instead');
@@ -1531,8 +1570,15 @@ async function handleAction(a, id, t, e) {
       break;
     }
     case 'signreceipt': {
-      try { await repo.sendSignReceipt(APP.sign.token); APP.signReceiptSent = true; }
-      catch { APP.signReceiptSent = false; toast('Could not send the receipt email - print this page instead'); }
+      // functions.invoke resolves with {data, error} on an HTTP failure - it
+      // does not throw - so this handler used to render "Receipt sent" over
+      // an email the mailer had just refused. Success is only what the
+      // function itself says: no error, and ok on the body.
+      try {
+        const r = await repo.sendSignReceipt(APP.sign.token);
+        APP.signReceiptSent = !(r && r.error) && !!(r && r.data && r.data.ok === true);
+      } catch { APP.signReceiptSent = false; }
+      if (!APP.signReceiptSent) toast('Could not send the receipt email - print this page instead');
       render();
       break;
     }
