@@ -7,7 +7,7 @@
    a product doc drafted in a chat assistant, pasted or uploaded as-is. */
 import assert from 'node:assert/strict';
 import {
-  segmentText, classifySegment, intakeKind, bulletItems, mdTableIn, splitPair, extractRows, mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape, pdfMarkdownFromItems, mdTablesAll, inferColumns, htmlToIntakeMd
+  segmentText, classifySegment, intakeKind, bulletItems, mdTableIn, splitPair, extractRows, mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape, pdfMarkdownFromItems, mdTablesAll, inferColumns, htmlToIntakeMd, pdfEmptyDiagnosis
 } from '../app/js/intake.js';
 
 let n = 0;
@@ -462,6 +462,14 @@ test('htmlToIntakeMd: mammoth HTML becomes the segmenter markdown with tables in
   const rows = extractRows('fr', md, 't.docx');
   assert.equal(rows.length, 1);
   assert.equal(rows[0].pri, 'Must');
+});
+
+test('an empty PDF is diagnosed by its operators: scan, outlined text, or truly empty - and scanned outranks outlined on a tie', () => {
+  assert.equal(pdfEmptyDiagnosis([{ images: 1, paths: 4, text: 0 }, { images: 1, paths: 2, text: 0 }]), 'scanned');
+  assert.equal(pdfEmptyDiagnosis([{ images: 0, paths: 2082, text: 0 }, { images: 0, paths: 879, text: 0 }]), 'outlined');
+  assert.equal(pdfEmptyDiagnosis([{ images: 0, paths: 3, text: 0 }]), 'empty');
+  assert.equal(pdfEmptyDiagnosis([{ images: 1, paths: 4, text: 0 }, { images: 0, paths: 900, text: 0 }]), 'scanned');
+  assert.equal(pdfEmptyDiagnosis([]), 'empty');
 });
 
 console.log(`intake.test: ${n}/${n} passed`);
