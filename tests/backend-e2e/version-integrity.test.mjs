@@ -86,9 +86,10 @@ try {
   const gate = await one(`select version_set_status('${vid}'::uuid, 'approved') r`);
   check('the approvals gate still blocks Approved with a pending sign-off', gate.r.ok === false && gate.r.error === 'approvals_pending', gate.r);
   const slot = await one(`select id from version_approvals where version_id='${vid}'`);
-  await one(`select approval_decide('${slot.id}'::uuid, 'approved', 'ok')`);
-  const approved = await one(`select version_set_status('${vid}'::uuid, 'approved') r`);
-  check('with every sign-off green, approval proceeds', approved.r.ok === true);
+  // v2.28.1: the decision itself approves the version - no second call.
+  const auto = await one(`select approval_decide('${slot.id}'::uuid, 'approved', 'ok') r`);
+  check('with every sign-off green, the decision approves the version', auto.r.version_status === 'approved'
+    && (await one(`select status from versions where id='${vid}'`)).status === 'approved', auto.r);
   await run('reset role');
 
   // Live-install path: simulate the pre-2.20 posture, then prove the fix

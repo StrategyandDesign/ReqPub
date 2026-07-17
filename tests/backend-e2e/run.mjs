@@ -122,9 +122,10 @@ try {
   r = await one(`select version_set_status('${vid}'::uuid, 'approved') j`);
   check('approval gate blocks approve while an approver is pending', r.j.ok === false && r.j.error === 'approvals_pending', r.j);
   const apid = (await one(`select id from version_approvals where version_id='${vid}'`)).id;
-  await run(`select approval_decide('${apid}'::uuid, 'approved', 'LGTM')`);
-  r = await one(`select version_set_status('${vid}'::uuid, 'approved') j`);
-  check('approve succeeds once approvals are decided', r.j.ok === true, r.j);
+  // v2.28.1: the last decision approves the version by itself.
+  r = await one(`select approval_decide('${apid}'::uuid, 'approved', 'LGTM') j`);
+  check('the last approval approves the version by itself', r.j.ok === true && r.j.version_status === 'approved'
+    && (await one(`select status from versions where id='${vid}'`)).status === 'approved', r.j);
 
   console.log('\n- SME accountless flow -');
   const token = (await one(`select share_put('p1','brief',3,'{"product":"RecordMade","label":"1.2","answers":{}}'::jsonb) t`)).t;

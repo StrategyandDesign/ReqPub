@@ -1,7 +1,10 @@
-/* In-app approval routing: a slot assigned to a team member can be self-approved
-   by that member (and only them or a manager); the "waiting on you" feed and the
-   roster picker resolve correctly; and the approve gate still holds. Run:
-   node tests/backend-e2e/approvals.test.mjs */
+/* In-app approval routing, and (v2.28.1) the decisions advance the version
+   by themselves: first approval moves a draft to in_review, the last one to
+   approved, a changes request to changes_requested, and reopening a decision
+   on an approved version drops it to in_review. A slot assigned to a team
+   member can be self-approved by that member (and only them or a manager);
+   the waiting-on-you feed includes drafts; the approve gate holds in both
+   directions. Run: node tests/backend-e2e/approvals.test.mjs */
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
@@ -34,6 +37,7 @@ try {
   await run(sql(rel('../../supabase/schema.sql')));
   // Prove the standalone migration is idempotent on top of the base schema.
   await run(sql(rel('../../supabase/fix-approver-assignment.sql')));
+  await run(sql(rel('../../supabase/fix-approval-advance.sql')));
 
   await run(`insert into auth.users(id,email) values
     ('${MGR}','mgr@collection.co'),('${APPR}','erik@collection.co'),('${RIVAL}','rival@other.co')`);
@@ -52,39 +56,69 @@ try {
   // The provenance trigger forces a fresh slot to 'pending' regardless of insert.
   check('new approver slots start pending', (await one(`select bool_and(status='pending') p from version_approvals where version_id='${V}'`)).p === true);
 
-  // While the version is a draft, nothing is "waiting on you".
+  // An assignment on a DRAFT is already waiting on the assignee: their click
+  // alone will advance the version, so the flag cannot wait for a ceremony.
   await asUser(APPR);
-  check('feed is empty while the version is a draft', (await rows(`select * from my_open_approvals()`)).length === 0);
+  const draftFeed = await rows(`select * from my_open_approvals()`);
+  check('the feed shows a draft-version assignment', draftFeed.length === 1, draftFeed);
+  check('the item resolves the project name', draftFeed[0] && draftFeed[0].project_name === 'RecordMade', draftFeed[0]);
 
-  // Manager sends it for review.
+  // Send for review remains as the explicit kickoff.
   await asUser(MGR);
-  check('manager can send for review', (await one(`select version_set_status('${V}','in_review') r`)).r.ok === true);
-
-  // Now the assigned teammate sees exactly their slot; the manager sees none (nothing assigned to them).
-  await asUser(APPR);
-  const feed = await rows(`select * from my_open_approvals()`);
-  check('assigned teammate sees one waiting-on-you item', feed.length === 1, feed);
-  check('the item resolves the project name', feed[0] && feed[0].project_name === 'RecordMade', feed[0]);
-  await asUser(MGR);
+  check('manager can still send for review explicitly', (await one(`select version_set_status('${V}','in_review') r`)).r.ok === true);
   check('a non-assigned manager has an empty feed', (await rows(`select * from my_open_approvals()`)).length === 0);
 
-  // Authorization on decisions.
+  // Authorization on decisions, now with the jsonb contract.
   await asUser(RIVAL);
-  check('an outsider cannot decide any slot', (await one(`select approval_decide('${selfSlot}','approved') ok`)).ok === false);
+  check('an outsider cannot decide any slot', (await one(`select approval_decide('${selfSlot}','approved') r`)).r.error === 'forbidden');
   await asUser(APPR);
-  check('the assignee cannot decide someone else’s (manual) slot', (await one(`select approval_decide('${manualSlot}','approved') ok`)).ok === false);
-  check('the assignee CAN approve their own slot', (await one(`select approval_decide('${selfSlot}','approved') ok`)).ok === true);
+  check('the assignee cannot decide someone else\u2019s (manual) slot', (await one(`select approval_decide('${manualSlot}','approved') r`)).r.error === 'forbidden');
+  const selfR = (await one(`select approval_decide('${selfSlot}','approved') r`)).r;
+  check('the assignee CAN approve their own slot', selfR.ok === true, selfR);
+  check('with a slot still pending the version stays in review', selfR.version_status === 'in_review', selfR);
   const decided = await one(`select status, decided_by from version_approvals where id='${selfSlot}'`);
   check('their sign-off is recorded as approved', decided.status === 'approved', decided.status);
   check('provenance attributes the sign-off to the assignee, not a manager', decided.decided_by === APPR, decided.decided_by);
   check('feed clears once they have signed off', (await rows(`select * from my_open_approvals()`)).length === 0);
 
-  // The gate still holds: the manual slot is still pending.
+  // The gate still holds while the manual slot is pending.
   await asUser(MGR);
-  check('version cannot be approved while the manual slot is pending',
+  check('version cannot be marked approved while the manual slot is pending',
     (await one(`select version_set_status('${V}','approved') r`)).r.error === 'approvals_pending');
-  check('manager can decide the manual slot', (await one(`select approval_decide('${manualSlot}','approved') ok`)).ok === true);
-  check('version approves once every slot is approved', (await one(`select version_set_status('${V}','approved') r`)).r.ok === true);
+
+  // The last decision approves the version by itself - no second ceremony.
+  const lastR = (await one(`select approval_decide('${manualSlot}','approved') r`)).r;
+  check('deciding the last slot reports the version approved', lastR.ok === true && lastR.version_status === 'approved', lastR);
+  check('the version row is approved', (await one(`select status from versions where id='${V}'`)).status === 'approved');
+  check('the auto transition is on the activity log',
+    (await one(`select count(*)::int c from activity where entity_id='${V}' and action='version.status' and meta->>'via'='approval'`)).c >= 1);
+
+  // The direct path: one approver on a DRAFT, one click, approved. This is
+  // the flow the product promises the designated approver.
+  const V2 = (await one(`insert into versions(project_id,seq,label,status,snapshot) values ('recordmade',2,'1.3','draft','{}') returning id`)).id;
+  const soloSlot = (await one(`insert into version_approvals(version_id,approver_role,approver_name,approver_user_id) values ('${V2}','Engineering Lead','Erik','${APPR}') returning id`)).id;
+  await asUser(APPR);
+  const soloR = (await one(`select approval_decide('${soloSlot}','approved') r`)).r;
+  check('a sole approver approving a DRAFT approves the version in one click', soloR.version_status === 'approved', soloR);
+  check('the draft-to-approved version row agrees', (await one(`select status from versions where id='${V2}'`)).status === 'approved');
+
+  // Mixed decisions: first approval lifts a draft into review; a changes
+  // request flips the version; approving it after all others completes it;
+  // reopening a decision on an approved version drops it back to review.
+  const V3 = (await one(`insert into versions(project_id,seq,label,status,snapshot) values ('recordmade',3,'1.4','draft','{}') returning id`)).id;
+  const s1 = (await one(`insert into version_approvals(version_id,approver_role,approver_name,approver_user_id) values ('${V3}','Engineering Lead','Erik','${APPR}') returning id`)).id;
+  const s2 = (await one(`insert into version_approvals(version_id,approver_role,approver_name) values ('${V3}','Sponsor','External Sponsor') returning id`)).id;
+  await asUser(APPR);
+  check('the first approval moves a draft into review',
+    (await one(`select approval_decide('${s1}','approved') r`)).r.version_status === 'in_review');
+  await asUser(MGR);
+  check('a changes request moves the version to changes requested',
+    (await one(`select approval_decide('${s2}','changes_requested','tighten scope') r`)).r.version_status === 'changes_requested');
+  check('approving the reworked slot completes the version',
+    (await one(`select approval_decide('${s2}','approved') r`)).r.version_status === 'approved');
+  check('reopening a decision on an approved version drops it to review',
+    (await one(`select approval_decide('${s2}','pending') r`)).r.version_status === 'in_review');
+  check('the reopened slot is waiting again', (await one(`select status from version_approvals where id='${s2}'`)).status === 'pending');
 
   // Roster picker: members can read the named roster; outsiders cannot.
   await asUser(MGR);

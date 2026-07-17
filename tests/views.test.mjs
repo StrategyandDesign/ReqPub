@@ -5,7 +5,7 @@
    handler's re-entry flag only helps if the second click has nothing live to
    land on (the 2026-07-13 duplicate-project incident). */
 import assert from 'node:assert/strict';
-import { viewProjects, roleWelcome } from '../app/js/views-app.js';
+import { viewProjects, roleWelcome, intakeZone } from '../app/js/views-app.js';
 import { renderTab } from '../app/js/views-collab.js';
 import { assembleAnswers, ENGAGEMENT } from '../app/js/domain.js';
 
@@ -98,6 +98,16 @@ test('the empty dashboard speaks to the role in front of it', () => {
   assert.ok(roleWelcome('viewer').includes('you keep them honest'));
   assert.ok(roleWelcome('manager').includes('defends itself under review'));
   assert.notEqual(roleWelcome('viewer'), roleWelcome('manager'));
+});
+
+test('the intake preview button arms as the primary action the moment there is anything to map', () => {
+  const base = { pid: 'p1', role: 'manager', viewSeq: null, answers: {}, versions: [] };
+  const idle = intakeZone({ ...base, intake: { open: true, text: '', files: [], plan: null } });
+  assert.ok(idle.includes('btn-sec btn-sm" data-action="intakepreview">Preview mapping<'), 'idle stays secondary');
+  const armed = intakeZone({ ...base, intake: { open: true, text: '', files: [{ name: 'prd.pdf', text: 'x' }], plan: null } });
+  assert.ok(armed.includes('btn-primary btn-sm" data-action="intakepreview">Preview mapping before applying<'), 'files arm the button');
+  const pasted = intakeZone({ ...base, intake: { open: true, text: '# Goals', files: [], plan: null } });
+  assert.ok(pasted.includes('Preview mapping before applying'), 'pasted text arms it too');
 });
 
 console.log('\nviews.test: ' + n + '/' + n + ' passed');
