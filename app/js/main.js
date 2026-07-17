@@ -9,7 +9,7 @@ import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
 import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
-import { mapArtifacts, applyPlan, executeOps, pdfMarkdownFromItems, htmlToIntakeMd } from './intake.js';
+import { mapArtifacts, applyPlan, executeOps, pdfMarkdownFromItems, htmlToIntakeMd, pdfEmptyDiagnosis } from './intake.js';
 import { assembleUpdate, UPDATE_CAPS } from './update.js';
 import { renderLoading, renderBriefView, renderFeedbackForm, renderNoteIntake, renderPartnerHome, renderPartnerProject, renderNoOrg, renderPresentShare, renderSmeWorkspace, renderSignPage, renderUpdatePage, updateArtifactHTML } from './views-external.js';
 import { copyMarkdown, downloadMarkdown, downloadWord, printDoc, downloadExecSummary, printClientDoc, printGatePacket, fileStem } from './exports.js';
@@ -665,7 +665,25 @@ async function pdfToText(buf) {
       // The geometry is what lets a table be a table again.
       pages.push(tc.items.map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], hasEOL: it.hasEOL })));
     }
-    return pdfMarkdownFromItems(pages);
+    const text = pdfMarkdownFromItems(pages);
+    if (text) return { text, why: '' };
+    // Nothing extracted: read the first pages' operator lists to say WHY,
+    // because the advice differs. A scan needs OCR; outlined text (fonts
+    // converted to curves on export) cannot be copied from any viewer and
+    // must be fixed at the source. Pure classification in intake.js.
+    const ops = [];
+    for (let i = 1; i <= Math.min(doc.numPages, 3); i++) {
+      const ol = await (await doc.getPage(i)).getOperatorList();
+      const c = { images: 0, paths: 0, text: 0 };
+      for (const fn of ol.fnArray) {
+        if (fn === lib.OPS.paintImageXObject || fn === lib.OPS.paintInlineImageXObject
+            || fn === lib.OPS.paintImageMaskXObject) c.images++;
+        else if (fn === lib.OPS.constructPath) c.paths++;
+        else if (fn === lib.OPS.showText || fn === lib.OPS.showSpacedText) c.text++;
+      }
+      ops.push(c);
+    }
+    return { text: '', why: pdfEmptyDiagnosis(ops) };
   } finally { doc.destroy(); }
 }
 async function intakeAddFiles(files) {
@@ -682,9 +700,11 @@ async function intakeAddFiles(files) {
         // real pipe tables plus the headings and bullets it already read.
         APP.intake.files.push({ name: f.name, text: htmlToIntakeMd((r && r.value) || '') });
       } else if (ext === 'pdf') {
-        const text = await pdfToText(await f.arrayBuffer());
-        if (text) APP.intake.files.push({ name: f.name, text });
-        else toast('No selectable text in ' + f.name + ' - likely a scanned PDF; paste its text instead');
+        const r = await pdfToText(await f.arrayBuffer());
+        if (r.text) APP.intake.files.push({ name: f.name, text: r.text });
+        else if (r.why === 'outlined') toast('No text layer in ' + f.name + ' - its text was converted to outlines (drawn shapes) when it was exported, so nothing is copyable from it in any viewer. Re-export it from the source tool with selectable text, or upload the .docx instead');
+        else if (r.why === 'scanned') toast('No text layer in ' + f.name + ' - the pages are images (a scan). Run OCR on it first, or paste the text');
+        else toast('No selectable text in ' + f.name + ' - paste its text instead');
       } else {
         toast('Could not read ' + f.name + ' - txt, md, docx, and pdf are supported; paste anything else as text');
       }

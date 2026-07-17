@@ -120,6 +120,25 @@ const stripMd = (s) => String(s || '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/
 export function mdUnescape(s) {
   return String(s || '').replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, '$1');
 }
+/* When a PDF yields no text at all, the reason decides the advice, and the
+   page operators tell the reason. A scan draws one big image per page and
+   little else: run OCR or paste the text. Outlined text (a design-tool
+   export with fonts converted to curves) draws hundreds of filled paths
+   and no text operators: nothing is copyable from that file in ANY viewer,
+   so the only fix is at the source - re-export with real text, or upload
+   the .docx. Input: one {images, paths, text} count per probed page.
+   Majority verdict across pages; scanned outranks outlined on a tie. */
+export function pdfEmptyDiagnosis(pageOps) {
+  let scanned = 0, outlined = 0;
+  for (const pg of pageOps || []) {
+    if (!pg || pg.text > 0) continue;
+    if ((pg.images || 0) > 0 && (pg.paths || 0) < 50) scanned++;
+    else if ((pg.paths || 0) >= 50) outlined++;
+  }
+  if (!scanned && !outlined) return 'empty';
+  return scanned >= outlined ? 'scanned' : 'outlined';
+}
+
 /* mammoth's HTML output -> the segmenter's markdown, tables intact. The
    markdown writer in mammoth flattens tables into bare paragraphs - the
    exact shredding the PDF path suffered - while its HTML preserves them.

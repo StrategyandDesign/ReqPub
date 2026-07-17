@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.28.2 · say why, not just no
+
+A 20-page PRD uploaded to intake produced "No selectable text - likely a
+scanned PDF; paste its text instead." The diagnosis was wrong and the
+advice was impossible: the file's text had been converted to vector
+outlines on export (a design-tool artifact - thousands of filled paths,
+zero text operators, zero images), so there is nothing to select or paste
+from that file in any viewer on any machine.
+
+- **An empty extraction now reads the page operators and says why**
+  (pdfEmptyDiagnosis in intake.js, pure and unit-pinned; main.js probes
+  the first three pages when extraction comes back empty). A scan (one
+  image per page, few paths) gets: run OCR first, or paste the text.
+  Outlined text (hundreds of filled paths, no text operators) gets the
+  only advice that works: re-export from the source tool with selectable
+  text, or upload the .docx - which since 2.28.0 lands tables intact.
+  A PDF that is neither stays on the generic line. Verified against the
+  exact file that produced the wrong message: verdict outlined.
+
+Checks: 209 unit. No schema change; deploy is a frontend push.
+
 ## 2.28.1 · the decision is the status
 
 Two corrections from live use, both the same disease: the interface asked
