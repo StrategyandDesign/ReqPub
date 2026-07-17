@@ -5,7 +5,7 @@
    handler's re-entry flag only helps if the second click has nothing live to
    land on (the 2026-07-13 duplicate-project incident). */
 import assert from 'node:assert/strict';
-import { viewProjects, roleWelcome, intakeZone } from '../app/js/views-app.js';
+import { viewProjects, roleWelcome, intakeZone, overlays } from '../app/js/views-app.js';
 import { renderTab } from '../app/js/views-collab.js';
 import { assembleAnswers, ENGAGEMENT } from '../app/js/domain.js';
 
@@ -108,6 +108,25 @@ test('the intake preview button arms as the primary action the moment there is a
   assert.ok(armed.includes('btn-primary btn-sm" data-action="intakepreview">Preview mapping before applying<'), 'files arm the button');
   const pasted = intakeZone({ ...base, intake: { open: true, text: '# Goals', files: [], plan: null } });
   assert.ok(pasted.includes('Preview mapping before applying'), 'pasted text arms it too');
+});
+
+test('the creation row offers Documents, firm templates with their reviewed date, and a clone picker', () => {
+  const html = viewProjects({ ...dashBase(), newTpl: 'documents',
+    recordTemplates: [{ id: 't1', name: 'Standard engagement', reviewed_at: '2026-07-01T00:00:00Z' }],
+    projects: [{ id: 'p1', name: 'RecordMade', archived: false, updated_at: '2026-07-10T00:00:00Z' }] });
+  assert.ok(html.includes('>Documents<'), 'the Documents chip renders');
+  assert.ok(html.includes('Standard engagement'), 'the firm template chip renders');
+  assert.ok(html.includes('Reviewed'), 'the reviewed date travels on the chip');
+  assert.ok(html.includes('Clone a record'), 'the clone picker renders');
+  assert.ok(html.includes('straight into Populate from documents'), 'the documents hint explains the path');
+});
+
+test('the paste overlay previews the parsed rows and arms the add button', () => {
+  const html = overlays({ pasteQ: { qid: 'fr', text: 'x', preview: [
+    { stmt: 'FR-1: Sync nightly.' }, { stmt: 'FR-2: Log access.' }] } });
+  assert.ok(html.includes('<b>2 rows</b> parsed'), 'the count is stated');
+  assert.ok(html.includes('FR-1: Sync nightly.'), 'the first row previews');
+  assert.ok(html.includes('Add 2 rows'), 'the apply button carries the count');
 });
 
 console.log('\nviews.test: ' + n + '/' + n + ' passed');

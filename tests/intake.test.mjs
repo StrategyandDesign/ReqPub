@@ -7,7 +7,7 @@
    a product doc drafted in a chat assistant, pasted or uploaded as-is. */
 import assert from 'node:assert/strict';
 import {
-  segmentText, classifySegment, intakeKind, bulletItems, mdTableIn, splitPair, extractRows, mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape, pdfMarkdownFromItems, mdTablesAll, inferColumns, htmlToIntakeMd, pdfEmptyDiagnosis
+  segmentText, classifySegment, intakeKind, bulletItems, mdTableIn, splitPair, extractRows, mapArtifacts, applyPlan, executeOps, pdfTextFromItems, mdUnescape, pdfMarkdownFromItems, mdTablesAll, inferColumns, htmlToIntakeMd, pdfEmptyDiagnosis, pasteToRows
 } from '../app/js/intake.js';
 
 let n = 0;
@@ -470,6 +470,41 @@ test('an empty PDF is diagnosed by its operators: scan, outlined text, or truly 
   assert.equal(pdfEmptyDiagnosis([{ images: 0, paths: 3, text: 0 }]), 'empty');
   assert.equal(pdfEmptyDiagnosis([{ images: 1, paths: 4, text: 0 }, { images: 0, paths: 900, text: 0 }]), 'scanned');
   assert.equal(pdfEmptyDiagnosis([]), 'empty');
+});
+
+test('bulk paste: an Excel table with a header row lands as requirement rows, MoSCoW expanded, IDs prefixed', () => {
+  const tsv = 'ID\tRequirement\tFit criterion\tPri\nFR-1\tThe system shall sync nightly.\tSync completes by 06:00.\tM\nFR-2\tThe system shall log access.\tEvery access logged.\tS';
+  const rows = pasteToRows('fr', tsv);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].stmt, 'FR-1: The system shall sync nightly.');
+  assert.deepEqual(rows.map((r) => r.pri), ['Must', 'Should']);
+});
+
+test('bulk paste: a headerless tab table with IDs is read by content inference', () => {
+  const tsv = 'NFR-01\tSingle tenant isolation from day one.\tDefault deny tests on every table.\tM\nNFR-02\tAppend-only storage with proofs.\tProof publication observable.\tM';
+  const rows = pasteToRows('nfr', tsv);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].stmt, 'NFR-01: Single tenant isolation from day one.');
+  assert.equal(rows[0].fit, 'Default deny tests on every table.');
+});
+
+test('bulk paste: a headerless tab table WITHOUT IDs keeps every line as a row via the blank header', () => {
+  const tsv = 'The vault encrypts at rest.\tKeys rotate quarterly.\nExports carry the fingerprint.\tRecipe printed on the cover.';
+  const rows = pasteToRows('fr', tsv);
+  assert.equal(rows.length, 2, 'the first line is data, not a header');
+  assert.ok(rows[0].stmt.includes('vault encrypts'));
+});
+
+test('bulk paste: plain lines become bullets and split on the acceptance marker', () => {
+  const rows = pasteToRows('fr', 'The system must ingest statements nightly. Acceptance: 100% of files by 06:00.\nUsers could export the worklist.');
+  assert.equal(rows.length, 2);
+  assert.ok(!/Acceptance:/i.test(rows[0].stmt) && /100% of files/.test(rows[0].fit));
+});
+
+test('bulk paste: input larger than the cap is truncated, never a hang', () => {
+  const big = ('The system shall process the nightly batch without loss.\tVerified by the replay test.\n').repeat(20000);
+  const rows = pasteToRows('fr', big);
+  assert.ok(rows.length > 0 && rows.length < 20000);
 });
 
 console.log(`intake.test: ${n}/${n} passed`);

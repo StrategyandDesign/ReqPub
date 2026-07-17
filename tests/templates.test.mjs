@@ -5,7 +5,7 @@
    (2) applyTemplate writes through the repo's rev-checked RPC wrappers only,
    sequentially, scalars before rows, in authored order. */
 import assert from 'node:assert/strict';
-import { TEMPLATES, templateByKey, validateTemplate, applyTemplate } from '../app/js/templates.js';
+import { TEMPLATES, templateByKey, validateTemplate, applyTemplate, buildTemplatePayload, applyAnswerSet, TPL_SCALARS, TPL_ROWS } from '../app/js/templates.js';
 import { Q, ENGAGEMENT, isEngagement, assembleAnswers, buildSections, assemble } from '../app/js/domain.js';
 
 let n = 0;
@@ -127,6 +127,44 @@ await awaitTest('an unknown template key applies nothing and reports ok', async 
   const repo = mockRepo();
   const out = await applyTemplate(repo, 'p1', 'nope', 'Acme');
   assert.deepEqual([out.ok, repo.calls.length], [true, 0]);
+});
+
+test('buildTemplatePayload keeps only the standing structure - client content never travels', () => {
+  const state = {
+    fields: { ctrl_org: { value: 'Collection Ventures' }, ctrl_doctype: { value: 'engagement' },
+      ctrl_product: { value: 'SECRET CLIENT NAME' }, ov_problem: { value: 'confidential problem' } },
+    rows: { nfr: [{ data: { stmt: 'Single tenant.', fit: 'Deny by default.', pri: 'Must' } }],
+      glossary: [{ data: { term: 'Baseline', meaning: 'Immutable snapshot.' } }],
+      fr: [{ data: { stmt: 'CLIENT FR', fit: 'x', pri: 'Must' } }],
+      eval: [{ data: { dim: 'CLIENT EVAL' } }] }
+  };
+  const p = buildTemplatePayload(state);
+  assert.deepEqual(Object.keys(p.scalars).sort(), ['ctrl_doctype', 'ctrl_org']);
+  assert.deepEqual(Object.keys(p.rows).sort(), ['glossary', 'nfr']);
+  assert.ok(!JSON.stringify(p).includes('SECRET') && !JSON.stringify(p).includes('CLIENT'), 'nothing client-side leaks');
+});
+
+test('buildTemplatePayload drops empty rows and blank scalars instead of storing noise', () => {
+  const p = buildTemplatePayload({ fields: { ctrl_org: { value: '   ' } },
+    rows: { nfr: [{ data: { stmt: '', fit: ' ' } }], glossary: [] } });
+  assert.deepEqual(p, { scalars: {}, rows: {} });
+});
+
+test('applyAnswerSet writes through the rev-checked wrappers, whitelisted, name first as ctrl_product', async () => {
+  const calls = [];
+  const repo = {
+    saveField: async (pid, id, value, rev) => { calls.push(['field', id, value, rev]); return { data: { ok: true } }; },
+    upsertRow: async (pid, id, rowid, data) => { calls.push(['row', id, data]); return { data: { ok: true } }; }
+  };
+  const out = await applyAnswerSet(repo, 'p1', {
+    scalars: { ctrl_org: 'CV', ctrl_doctype: 'engagement', ov_problem: 'SMUGGLED' },
+    rows: { nfr: [{ stmt: 'Single tenant.', pri: 'Must' }], fr: [{ stmt: 'SMUGGLED FR' }] }
+  }, 'New Record');
+  assert.equal(out.ok, true);
+  assert.equal(out.fields, 3, 'ctrl_product + two whitelisted scalars');
+  assert.equal(out.rows, 1, 'only the whitelisted collection lands');
+  assert.ok(!JSON.stringify(calls).includes('SMUGGLED'), 'the whitelist holds on apply');
+  assert.deepEqual(calls[0], ['field', 'ctrl_product', 'New Record', 0], 'the record titles itself first');
 });
 
 console.log('\ntemplates.test: ' + n + '/' + n + ' passed');
