@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.33.1 · images unblocked
+
+One line. The app page's Content-Security-Policy allowed images only
+from 'self' and data:, so every walkthrough image was refused inline
+while loading fine as a direct navigation. img-src now trusts
+https://*.supabase.co, the same origin connect-src has trusted all
+along. Login and signup keep the stricter policy; they render no
+storage images. Frontend-only: push and hard-refresh. Checks unchanged
+at 226 unit and 342 backend.
+
 ## 2.33.0 · the walkthrough on every PRD surface
 
 v2.32 built the walkthrough; this release puts it where the record is
