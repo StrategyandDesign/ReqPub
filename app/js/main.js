@@ -24,7 +24,7 @@ const APP = {
   projects: [], projectStats: {},
   pid: null, project: null, fields: {}, rows: {}, versions: [], approvals: {},
   comms: [], msgs: {}, requests: [], discovery: [], activityLog: [], reads: {},
-  snapshots: {}, shares: [], presence: [],
+  snapshots: {}, shares: [], presence: [], walkthrough: [], wtUrls: {},
   saveState: 'idle', everSaved: false, conflicts: {}, activeField: null,
   docTab: 'document', viewSeq: null, docShow: false, openSecs: {}, openComms: {}, openDisc: {},
   drafts: {}, inboxFilter: { src: 'all', status: 'all', q: '' }, fbSeq: null,
@@ -335,7 +335,17 @@ async function enterOrg(m) {
   APP.orgId = m.org_id; APP.org = m.org_name; APP.role = m.role;
   try { localStorage.setItem('rp:lastorg', m.org_id); } catch { /* fine */ }
   APP.view = 'projects'; APP.pid = null;
-  sync.init(APP, { onChange: scheduleRender, onToast: toast });
+  sync.init(APP, { onChange: (tag) => {
+    if (tag === 'walkthrough' && APP.pid) {
+      // Never clobber a caption someone is typing: park the refresh and run
+      // it when their edit commits (the wtcap change handler drains it).
+      const el = document.activeElement;
+      if (el && el.matches && el.matches('[data-action="wtcap"]')) { APP.wtStale = true; return; }
+      repo.walkthroughFor(APP.pid).then((w) => { APP.walkthrough = w; ensureWtUrls(); scheduleRender('walkthrough'); });
+      return;
+    }
+    scheduleRender(tag);
+  }, onToast: toast });
   sync.initPresence(APP.user);
   sync.subscribeOrg(APP.orgId);
   APP.projects = await repo.projects(APP.orgId);
@@ -406,6 +416,7 @@ async function openProject(id, tab) {
   APP.access = { members: [], partners: [] };
   APP.smeSeats = [];
   APP.attachments = [];
+  APP.walkthrough = []; APP.wtUrls = {};
   APP.fingers = {};
   APP.bundleLoading = true;
   render();
@@ -420,17 +431,19 @@ async function openProject(id, tab) {
   // and only when the caller did not ask for a specific tab.
   if (APP.landingAuto) { APP.docTab = landingTab(APP.versions); APP.landingAuto = false; }
   const parentIds = [...b.comms.map((c) => c.id), ...b.requests.map((r) => r.id)];
-  const [msgs, approvals, shares, attachments, signs, members] = await Promise.all([
+  const [msgs, approvals, shares, attachments, signs, members, walkthrough] = await Promise.all([
     repo.messagesFor(parentIds),
     repo.approvals(b.versions.map((v) => v.id)),
     repo.sharesFor(id),
     repo.attachmentsFor(id),
     repo.signsFor(id),
-    APP.role === 'manager' ? repo.orgMembersNamed(APP.orgId) : Promise.resolve(APP.members || [])
+    APP.role === 'manager' ? repo.orgMembersNamed(APP.orgId) : Promise.resolve(APP.members || []),
+    repo.walkthroughFor(id)
   ]);
   if (APP.pid !== id) return;
   APP.msgs = msgs; APP.approvals = approvals; APP.shares = shares; APP.attachments = attachments; APP.signs = signs;
-  APP.members = members;
+  APP.members = members; APP.walkthrough = walkthrough;
+  ensureWtUrls();
   sync.subscribeProject(id, APP.user);
   render();
 }
@@ -472,7 +485,14 @@ async function generateVersion() {
   // jsonb exactly as sent; no schema change, and the fingerprint covers both.
   const gate = (g.gate || '').trim().slice(0, 80);
   const snapHealth = healthSignals(answers, { versions: APP.versions, approvalsByVersion: APP.approvals, shares: APP.shares, comms: APP.comms, discovery: APP.discovery });
-  const r = await repo.createVersion(APP.pid, !!g.major, note, { answers, sections, ...(gate ? { gate } : {}), health: snapHealth });
+  // The walkthrough freezes with the baseline: order, captions, and file
+  // references ride the snapshot, sealed under the same fingerprint.
+  const wt = (APP.walkthrough || []).map((s, i) => ({
+    n: i + 1, caption: s.caption || '',
+    file_name: (s.attachment && s.attachment.file_name) || '',
+    attachment_id: s.attachment_id
+  }));
+  const r = await repo.createVersion(APP.pid, !!g.major, note, { answers, sections, ...(gate ? { gate } : {}), ...(wt.length ? { walkthrough: wt } : {}), health: snapHealth });
   const out = r.data;
   if (r.error || !out || !out.ok) {
     g.busy = false; g.error = (out && out.error === 'forbidden') ? 'Your role cannot generate versions.' : 'Could not generate - try again.';
@@ -893,6 +913,7 @@ async function handleAction(a, id, t, e) {
       if (APP.docTab === 'activity') APP.activityLog = await repo.activity(APP.pid);
       if (APP.docTab === 'updates') { APP.updatesList = await repo.updatesFor(APP.pid); render(); }
       if (APP.docTab === 'access') loadAccessData();
+      if (APP.docTab === 'walkthrough') ensureWtUrls();
       if (APP.docTab === 'changes' || APP.docTab === 'document' || APP.docTab === 'summary') {
         const seq = APP.viewSeq != null ? APP.viewSeq : (APP.versions.length ? APP.versions[APP.versions.length - 1].seq : null);
         if (APP.docTab === 'changes' && seq != null) {
@@ -1346,6 +1367,22 @@ async function handleAction(a, id, t, e) {
       // await resolves. Push only if not already present (same dedup as sync.js)
       // so the reply cannot appear twice in the thread.
       pushUnique(APP.msgs[id] = APP.msgs[id] || [], r.data);
+      render();
+      break;
+    }
+    case 'wtup':
+    case 'wtdown': {
+      const r = await repo.wtMove(id, a === 'wtup' ? -1 : 1);
+      if (r.error || !(r.data && r.data.ok)) { toast('Could not reorder - try again'); break; }
+      APP.walkthrough = await repo.walkthroughFor(APP.pid);
+      render();
+      break;
+    }
+    case 'wtdel': {
+      const r = await repo.wtRemove(id);
+      if (r.error || !(r.data && r.data.ok)) { toast('Could not remove that shot - try again'); break; }
+      APP.walkthrough = await repo.walkthroughFor(APP.pid);
+      toast('Removed - the file itself stays on the Files list');
       render();
       break;
     }
@@ -1952,8 +1989,29 @@ document.addEventListener('change', async (e) => {
   const t = e.target;
   if (t.matches('[data-attach]')) {
     const file = t.files && t.files[0];
+    const wt = t.dataset.wt === '1';
+    const proj = t.dataset.project || null;
     t.value = '';
-    if (file) await doUpload(file, { commId: t.dataset.comm || null, replyToken: t.dataset.token || null });
+    if (!file) return;
+    if (wt && proj) {
+      const d = await doUpload(file, { projectId: proj });
+      if (d && d.id) {
+        const r = await repo.wtAdd(proj, d.id, '');
+        const out = r.data;
+        if (r.error || !out || !out.ok) {
+          toast(out && out.error === 'not_an_image' ? 'Only image files can join the walkthrough'
+            : out && out.error === 'duplicate' ? 'That screenshot is already in the walkthrough'
+            : 'Uploaded, but could not add it to the walkthrough');
+        } else {
+          toast('Shot ' + out.position + ' added to the walkthrough');
+        }
+        APP.walkthrough = await repo.walkthroughFor(proj);
+        await ensureWtUrls();
+        render();
+      }
+      return;
+    }
+    await doUpload(file, { commId: t.dataset.comm || null, replyToken: t.dataset.token || null });
     return;
   }
   if (t.matches('[data-action="commstatus"]')) {
@@ -1979,6 +2037,7 @@ document.addEventListener('change', async (e) => {
   } else if (t.matches('[data-action="versionsel"]')) {
     APP.viewSeq = t.value === '' ? null : +t.value;
     if (APP.viewSeq != null) await ensureSnapshot(APP.viewSeq);
+    if (APP.docTab === 'walkthrough') await ensureWtUrls();
     render();
   } else if (t.matches('[data-action="fbverfilter"]')) {
     APP.fbSeq = t.value === 'all' ? 'all' : +t.value;
@@ -1989,6 +2048,19 @@ document.addEventListener('change', async (e) => {
   } else if (t.matches('[data-action="discexport"]')) {
     await repo.setDiscExport(APP.pid, t.checked);
     if (APP.project) APP.project.disc_export = t.checked;
+  } else if (t.matches('[data-action="wtcap"]')) {
+    const shot = (APP.walkthrough || []).find((w) => w.id === t.dataset.id);
+    const val = (t.value || '').slice(0, 500);
+    if (shot) shot.caption = val;
+    const r = await repo.wtCaption(t.dataset.id, val);
+    if (r.error || !(r.data && r.data.ok)) toast('Could not save that caption - try again');
+    if (APP.wtStale) {
+      APP.wtStale = false;
+      APP.walkthrough = await repo.walkthroughFor(APP.pid);
+      if (shot) { const mine = APP.walkthrough.find((w) => w.id === shot.id); if (mine) mine.caption = val; }
+      await ensureWtUrls();
+      render();
+    }
   } else if (t.id === 'brandFile') {
     const file = t.files && t.files[0];
     t.value = '';
@@ -2286,6 +2358,40 @@ async function doUpload(file, target) {
     await loadPartner();
   }
   render();
+  return d;
+}
+
+/* Fetch display URLs for walkthrough images that lack a live one. Signed URLs
+   run an hour; refetch happens lazily on the next call after expiry. */
+async function ensureWtUrls() {
+  const now = Date.now();
+  APP.wtExp = APP.wtExp || {};
+  // Wanted set: every live shot, plus the frozen shots of the version on
+  // screen. A frozen shot's path resolves through the attachments list, so
+  // the sealed record keeps rendering after a shot is detached.
+  const wants = {};
+  (APP.walkthrough || []).forEach((s) => {
+    if (s.attachment && s.attachment.storage_path) wants[s.attachment_id] = s.attachment.storage_path;
+  });
+  if (APP.viewSeq != null && APP.snapshots[APP.viewSeq]) {
+    const frozen = APP.snapshots[APP.viewSeq].snapshot.walkthrough || [];
+    if (frozen.length) {
+      const attById = {};
+      (APP.attachments || []).forEach((a) => { attById[a.id] = a; });
+      frozen.forEach((f) => {
+        const a = attById[f.attachment_id];
+        if (!wants[f.attachment_id] && a && a.storage_path) wants[f.attachment_id] = a.storage_path;
+      });
+    }
+  }
+  const need = Object.entries(wants).filter(([id]) =>
+    !APP.wtUrls[id] || (APP.wtExp[id] || 0) < now);
+  if (!need.length) return;
+  await Promise.all(need.map(async ([id, path]) => {
+    const u = await repo.wtSignedUrl(path);
+    if (u) { APP.wtUrls[id] = u; APP.wtExp[id] = now + 55 * 60 * 1000; }
+  }));
+  scheduleRender('wturls');
 }
 
 /* After the brand changes, re-publish live brief shares so external viewers

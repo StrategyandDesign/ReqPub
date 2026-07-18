@@ -469,6 +469,7 @@ export function viewWorkspace(APP) {
     '<div style="min-width:0"><div style="font-weight:600;letter-spacing:-.01em;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.ctrl_product || (APP.project && APP.project.name) || 'Untitled') + '</div>' +
     '<div class="eyebrow" style="font-size:9.5px;margin-top:1px">Requirements document</div></div>' +
     (latest ? '<span class="pill"><span class="mono">v' + esc(latest.label) + '</span></span><span class="stchip ' + esc(latest.status) + '">' + esc(STATUS_LABEL[latest.status]) + '</span>' : '') +
+    (/^https?:\/\//i.test(a.link_demo || '') ? '<a class="pill" href="' + escA(a.link_demo) + '" target="_blank" rel="noopener" title="Open the working demo in a new tab">' + ico(IC.link, 'i-sm') + 'Demo</a>' : '') +
     '</div>' +
     '<div style="display:flex;align-items:center;gap:10px">' + presenceBar(APP) + saveChip(APP) + userMenu(APP) + '</div></div>';
 
@@ -700,7 +701,7 @@ function renderDoc(APP, a, ac, total) {
   // underlying content still keys off APP.docTab, so every view is preserved -
   // just regrouped by job. Activity moves to a toolbar icon (see docActions).
   const NAV = [
-    { key: 'document', label: 'Document', subs: [['document', 'Read'], ['summary', 'Summary'], ['changes', 'Changes'], ['versions', 'Versions'], ['health', 'Health'], ['updates', 'Updates']] },
+    { key: 'document', label: 'Document', subs: [['document', 'Read'], ['walkthrough', 'Walkthrough'], ['summary', 'Summary'], ['changes', 'Changes'], ['versions', 'Versions'], ['health', 'Health'], ['updates', 'Updates']] },
     { key: 'inbox', label: 'Inbox', subs: [['inbox', 'Messages'], ['feedback', 'App'], ['notes', 'Notes']] },
     { key: 'discovery', label: 'Discovery', subs: [['discovery', 'Discovery']] },
     { key: 'share', label: 'Share', subs: [['access', 'Access'], ['people', 'People']] }
@@ -759,6 +760,8 @@ function renderDoc(APP, a, ac, total) {
       '<button class="btn btn-sec btn-sm" data-action="sowexhibit" title="The acceptance baseline formatted to attach to a statement of work: acceptance table, requirements with fit criteria, recorded sign-offs, the fingerprint and its recipe. Bracketed fields are for counsel.">' + ico(IC.shield, 'i-sm') + 'SOW exhibit (PDF)</button>' +
       '<button class="btn btn-sec btn-sm" data-action="implpkg" title="For the build team: requirements.json + acceptance checklist + per-column changes + full PRD, sealed to the same fingerprint as the client report">' + ico(IC.download, 'i-sm') + 'Implementation package (ZIP)</button>' +
       '<button class="btn btn-sec btn-sm" data-action="gatepacket" title="The steering-committee artifact: gate name, criteria state at baseline, per-column changes since the prior baseline, approvals, fingerprint">' + ico(IC.check, 'i-sm') + 'Gate packet (PDF)</button></div></div>';
+  } else if (APP.docTab === 'walkthrough') {
+    content = walkthroughTabHTML(APP);
   } else if (APP.docTab === 'changes') {
     content = renderChanges(APP, a);
   } else {
@@ -767,6 +770,64 @@ function renderDoc(APP, a, ac, total) {
   return '<div class="doc-tools"><div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">' + tabBtns + gapsPill + '</div>' +
     '<div style="display:flex;align-items:center;gap:6px">' + docActions + '</div>' + subNav + '</div>' +
     '<div class="doc-scroll" id="docScroll">' + content + '</div>';
+}
+
+/* The demo walkthrough: ordered screenshots, each with a caption bubble that
+   states the action on screen. Working view is curated live by any teammate;
+   a selected version renders the frozen set from its snapshot. */
+export function walkthroughTabHTML(APP) {
+  const frozen = APP.viewSeq != null;
+  const snap = frozen && APP.snapshots[APP.viewSeq] ? APP.snapshots[APP.viewSeq].snapshot : null;
+  if (frozen && !snap) return '<div class="empty"><div style="font-size:13px">Loading version…</div></div>';
+  const live = APP.walkthrough || [];
+  const liveById = {};
+  live.forEach((s2) => { liveById[s2.attachment_id] = s2; });
+  // A frozen shot renders as long as the FILE exists, even if the shot was
+  // later detached from the working walkthrough: resolve through the live
+  // shot first, then the project's attachments list.
+  const attById = {};
+  (APP.attachments || []).forEach((a2) => { attById[a2.id] = a2; });
+  const shots = frozen
+    ? (snap.walkthrough || []).map((f) => ({ id: null, attachment_id: f.attachment_id, caption: f.caption || '', file_name: f.file_name || '', att: (liveById[f.attachment_id] || {}).attachment || attById[f.attachment_id] || null }))
+    : live.map((s2) => ({ id: s2.id, attachment_id: s2.attachment_id, caption: s2.caption || '', file_name: (s2.attachment && s2.attachment.file_name) || '', att: s2.attachment || null }));
+  const canEdit = !frozen && !!APP.user;
+  const intro = frozen
+    ? 'The walkthrough exactly as it stood when this version was generated. Captions and order are sealed under the version fingerprint.'
+    : 'Screenshots in the order the build team should read them, each with the action it shows. Uploads are virus-scanned like every attachment and land on the Files list too. The next generated version seals this set.';
+  const addTile = canEdit
+    ? '<label class="btn btn-sec btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">' + ico(IC.clip, 'i-sm') + 'Add screenshot' +
+      '<input type="file" data-attach="1" data-wt="1" data-project="' + escA(APP.pid || '') + '" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"></label>'
+    : '';
+  const cards = shots.map((sh, i) => {
+    const url = sh.att && APP.wtUrls && APP.wtUrls[sh.attachment_id];
+    const img = url
+      ? '<img src="' + escA(url) + '" alt="' + escA(sh.caption || sh.file_name || ('Shot ' + (i + 1))) + '" style="display:block;width:100%;border-radius:10px 10px 0 0;border-bottom:1px solid var(--line)">'
+      : '<div style="display:flex;align-items:center;justify-content:center;height:120px;background:var(--bg-2);border-radius:10px 10px 0 0;border-bottom:1px solid var(--line);color:var(--ink-4);font-size:12px">' + (sh.att ? 'Loading image…' : 'File no longer available · ' + esc(sh.file_name || 'removed')) + '</div>';
+    const bubble = canEdit
+      ? '<textarea class="input" data-action="wtcap" data-id="' + escA(sh.id) + '" placeholder="What action does this shot show?" maxlength="500" style="min-height:52px;font-size:12.5px;line-height:1.5;resize:vertical">' + esc(sh.caption) + '</textarea>'
+      : (sh.caption ? '<div style="font-size:12.5px;line-height:1.55;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px">' + esc(sh.caption) + '</div>'
+                    : '<div style="font-size:12px;color:var(--ink-4)">No caption.</div>');
+    const tools = canEdit
+      ? '<div style="display:flex;gap:4px">' +
+        '<button class="icobtn" data-action="wtup" data-id="' + escA(sh.id) + '" title="Move earlier"' + (i === 0 ? ' disabled' : '') + ' style="transform:rotate(-90deg)">' + ico(IC.fwd, 'i-sm') + '</button>' +
+        '<button class="icobtn" data-action="wtdown" data-id="' + escA(sh.id) + '" title="Move later"' + (i === shots.length - 1 ? ' disabled' : '') + ' style="transform:rotate(90deg)">' + ico(IC.fwd, 'i-sm') + '</button>' +
+        '<button class="icobtn" data-action="wtdel" data-id="' + escA(sh.id) + '" title="Remove from the walkthrough (the file stays on Files)">' + ico(IC.close, 'i-sm') + '</button></div>'
+      : '';
+    return '<div style="border:1px solid var(--line);border-radius:11px;background:var(--bg)">' + img +
+      '<div style="padding:10px 12px 12px">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">' +
+      '<span class="pill pill-solid"><span class="mono">' + (i + 1) + '</span></span>' +
+      '<span style="flex:1;font-size:11.5px;color:var(--ink-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(sh.file_name) + '</span>' + tools + '</div>' +
+      bubble + '</div></div>';
+  }).join('');
+  const empty = frozen
+    ? '<div class="empty">' + ico(IC.doc) + '<div style="font-size:13px">This version was generated without a walkthrough.</div></div>'
+    : '<div class="empty">' + ico(IC.doc) + '<div style="font-size:14.5px;color:var(--ink-2);font-weight:560;margin-bottom:4px">Show the build team the product, one action at a time</div><div style="font-size:13px;max-width:280px">Add screenshots in order. Each gets a caption bubble that states the action on screen.</div></div>';
+  return '<div class="page" style="max-width:640px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">' +
+    '<div><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0">Demo walkthrough</h2>' +
+    '<div style="font-size:11.5px;color:var(--ink-4);margin-top:2px;max-width:430px">' + intro + '</div></div>' + addTile + '</div>' +
+    (shots.length ? '<div style="display:flex;flex-direction:column;gap:14px;margin-top:12px">' + cards + '</div>' : empty) + '</div>';
 }
 
 function lastChangeBanner(APP) {

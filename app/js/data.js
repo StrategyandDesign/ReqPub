@@ -348,6 +348,7 @@ export const repo = {
     fd.append('file', file);
     if (opts.replyToken) fd.append('reply_token', opts.replyToken);
     if (opts.commId) fd.append('comm_id', opts.commId);
+    if (opts.projectId) fd.append('project_id', opts.projectId);
     const headers = { apikey: CFG.anon };
     try {
       const s = await sb.auth.getSession();
@@ -361,6 +362,23 @@ export const repo = {
       return { data: j };
     } catch (e) { return { error: { message: (e && e.message) || 'network' } }; }
   },
+  /* ---- demo walkthrough (ordered screenshots + captions for the build team) ---- */
+  async walkthroughFor(pid) {
+    const r = await durable(() => sb.from('walkthrough_shots')
+      .select('id,attachment_id,position,caption,updated_at,attachment:attachments(file_name,mime,size_bytes,storage_path,scan_status)')
+      .eq('project_id', pid).order('position'));
+    return r.data || [];
+  },
+  // Display URLs live an hour; downloads elsewhere keep the short 120s window.
+  async wtSignedUrl(path) {
+    try { const r = await sb.storage.from('attachments').createSignedUrl(path, 3600); return (r.data && r.data.signedUrl) || null; }
+    catch { return null; }
+  },
+  wtAdd(pid, attachmentId, caption) { return rpc('walkthrough_add', { p_project: pid, p_attachment: attachmentId, p_caption: caption || '' }); },
+  wtCaption(shotId, caption) { return rpc('walkthrough_caption', { p_shot: shotId, p_caption: caption || '' }); },
+  wtMove(shotId, dir) { return rpc('walkthrough_move', { p_shot: shotId, p_dir: dir }); },
+  wtRemove(shotId) { return rpc('walkthrough_remove', { p_shot: shotId }); },
+
   requestView(token) { return rpc('request_view', { p_token: token }); },
   requestSubmit(token, name, body) { return rpc('request_submit', { p_token: token, p_name: name, p_body: body }); },
 

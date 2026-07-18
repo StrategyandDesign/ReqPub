@@ -241,4 +241,19 @@ test('a row whose only content is bookkeeping is not a filled row', () => {
   assert.equal(rowsFilled([{ _k: 1, _by: 'Ana', stmt: 'Real' }]).length, 1);
 });
 
+/* ---- the optional demo link ---- */
+test('link_demo is a short answer in the links group', () => {
+  const q = Q.find((x) => x.id === 'link_demo');
+  assert.ok(q && q.sec === 'people' && q.type === 'short');
+});
+
+test('the document carries the demo link only when a demo exists', () => {
+  const without = buildSections(assembleAnswers(
+    { link_repo: { value: 'repo' }, link_board: { value: 'board' }, link_design: { value: 'design' } }, {}), '1.0', []).people;
+  assert.ok(!without.includes('Demo:'), 'no Demo line before a demo exists');
+  const withDemo = buildSections(assembleAnswers(
+    { link_repo: { value: 'repo' }, link_demo: { value: 'https://demo.reqpub.com' } }, {}), '1.0', []).people;
+  assert.ok(withDemo.includes('- Demo: https://demo.reqpub.com'), 'Demo line lands when set');
+});
+
 console.log('\ndomain.test: ' + n + '/' + n + ' passed');

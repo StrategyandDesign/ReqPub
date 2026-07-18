@@ -361,6 +361,12 @@ export function createSync() {
         this.onChange('comms');
         return;
       }
+      case 'walkthrough_shots': {
+        // Rows arrive without the joined attachment; a cheap authoritative
+        // refetch keeps every open teammate's walkthrough in step.
+        this.onChange('walkthrough');
+        return;
+      }
       case 'input_requests': {
         if (!rec && !old) return;
         if (op === 'DELETE') st.requests = st.requests.filter((r) => r.id !== old.id);

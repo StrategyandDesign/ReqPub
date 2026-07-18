@@ -1,5 +1,47 @@
 # Changelog
 
+## 2.32.0 · demo link + walkthrough
+
+Two asks from the build team, both riding existing invariants rather than
+new machinery.
+
+- **Demo link.** One new optional answer in the Links group (Section 14.2,
+  or its engagement twin). The document carries a Demo line only when a
+  demo exists; every already-generated document is byte-identical. Because
+  the link is an answer, it autosaves, rev-checks, freezes into every
+  version snapshot, and lands on shares and exports with zero new code
+  paths. When set, the workspace header shows a Demo pill that opens it
+  in a new tab.
+- **Demo walkthrough.** A new Walkthrough tab in the Document group:
+  screenshots in the order the build team should read them, each with a
+  caption bubble stating the action on screen. Any teammate uploads
+  (image types only), captions, reorders, and removes; uploads ride the
+  existing scanning pipeline and also land on the Files list. A new
+  walkthrough_shots table holds only order and captions; direct writes
+  are revoked and four definer functions (add, caption, move, remove)
+  are the only paths, with membership gates, an image-only and
+  never-infected rule, a 500-character caption cap, duplicate refusal,
+  and per-project advisory locks on ordering. Removing a shot detaches
+  it; deleting the file stays manager-only on attachments. Generating a
+  version freezes the walkthrough (order, captions, file references)
+  inside the snapshot, under the same fingerprint, and the tab renders
+  the sealed set when a version is selected. Add and remove land on the
+  activity trail; caption and reorder churn stays quiet.
+- **Upload function: project-anchored team path.** attachment-upload now
+  accepts project_id as an alternative to comm_id for signed-in
+  teammates, resolved by the new attachment_team_target function. Same
+  scan, same Storage layout, same attachment_add registration, comm null.
+- The walkthrough is team-facing this release. Exposing it on external
+  share views is a follow-on: accountless viewers need a token-gated
+  signed-URL path for the private bucket, and that grant deserves its
+  own review.
+
+Checks: 223 unit (was 221), 337 backend (was 316; walkthrough.test adds
+21). Deploy: re-run schema.sql (idempotent; section 19 lands), redeploy
+the attachment-upload edge function (the project path is in the
+function, not the schema), push the frontend, then node tools/smoke.mjs;
+the probe set now covers 59 functions.
+
 ## 2.31.0 · audit gates
 
 Two new tools close the gap where the frontend, the schema, and the

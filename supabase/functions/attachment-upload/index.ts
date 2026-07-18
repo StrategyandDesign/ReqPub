@@ -111,12 +111,22 @@ Deno.serve(async (req) => {
     const auth = req.headers.get("Authorization") ?? "";
     const jwt = auth.startsWith("Bearer ") ? auth.slice(7) : "";
     const commId = String(form.get("comm_id") ?? "").trim();
-    if (!jwt || !commId) return json({ error: "sign in and select a thread" }, 401);
+    const projectId = String(form.get("project_id") ?? "").trim();
+    if (!jwt || (!commId && !projectId)) return json({ error: "sign in and pick a destination" }, 401);
     const { data: u } = await admin.auth.getUser(jwt);
     if (!u?.user) return json({ error: "invalid session" }, 401);
-    const { data } = await admin.rpc("attachment_uploader", { p_comm: commId, p_user: u.user.id });
-    if (!data?.ok) return json({ error: data?.error === "bad_thread" ? "thread not found" : "not allowed" }, 403);
-    ctx = { org_id: data.org_id, project_id: data.project_id, comm_id: commId, kind: data.kind, name: data.name, user: u.user.id };
+    if (commId) {
+      const { data } = await admin.rpc("attachment_uploader", { p_comm: commId, p_user: u.user.id });
+      if (!data?.ok) return json({ error: data?.error === "bad_thread" ? "thread not found" : "not allowed" }, 403);
+      ctx = { org_id: data.org_id, project_id: data.project_id, comm_id: commId, kind: data.kind, name: data.name, user: u.user.id };
+    } else {
+      // Project-anchored team upload (no thread): org membership is the gate.
+      // Used by the demo walkthrough; the file also lands on the project's
+      // Files list like any other attachment.
+      const { data } = await admin.rpc("attachment_team_target", { p_project: projectId, p_user: u.user.id });
+      if (!data?.ok) return json({ error: data?.error === "unknown_project" ? "project not found" : "not allowed" }, 403);
+      ctx = { org_id: data.org_id, project_id: projectId, comm_id: "", kind: "team", name: data.name, user: u.user.id };
+    }
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -134,7 +144,7 @@ Deno.serve(async (req) => {
 
   // Register the metadata (validated + audited). Roll back the object if it fails.
   const { data: reg } = await admin.rpc("attachment_add", {
-    p_project: ctx.project_id, p_comm: ctx.comm_id, p_message: null,
+    p_project: ctx.project_id, p_comm: ctx.comm_id || null, p_message: null,
     p_uploader_kind: ctx.kind, p_uploader_name: ctx.name, p_uploader_user: ctx.user,
     p_file_name: fileName, p_mime: mime, p_size: file.size, p_path: path,
     p_scan_status: scanStatus, p_scan_detail: verdict.detail,

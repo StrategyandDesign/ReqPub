@@ -1930,3 +1930,154 @@ begin
   return n + p;
 end; $$;
 grant execute on function claim_invites() to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 19) Demo walkthrough (v2.32)
+--     An ordered set of screenshots, each with a caption describing the action
+--     on screen, attached to the project for the build team. Bytes ride the
+--     existing attachment pipeline (edge scan -> Storage -> attachment_add);
+--     this layer only holds order and captions. Shots are working material:
+--     any team member curates them; removing a shot detaches it and leaves the
+--     underlying file (whose deletion stays manager-only on attachments).
+--     A generated version freezes the walkthrough (captions, order, file
+--     references) inside its snapshot, under the same fingerprint.
+-- ----------------------------------------------------------------------------
+create table if not exists walkthrough_shots (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references orgs(id) on delete cascade,
+  project_id text not null references projects(id) on delete cascade,
+  attachment_id uuid not null references attachments(id) on delete cascade,
+  position int not null,
+  caption text not null default '',
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (project_id, attachment_id)
+);
+create index if not exists wt_shots_proj on walkthrough_shots(project_id, position);
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'wt_shots_caps') then
+    alter table walkthrough_shots add constraint wt_shots_caps
+      check (position >= 1 and length(caption) <= 500) not valid;
+  end if;
+end $$;
+alter table walkthrough_shots enable row level security;
+drop policy if exists wt_member_read on walkthrough_shots;
+create policy wt_member_read on walkthrough_shots for select using (is_org_member(org_id));
+grant select on walkthrough_shots to authenticated;
+revoke insert, update, delete on walkthrough_shots from authenticated, anon;
+-- Live: curation surfaces for every open teammate within the second.
+drop trigger if exists wt_shots_bcast on walkthrough_shots;
+create trigger wt_shots_bcast after insert or update or delete on walkthrough_shots
+  for each row execute function broadcast_project_change();
+
+-- The upload edge function verifies the JWT, then resolves a project-anchored
+-- team upload here (no thread): org membership is the whole gate.
+create or replace function attachment_team_target(p_project text, p_user uuid)
+returns jsonb language sql security definer stable set search_path = public as $$
+  select case
+    when p.id is null then jsonb_build_object('ok', false, 'error', 'unknown_project')
+    when exists (select 1 from org_members m where m.org_id = p.org_id and m.user_id = p_user)
+      then jsonb_build_object('ok', true, 'org_id', p.org_id,
+             'name', coalesce((select display_name from user_profiles up where up.user_id = p_user), 'Team'))
+    else jsonb_build_object('ok', false, 'error', 'forbidden')
+  end
+  from (select 1) one left join projects p on p.id = p_project;
+$$;
+revoke execute on function attachment_team_target(text, uuid) from public;
+do $$ begin
+  execute 'grant execute on function attachment_team_target(text, uuid) to service_role';
+exception when undefined_object then null; end $$;
+
+-- Append a shot. The attachment must belong to this project, be an image, and
+-- not be flagged infected. Position is assigned under a per-project lock, so
+-- concurrent adds cannot collide.
+create or replace function walkthrough_add(p_project text, p_attachment uuid, p_caption text default '')
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_org uuid; v_att attachments%rowtype; v_pos int; v_id uuid;
+begin
+  v_org := project_org(p_project);
+  if v_org is null or not is_org_member(v_org) then
+    return jsonb_build_object('ok', false, 'error', 'forbidden'); end if;
+  select * into v_att from attachments a where a.id = p_attachment;
+  if v_att.id is null or v_att.project_id <> p_project then
+    return jsonb_build_object('ok', false, 'error', 'bad_attachment'); end if;
+  if v_att.mime not like 'image/%' then
+    return jsonb_build_object('ok', false, 'error', 'not_an_image'); end if;
+  if v_att.scan_status = 'infected' then
+    return jsonb_build_object('ok', false, 'error', 'infected'); end if;
+  if length(coalesce(p_caption, '')) > 500 then
+    return jsonb_build_object('ok', false, 'error', 'caption_too_long'); end if;
+  perform pg_advisory_xact_lock(hashtextextended('wt/' || p_project, 19));
+  if exists (select 1 from walkthrough_shots w
+             where w.project_id = p_project and w.attachment_id = p_attachment) then
+    return jsonb_build_object('ok', false, 'error', 'duplicate'); end if;
+  select coalesce(max(position), 0) + 1 into v_pos from walkthrough_shots where project_id = p_project;
+  insert into walkthrough_shots(org_id, project_id, attachment_id, position, caption)
+  values (v_org, p_project, p_attachment, v_pos, coalesce(p_caption, ''))
+  returning id into v_id;
+  perform log_activity(v_org, p_project, 'walkthrough.added', 'walkthrough', v_id::text,
+    'Added shot ' || v_pos || ' to the demo walkthrough (' || left(v_att.file_name, 120) || ')',
+    jsonb_build_object('position', v_pos, 'attachment', p_attachment));
+  return jsonb_build_object('ok', true, 'id', v_id, 'position', v_pos);
+end; $$;
+grant execute on function walkthrough_add(text, uuid, text) to authenticated;
+
+-- Caption edits and reorders are working-material churn: allowed for any team
+-- member, deliberately kept off the activity trail. Add and remove are logged.
+create or replace function walkthrough_caption(p_shot uuid, p_caption text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare w walkthrough_shots%rowtype;
+begin
+  select * into w from walkthrough_shots where id = p_shot;
+  if w.id is null or not is_org_member(w.org_id) then
+    return jsonb_build_object('ok', false, 'error', 'forbidden'); end if;
+  if length(coalesce(p_caption, '')) > 500 then
+    return jsonb_build_object('ok', false, 'error', 'caption_too_long'); end if;
+  update walkthrough_shots set caption = coalesce(p_caption, ''), updated_at = now() where id = p_shot;
+  return jsonb_build_object('ok', true);
+end; $$;
+grant execute on function walkthrough_caption(uuid, text) to authenticated;
+
+-- Swap with the neighbor above (-1) or below (+1). At an edge this is a clean
+-- no-op, reported as moved:false, so the client needs no bounds bookkeeping.
+create or replace function walkthrough_move(p_shot uuid, p_dir int)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare w walkthrough_shots%rowtype; n walkthrough_shots%rowtype;
+begin
+  if p_dir is null or p_dir not in (-1, 1) then
+    return jsonb_build_object('ok', false, 'error', 'bad_dir'); end if;
+  select * into w from walkthrough_shots where id = p_shot;
+  if w.id is null or not is_org_member(w.org_id) then
+    return jsonb_build_object('ok', false, 'error', 'forbidden'); end if;
+  perform pg_advisory_xact_lock(hashtextextended('wt/' || w.project_id, 19));
+  select * into n from walkthrough_shots
+    where project_id = w.project_id
+      and ((p_dir = -1 and position < w.position) or (p_dir = 1 and position > w.position))
+    order by case when p_dir = -1 then -position else position end limit 1;
+  if n.id is null then return jsonb_build_object('ok', true, 'moved', false); end if;
+  -- Position carries no unique constraint, so a straight swap is safe; the
+  -- advisory lock above serializes concurrent reorders on the project.
+  update walkthrough_shots set position = n.position, updated_at = now() where id = w.id;
+  update walkthrough_shots set position = w.position, updated_at = now() where id = n.id;
+  return jsonb_build_object('ok', true, 'moved', true);
+end; $$;
+grant execute on function walkthrough_move(uuid, int) to authenticated;
+
+-- Detach a shot. The attachment row and its stored bytes stay; deleting those
+-- remains the manager-only path that already exists on attachments.
+create or replace function walkthrough_remove(p_shot uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare w walkthrough_shots%rowtype;
+begin
+  select * into w from walkthrough_shots where id = p_shot;
+  if w.id is null or not is_org_member(w.org_id) then
+    return jsonb_build_object('ok', false, 'error', 'forbidden'); end if;
+  delete from walkthrough_shots where id = p_shot;
+  perform log_activity(w.org_id, w.project_id, 'walkthrough.removed', 'walkthrough', p_shot::text,
+    'Removed shot ' || w.position || ' from the demo walkthrough',
+    jsonb_build_object('position', w.position, 'attachment', w.attachment_id));
+  return jsonb_build_object('ok', true);
+end; $$;
+grant execute on function walkthrough_remove(uuid) to authenticated;

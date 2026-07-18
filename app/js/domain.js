@@ -160,6 +160,7 @@ export const Q = [
   { id: 'link_repo', sec: 'people', type: 'short', prompt: 'Repository link', help: 'Code repository.' },
   { id: 'link_board', sec: 'people', type: 'short', prompt: 'Project board link', help: 'Where work is tracked.' },
   { id: 'link_design', sec: 'people', type: 'short', prompt: 'Design link', help: 'Mockups, design files, or product URL.' },
+  { id: 'link_demo', sec: 'people', type: 'short', prompt: 'Demo link', help: 'A working demo, if one exists. Leave blank until it does; the document carries the link only when set.', ph: 'https://' },
 
   { id: 'glossary', sec: 'glossary', type: 'rows', prompt: 'Glossary', help: 'Terms specific to this product and their definitions.', add: 'Add term', cols: [{ k: 'term', l: 'Term', ph: 'Term' }, { k: 'def', l: 'Definition', ph: 'Definition' }] },
   { id: 'decisions', sec: 'decisions', type: 'rows', prompt: 'Key decisions', help: 'Each material decision on this engagement: the options weighed, why this one, who decided, and when. Each gets a permanent ID (DEC-###). This is the record you defend later.', add: 'Add decision', cols: [{ k: 'decision', l: 'Decision', ph: 'What was decided' }, { k: 'options', l: 'Options considered', ph: 'Alternatives weighed' }, { k: 'rationale', l: 'Rationale', ph: 'Why this one' }, { k: 'owner', l: 'Decided by', ph: 'Name or role' }, { k: 'date', l: 'Date', ph: 'e.g. 2026-07' }, { k: 'supersedes', l: 'Supersedes', ph: 'Prior decision or requirement, if any' }] }
@@ -355,7 +356,7 @@ function bPeople(a) {
   const pe = rowsFilled(a.people);
   const p = ['## 14. People, Roles, and Links'];
   p.push('### 14.1 People and Roles\n\n' + (pe.length ? mdTable(['Name', 'Role'], pe.map((r) => [r.name || '', r.role || ''])) : '_To confirm._'));
-  p.push('### 14.2 Collaboration Links\n\n- Repository: ' + (a.link_repo || 'to confirm') + '\n- Project board: ' + (a.link_board || 'to confirm') + '\n- Design: ' + (a.link_design || 'to confirm'));
+  p.push('### 14.2 Collaboration Links\n\n- Repository: ' + (a.link_repo || 'to confirm') + '\n- Project board: ' + (a.link_board || 'to confirm') + '\n- Design: ' + (a.link_design || 'to confirm') + (a.link_demo ? '\n- Demo: ' + a.link_demo : ''));
   return p.join('\n\n');
 }
 function bGlossary(a) {
@@ -447,7 +448,7 @@ function engStakeholders(a, n) {
   const pe = rowsFilled(a.people);
   const p = ['## ' + n + '. Stakeholders and Roles'];
   p.push('### ' + n + '.1 People and Roles\n\n' + (pe.length ? mdTable(['Name', 'Role'], pe.map((r) => [r.name || '', r.role || ''])) : '_To confirm._'));
-  p.push('### ' + n + '.2 Links\n\n- Repository: ' + (a.link_repo || 'to confirm') + '\n- Project board: ' + (a.link_board || 'to confirm') + '\n- Design: ' + (a.link_design || 'to confirm'));
+  p.push('### ' + n + '.2 Links\n\n- Repository: ' + (a.link_repo || 'to confirm') + '\n- Project board: ' + (a.link_board || 'to confirm') + '\n- Design: ' + (a.link_design || 'to confirm') + (a.link_demo ? '\n- Demo: ' + a.link_demo : ''));
   return p.join('\n\n');
 }
 function engGates(a, n) {
