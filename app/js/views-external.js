@@ -7,6 +7,27 @@
 
 import { esc, escA, ico, IC, brandmark, relTime, initials, attachChips, attachInput } from './core.js';
 import { mdToHtml, bBrief } from './domain.js';
+import { wtImageUrl } from './data.js';
+
+/* The shared walkthrough: images stream through the tokened walkthrough-image
+   path, scoped to exactly the shots frozen into this share's version. */
+function walkthroughCard(payload, token) {
+  const shots = Array.isArray(payload && payload.walkthrough) ? payload.walkthrough : [];
+  if (!shots.length || !token) return '';
+  const figs = shots.map((f, i) => {
+    const src = wtImageUrl(token, f.attachment_id);
+    const img = src
+      ? '<img src="' + escA(src) + '" alt="' + escA(f.caption || f.file_name || ('Shot ' + (i + 1))) + '" loading="lazy" style="display:block;width:100%;border:1px solid var(--line);border-radius:10px">'
+      : '';
+    const cap = f.caption
+      ? '<div style="font-size:12.5px;line-height:1.55;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-top:7px"><span class="mono" style="font-size:10.5px;color:var(--ink-4);margin-right:7px">' + (i + 1) + '</span>' + esc(f.caption) + '</div>'
+      : '<div style="font-size:11px;color:var(--ink-4);margin-top:6px"><span class="mono">' + (i + 1) + '</span> · ' + esc(f.file_name || '') + '</div>';
+    return '<figure style="margin:0 0 18px">' + img + cap + '</figure>';
+  }).join('');
+  return '<div class="card" style="padding:26px 30px;margin-top:18px">' +
+    '<div class="eyebrow" style="font-size:9.5px;margin-bottom:4px">Demo walkthrough</div>' +
+    '<div style="font-size:12.5px;color:var(--ink-4);margin-bottom:14px">Each screenshot shows one action, in order. Sealed with v' + esc(payload.label || '?') + '.</div>' + figs + '</div>';
+}
 
 /* The collaborator logo the internal team assigned to this PRD, co-signed by
    ReqPub. Rendered above the brief the SME/partner sees. */
@@ -88,7 +109,7 @@ export function renderBriefView(APP) {
   }
   const content = md.trim() ? '<div class="card" style="padding:28px 32px">' + mdToHtml(md) + '</div>'
     : '<div class="card" style="padding:30px;color:var(--ink-3);font-size:14px">Not enough content to summarize yet.</div>';
-  return wrap(header + content + reviewCard, 680);
+  return wrap(header + content + walkthroughCard(p, APP.shareToken) + reviewCard, 680);
 }
 
 /* ---- SME: app feedback form (#fb/pid/seq/token) ---- */
@@ -305,9 +326,10 @@ export function renderPresentShare(APP) {
     '<h1 style="font-size:30px;letter-spacing:-.025em;font-weight:660;margin:0">' + esc(p.product || 'Untitled') + '</h1></div>' +
     '<button class="btn btn-sec btn-sm" data-action="brandprint" title="Print or save as PDF" style="flex:0 0 auto">' + ico(IC.print, 'i-sm') + 'Print / PDF</button>' +
     '</div>';
-  const body = md.trim()
+  const body = (md.trim()
     ? '<div class="card" style="padding:30px 34px">' + mdToHtml(md) + '</div>'
-    : '<div class="card" style="padding:34px;color:var(--ink-3);font-size:14px;text-align:center">This presentation has no shared content yet.</div>';
+    : '<div class="card" style="padding:34px;color:var(--ink-3);font-size:14px;text-align:center">This presentation has no shared content yet.</div>')
+    + walkthroughCard(p, APP.shareToken);
   const foot = '<div style="text-align:center;margin-top:24px;font-size:11.5px;color:var(--ink-4);display:flex;align-items:center;justify-content:center;gap:6px">' +
     '<span class="brandmark" style="width:16px;height:16px;border-radius:4px"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>' +
     'A read-only requirements record, published with ReqPub. This link cannot be edited.</div>';

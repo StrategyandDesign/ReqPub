@@ -7,7 +7,7 @@ import { esc, ico, IC, uid, themeInit, themeSet, copyText, debounce, presentUrl,
 import { assembleAnswers, buildSections, suggestFit, changeNote, qById, mdToHtml, defaultBriefSections } from './domain.js';
 import { sb, online, repo, buildSharePayload } from './data.js';
 import { sync } from './sync.js';
-import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML } from './views-app.js';
+import { viewProjects, viewWorkspace, currentDocMd, nextLabel, paletteItems, documentTabHTML, docShotsOf } from './views-app.js';
 import { projectStatsOf } from './views-collab.js';
 import { mapArtifacts, applyPlan, executeOps, pdfMarkdownFromItems, htmlToIntakeMd, pdfEmptyDiagnosis, pasteToRows } from './intake.js';
 import { assembleUpdate, UPDATE_CAPS } from './update.js';
@@ -224,9 +224,8 @@ async function routeShare(r) {
     APP.sign = c ? { ...c, token: r.token } : null;
     if (c && c.snapshot) {
       const answers = c.snapshot.answers || {};
-      APP.share = { payload: buildSharePayload(
-        { name: c.project, brand_logo: c.logo || '', brand_label: c.brandLabel || '' },
-        answers, c.label, c.seq, 'present', c.snapshot.build || '', null) };
+      APP.share = { payload: buildSharePayload(        { name: c.project, brand_logo: c.logo || '', brand_label: c.brandLabel || '' },
+        answers, c.label, c.seq, 'present', c.snapshot.build || '', null, (c.snapshot.walkthrough || [])) };
       try {
         const fp = await versionFingerprint({ label: c.label, seq: c.seq, snapshot: c.snapshot });
         APP.sign.computedFp = fp;
@@ -501,7 +500,7 @@ async function generateVersion() {
   // Publish the SME-safe payloads for this baseline (brief + app testing).
   // The brief carries the project's remembered section selection.
   await Promise.all([
-    repo.sharePut(APP.pid, 'brief', out.seq, buildSharePayload(APP.project || { name: answers.ctrl_product }, answers, out.label, out.seq, 'brief', '', briefSecsSaved(APP.pid))),
+    repo.sharePut(APP.pid, 'brief', out.seq, buildSharePayload(APP.project || { name: answers.ctrl_product }, answers, out.label, out.seq, 'brief', '', briefSecsSaved(APP.pid), wt)),
     repo.sharePut(APP.pid, 'pilot', out.seq, buildSharePayload(APP.project || { name: answers.ctrl_product }, answers, out.label, out.seq, 'pilot'))
   ]);
   APP.shares = await repo.sharesFor(APP.pid);
@@ -611,7 +610,7 @@ async function ensureShareLink(kind) {
     const snapAns = APP.snapshots[latest.seq] ? (APP.snapshots[latest.seq].snapshot.answers || answers) : answers;
     const r = await repo.sharePut(APP.pid, kind, latest.seq,
       buildSharePayload(APP.project || {}, snapAns, latest.label, latest.seq, kind, latest.build,
-        kind === 'brief' ? briefSecsSaved(APP.pid) : null));
+        kind === 'brief' ? briefSecsSaved(APP.pid) : null), (APP.snapshots[latest.seq] && APP.snapshots[latest.seq].snapshot.walkthrough) || []);
     if (r.error || !r.data) return null;
     APP.shares = await repo.sharesFor(APP.pid);
     share = (APP.shares || []).find((s) => s.kind === kind && s.version_seq === latest.seq && !s.revoked);
@@ -913,7 +912,7 @@ async function handleAction(a, id, t, e) {
       if (APP.docTab === 'activity') APP.activityLog = await repo.activity(APP.pid);
       if (APP.docTab === 'updates') { APP.updatesList = await repo.updatesFor(APP.pid); render(); }
       if (APP.docTab === 'access') loadAccessData();
-      if (APP.docTab === 'walkthrough') ensureWtUrls();
+      if (APP.docTab === 'walkthrough' || APP.docTab === 'document') ensureWtUrls();
       if (APP.docTab === 'changes' || APP.docTab === 'document' || APP.docTab === 'summary') {
         const seq = APP.viewSeq != null ? APP.viewSeq : (APP.versions.length ? APP.versions[APP.versions.length - 1].seq : null);
         if (APP.docTab === 'changes' && seq != null) {
@@ -931,7 +930,7 @@ async function handleAction(a, id, t, e) {
     case 'genconfirm': APP.gen.note = val('genNote'); APP.gen.gate = val('genGate'); await generateVersion(); break;
 
     /* presentation mode */
-    case 'present': APP.present = true; lastRevealedSec = null; render(); break;
+    case 'present': APP.present = true; lastRevealedSec = null; await ensureWtUrls(); render(); break;
     case 'presentclose': APP.present = false; render(); break;
 
     /* share hub */
@@ -978,7 +977,8 @@ async function handleAction(a, id, t, e) {
         : assembleAnswers(APP.fields, APP.rows);
       const live = (APP.shares || []).find((s) => s.kind === 'brief' && s.version_seq === latest.seq && !s.revoked);
       const r = await repo.sharePut(APP.pid, 'brief', latest.seq,
-        buildSharePayload(APP.project || {}, answers, latest.label, latest.seq, 'brief', latest.build, secs),
+        buildSharePayload(APP.project || {}, answers, latest.label, latest.seq, 'brief', latest.build, secs,
+          (APP.snapshots[latest.seq] && APP.snapshots[latest.seq].snapshot.walkthrough) || []),
         live ? live.token : null);
       if (r.error || !r.data) { toast('Could not publish - try again'); break; }
       briefSecsStore(APP.pid, secs);
@@ -1185,7 +1185,21 @@ async function handleAction(a, id, t, e) {
     /* exports */
     case 'copymd': { const d = docNow(); if (await copyMarkdown(d.md)) toast('Markdown copied'); break; }
     case 'downloadmd': { const d = docNow(); downloadMarkdown(d.md, docMeta(d)); break; }
-    case 'word': { const d = docNow(); downloadWord(d.md, docMeta(d)); break; }
+    case 'word': {
+      const d = docNow();
+      const meta = docMeta(d);
+      const shots = docShotsOf(APP);
+      if (shots.length) {
+        toast('Preparing walkthrough images…');
+        await ensureWtUrls();
+        meta.walkthrough = await Promise.all(shots.map(async (f) => ({
+          n: f.n, caption: f.caption || '', file_name: f.file_name || '',
+          dataUrl: await wtEmbedDataUrl(APP.wtUrls[f.attachment_id])
+        })));
+      }
+      downloadWord(d.md, meta);
+      break;
+    }
     case 'print': { const d = docNow(); printDoc(d.md, docMeta(d)); break; }
     case 'execdl': {
       const a = APP.viewSeq != null && APP.snapshots[APP.viewSeq] ? (APP.snapshots[APP.viewSeq].snapshot.answers || {}) : assembleAnswers(APP.fields, APP.rows);
@@ -1292,7 +1306,7 @@ async function handleAction(a, id, t, e) {
       const answers = snap.snapshot.answers || {};
       const fingerprint = await versionFingerprint(snap);
       const v = APP.versions.find((x) => x.seq === seq);
-      const pay = buildSharePayload(APP.project || {}, answers, snap.label, seq, 'brief', v ? v.build : '', defaultBriefSections());
+      const pay = buildSharePayload(APP.project || {}, answers, snap.label, seq, 'brief', v ? v.build : '', defaultBriefSections(), (snap.snapshot && snap.snapshot.walkthrough) || []);
       const present = (APP.shares || []).find((s) => s.kind === 'present' && !s.revoked && s.version_seq === seq);
       printClientDoc(answers, {
         product: answers.ctrl_product || (APP.project && APP.project.name) || 'Untitled',
@@ -2037,7 +2051,7 @@ document.addEventListener('change', async (e) => {
   } else if (t.matches('[data-action="versionsel"]')) {
     APP.viewSeq = t.value === '' ? null : +t.value;
     if (APP.viewSeq != null) await ensureSnapshot(APP.viewSeq);
-    if (APP.docTab === 'walkthrough') await ensureWtUrls();
+    if (APP.docTab === 'walkthrough' || APP.docTab === 'document') await ensureWtUrls();
     render();
   } else if (t.matches('[data-action="fbverfilter"]')) {
     APP.fbSeq = t.value === 'all' ? 'all' : +t.value;
@@ -2394,6 +2408,29 @@ async function ensureWtUrls() {
   scheduleRender('wturls');
 }
 
+/* One shot, downscaled for embedding in the .doc export: capped at 1300px
+   wide, JPEG, so a twenty-shot walkthrough stays a sane file size. Returns ''
+   when the image cannot be read; the caption still lands. */
+function wtEmbedDataUrl(url) {
+  return new Promise((res) => {
+    if (!url) return res('');
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const w = Math.min(img.naturalWidth || 1300, 1300);
+        const h = Math.round(w * (img.naturalHeight || 1) / (img.naturalWidth || 1));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        res(c.toDataURL('image/jpeg', 0.85));
+      } catch { res(''); }
+    };
+    img.onerror = () => res('');
+    img.src = url;
+  });
+}
+
 /* After the brand changes, re-publish live brief shares so external viewers
    (SMEs, partners) pick up the new logo without the team re-sharing. */
 async function republishBrandedBriefs() {
@@ -2404,7 +2441,8 @@ async function republishBrandedBriefs() {
     const v = APP.versions.find((x) => x.seq === s.version_seq);
     await repo.sharePut(APP.pid, 'brief', s.version_seq,
       buildSharePayload(APP.project || {}, answers, v ? v.label : '', s.version_seq, 'brief', v ? v.build : '',
-        Array.isArray(s.sections) && s.sections.length ? s.sections : briefSecsSaved(APP.pid)),
+        Array.isArray(s.sections) && s.sections.length ? s.sections : briefSecsSaved(APP.pid),
+        (APP.snapshots[s.version_seq] && APP.snapshots[s.version_seq].snapshot.walkthrough) || []),
       s.token);
   }
   APP.shares = await repo.sharesFor(APP.pid);

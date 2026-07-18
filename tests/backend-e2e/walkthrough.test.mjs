@@ -124,6 +124,29 @@ try {
   check('direct inserts are refused at the privilege layer (42501)', denied);
   await run('reset role');
 
+  /* --- the share-reader image gate (walkthrough_image_access) --- */
+  await run(`insert into versions(project_id, seq, label, note, author_name, snapshot)
+    values ('reqpub', 1, '1.0', '', 'Micah',
+      jsonb_build_object('answers', '{}'::jsonb, 'walkthrough',
+        jsonb_build_array(jsonb_build_object('n', 1, 'caption', 'Sign in', 'file_name', 'login.png', 'attachment_id', '${img1.id}'))))`);
+  await run(`insert into shares(token, org_id, project_id, version_seq, kind, payload)
+    values ('tok-brief', '${ORG}', 'reqpub', 1, 'brief', '{}'::jsonb),
+           ('tok-pilot', '${ORG}', 'reqpub', 1, 'pilot', '{}'::jsonb),
+           ('tok-dead', '${ORG}', 'reqpub', 1, 'brief', '{}'::jsonb)`);
+  await run(`update shares set revoked = true where token = 'tok-dead'`);
+  const gOk = (await one(`select walkthrough_image_access('tok-brief','${img1.id}') j`)).j;
+  check('a live brief token reaches a frozen shot (path returned)', gOk.ok === true && gOk.path === 'o/reqpub/login.png', gOk);
+  const gOut = (await one(`select walkthrough_image_access('tok-brief','${img3.id}') j`)).j;
+  check('a file outside the frozen set is refused', gOut.ok === false && gOut.error === 'not_in_walkthrough', gOut);
+  const gDead = (await one(`select walkthrough_image_access('tok-dead','${img1.id}') j`)).j;
+  check('a revoked share closes the image path', gDead.ok === false && gDead.error === 'invalid_link', gDead);
+  const gPilot = (await one(`select walkthrough_image_access('tok-pilot','${img1.id}') j`)).j;
+  check('a pilot token is not an image credential', gPilot.ok === false && gPilot.error === 'invalid_link', gPilot);
+  await run(`update attachments set scan_status='infected' where id='${img1.id}'`);
+  const gInf = (await one(`select walkthrough_image_access('tok-brief','${img1.id}') j`)).j;
+  check('a file flagged infected after freezing stops serving', gInf.ok === false && gInf.error === 'file_gone', gInf);
+  await run(`update attachments set scan_status='clean' where id='${img1.id}'`);
+
   /* --- the audit trail --- */
   const acts = await all(`select action from activity where project_id='reqpub' and action like 'walkthrough.%' order by created_at`);
   check('add and remove land on the activity trail; caption and move stay quiet',

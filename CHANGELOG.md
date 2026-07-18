@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.33.0 · the walkthrough on every PRD surface
+
+v2.32 built the walkthrough; this release puts it where the record is
+read. One appendix, five surfaces, one token-gated image path.
+
+- **In the document.** The Read tab and presentation mode render an
+  Appendix, Demo Walkthrough, under the PRD: numbered figures, caption
+  bubbles, live set on the working draft, the sealed set when a version
+  is selected. The canonical markdown is untouched; the appendix
+  composes at render time, so every fingerprint and export hash stands.
+- **On the shared PRD.** The brief payload now carries the frozen
+  walkthrough (order, captions, file references only; bytes never enter
+  a payload). The SME brief page and the read-only presentation link
+  render the same appendix. Publishing at generate time, the share
+  modal, re-publishing, and brand republish all carry it.
+- **Images for accountless readers.** New walkthrough-image edge
+  function: a reader presents the share token and a shot id; the new
+  walkthrough_image_access function proves the token is a live brief
+  share AND the shot sits inside the walkthrough frozen into that exact
+  version, then the function redirects to a ten-minute signed URL on
+  the private bucket. Nothing else in the bucket is reachable this way,
+  revoking the share closes the path instantly, and a file flagged
+  infected after freezing stops serving.
+- **In the Word export.** The .doc gains the same appendix with images
+  embedded as downscaled data URLs (1300px JPEG), since a Word file
+  cannot chase expiring links. Print and the external Print/PDF button
+  inherit the appendix from the page. The client baseline report, SOW
+  exhibit, and gate packet stay text-only on purpose: those are
+  acceptance artifacts, not demos.
+
+Checks: 226 unit (share.test proves the payload carries minimal fields,
+never on pilot, absent when empty), 342 backend (five new checks on the
+image gate). Deploy: re-run schema.sql (section 20), deploy the NEW
+walkthrough-image edge function with Verify JWT off, push the frontend,
+node tools/smoke.mjs now expects 60 functions and 5 edge routes.
+
 ## 2.32.0 · demo link + walkthrough
 
 Two asks from the build team, both riding existing invariants rather than

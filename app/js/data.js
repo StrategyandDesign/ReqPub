@@ -418,7 +418,13 @@ export function stripInternal(obj) {
 /* Brief payloads are section-scoped: only the answer fields backing the
    selected sections are included, so unshared content is absent from the
    payload itself - not merely hidden by the page that renders it. */
-export function buildSharePayload(project, answers, versionLabel, seq, kind, build, sectionKeys) {
+/* The tokened image path for share readers: the walkthrough-image edge
+   function validates the token against the frozen version, then redirects to
+   a short signed URL on the private bucket. */
+export const wtImageUrl = (token, id) =>
+  CFG.url ? CFG.url + '/functions/v1/walkthrough-image?token=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(id) : '';
+
+export function buildSharePayload(project, answers, versionLabel, seq, kind, build, sectionKeys, walkthrough) {
   const filled = (arr) => (arr || []).filter((r) => Object.keys(r || {}).some((c) => c[0] !== '_' && r[c] && String(r[c]).trim()));
   if (kind === 'pilot') {
     return {
@@ -452,6 +458,13 @@ export function buildSharePayload(project, answers, versionLabel, seq, kind, bui
   return {
     product: project.name || '', label: versionLabel || '', sections: secs,
     logo: project.brand_logo || '', brandLabel: project.brand_label || '',
-    answers: stripInternal(ca)
+    answers: stripInternal(ca),
+    // The frozen walkthrough travels with the brief: order, captions, and file
+    // references only. Bytes stay in the private bucket; readers fetch each
+    // shot through the tokened walkthrough-image path, which the share's own
+    // revocation closes.
+    ...(Array.isArray(walkthrough) && walkthrough.length
+      ? { walkthrough: walkthrough.map((w) => ({ n: w.n, caption: w.caption || '', file_name: w.file_name || '', attachment_id: w.attachment_id })) }
+      : {})
   };
 }

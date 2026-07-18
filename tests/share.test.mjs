@@ -157,4 +157,22 @@ test('the brief renders the acceptance block only when opted in', () => {
   assert.ok(!bBrief(def.answers, def.sections).includes('AI acceptance'));
 });
 
+/* ---- the walkthrough on the brief ---- */
+test('the brief carries the frozen walkthrough, minimal fields only', () => {
+  const wt = [{ n: 1, caption: 'Sign in', file_name: 'login.png', attachment_id: 'a-1', extra: 'never' }];
+  const p = buildSharePayload(project, answers, '1.0', 1, 'brief', '', null, wt);
+  assert.equal(p.walkthrough.length, 1);
+  assert.deepEqual(Object.keys(p.walkthrough[0]).sort(), ['attachment_id', 'caption', 'file_name', 'n']);
+});
+
+test('an empty walkthrough leaves no key on the payload', () => {
+  const p = buildSharePayload(project, answers, '1.0', 1, 'brief', '', null, []);
+  assert.equal('walkthrough' in p, false);
+});
+
+test('the pilot payload never carries a walkthrough', () => {
+  const p = buildSharePayload(project, answers, '1.0', 1, 'pilot', '', null, [{ n: 1, attachment_id: 'a-1' }]);
+  assert.equal('walkthrough' in p, false);
+});
+
 console.log('\nshare.test: ' + n + '/' + n + ' passed');

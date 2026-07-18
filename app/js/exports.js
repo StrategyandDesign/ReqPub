@@ -71,6 +71,20 @@ export function downloadMarkdown(md, meta) {
 }
 
 /* Word opens well-formed HTML saved as .doc; this keeps the export dependency-free. */
+/* The walkthrough appendix inside the .doc: images embedded as downscaled
+   data URLs (a Word file cannot chase expiring signed links), each with its
+   numbered caption. Absent silently when the document has no walkthrough. */
+function wordWalkthrough(meta) {
+  const shots = (meta && meta.walkthrough) || [];
+  if (!shots.length) return '';
+  const figs = shots.map((f, i) => {
+    const img = f.dataUrl ? '<p style="margin:10pt 0 4pt"><img src="' + escA(f.dataUrl) + '" style="max-width:100%;border:1pt solid #ddd"></p>' : '';
+    const cap = '<p style="font-size:10pt;margin:0 0 12pt"><span class="idc">' + (i + 1) + '.</span> ' + esc(f.caption || f.file_name || '') + '</p>';
+    return img + cap;
+  }).join('');
+  return '<h2>Appendix · Demo Walkthrough</h2><p style="font-size:9.5pt;color:#555">Each screenshot shows one action, in the order the build team should read them.</p>' + figs;
+}
+
 export function downloadWord(md, meta) {
   const logo = ok(meta.logo)
     ? '<p style="margin:0 0 6pt"><img src="' + escA(meta.logo) + '" style="max-height:54pt;max-width:220pt"></p>' : '';
@@ -100,7 +114,7 @@ export function downloadWord(md, meta) {
     '.rp-cover{border-bottom:2.5pt solid #2563FF;padding-bottom:12pt;margin-bottom:18pt}' +
     '.rp-title{font-size:24pt;font-weight:bold;margin:2pt 0;color:#0a0a0a}' +
     '.rp-meta{font-family:Consolas,monospace;font-size:9pt;color:#444;margin-top:8pt}' +
-    '</style></head><body>' + cover + mdToHtml(md) + '</body></html>';
+    '</style></head><body>' + cover + mdToHtml(md) + wordWalkthrough(meta) + '</body></html>';
   download(fileStem(meta) + '.doc', 'application/msword', doc);
 }
 

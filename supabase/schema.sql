@@ -2081,3 +2081,35 @@ begin
   return jsonb_build_object('ok', true);
 end; $$;
 grant execute on function walkthrough_remove(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 20) Walkthrough images on shared PRDs (v2.33)
+--     External readers are accountless; the attachments bucket is private.
+--     The walkthrough-image edge function serves a shot to a share reader by
+--     validating here first: the token must be a live brief share, and the
+--     attachment must sit inside the walkthrough that FROZE into the exact
+--     version that share points at. Nothing else in the bucket is reachable
+--     through this path, and revoking the share closes it instantly.
+-- ----------------------------------------------------------------------------
+create or replace function walkthrough_image_access(p_token text, p_attachment uuid)
+returns jsonb language sql security definer stable set search_path = public as $$
+  select case
+    when s.token is null then jsonb_build_object('ok', false, 'error', 'invalid_link')
+    when v.id is null then jsonb_build_object('ok', false, 'error', 'no_version')
+    when not exists (
+      select 1 from jsonb_array_elements(coalesce(v.snapshot->'walkthrough', '[]'::jsonb)) e
+      where e->>'attachment_id' = p_attachment::text)
+      then jsonb_build_object('ok', false, 'error', 'not_in_walkthrough')
+    when a.id is null then jsonb_build_object('ok', false, 'error', 'file_gone')
+    else jsonb_build_object('ok', true, 'path', a.storage_path)
+  end
+  from (select 1) one
+  left join shares s on s.token = p_token and s.revoked = false and s.kind = 'brief'
+  left join versions v on v.project_id = s.project_id and v.seq = s.version_seq
+  left join attachments a on a.id = p_attachment and a.project_id = s.project_id
+       and a.scan_status <> 'infected';
+$$;
+revoke execute on function walkthrough_image_access(text, uuid) from public;
+do $$ begin
+  execute 'grant execute on function walkthrough_image_access(text, uuid) to service_role';
+exception when undefined_object then null; end $$;

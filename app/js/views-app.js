@@ -677,7 +677,7 @@ export function documentTabHTML(APP, a) {
   const d = currentDocMd(APP, a);
   if (d.loading) return '<div class="empty"><div style="font-size:13px">Loading version…</div></div>';
   return intakeZone(APP) + (d.md
-    ? lastChangeBanner(APP) + '<div class="page"><div class="doc-anim">' + mdToHtml(d.md) + '</div></div>'
+    ? lastChangeBanner(APP) + '<div class="page"><div class="doc-anim">' + mdToHtml(d.md) + '</div></div>' + walkthroughAppendixHTML(APP)
     : '<div class="empty">' + ico(IC.doc) + '<div style="font-size:14.5px;color:var(--ink-2);font-weight:560;margin-bottom:4px">The requirements document builds here as you answer</div><div style="font-size:13px;max-width:240px">Start with Overview on the left.</div></div>');
 }
 
@@ -693,7 +693,7 @@ export function presentOverlay(APP, a) {
     '<button class="btn btn-sec btn-sm" data-action="copypresent" title="Copy a read-only link to exactly this view">' + ico(IC.link, 'i-sm') + 'Copy read-only link</button>' +
     '<button class="icobtn" data-action="print" title="Save as PDF">' + ico(IC.print) + '</button>' +
     '<button class="icobtn" data-action="presentclose" title="Exit presentation (Esc)">' + ico(IC.close) + '</button></div></div>' +
-    '<div class="present-scroll" id="presentScroll"><div class="page">' + (d.md ? mdToHtml(d.md) : '<div class="empty"><div style="font-size:13px">Nothing to present yet.</div></div>') + '</div></div></div>';
+    '<div class="present-scroll" id="presentScroll"><div class="page">' + (d.md ? mdToHtml(d.md) : '<div class="empty"><div style="font-size:13px">Nothing to present yet.</div></div>') + '</div>' + walkthroughAppendixHTML(APP) + '</div></div>';
 }
 
 function renderDoc(APP, a, ac, total) {
@@ -775,6 +775,41 @@ function renderDoc(APP, a, ac, total) {
 /* The demo walkthrough: ordered screenshots, each with a caption bubble that
    states the action on screen. Working view is curated live by any teammate;
    a selected version renders the frozen set from its snapshot. */
+/* The document appendix: the same shots, rendered inline under the PRD so the
+   walkthrough reads as part of the record. Working draft shows the live set;
+   a selected version shows its sealed set. */
+export function docShotsOf(APP) {
+  if (APP.viewSeq != null) {
+    const snap = APP.snapshots[APP.viewSeq];
+    return (snap && snap.snapshot && snap.snapshot.walkthrough) || [];
+  }
+  return (APP.walkthrough || []).map((s, i) => ({
+    n: i + 1, caption: s.caption || '',
+    file_name: (s.attachment && s.attachment.file_name) || '',
+    attachment_id: s.attachment_id
+  }));
+}
+
+export function walkthroughAppendixHTML(APP) {
+  const shots = docShotsOf(APP);
+  if (!shots.length) return '';
+  const figs = shots.map((f, i) => {
+    const url = APP.wtUrls && APP.wtUrls[f.attachment_id];
+    const img = url
+      ? '<img src="' + escA(url) + '" alt="' + escA(f.caption || f.file_name || ('Shot ' + (i + 1))) + '" loading="lazy" style="display:block;width:100%;border:1px solid var(--line);border-radius:10px">'
+      : '<div style="display:flex;align-items:center;justify-content:center;height:110px;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;color:var(--ink-4);font-size:12px">' + esc(f.file_name || 'Image unavailable') + '</div>';
+    const cap = f.caption
+      ? '<div style="font-size:12.5px;line-height:1.55;background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:8px 11px;margin-top:7px"><span class="mono" style="font-size:10.5px;color:var(--ink-4);margin-right:7px">' + (i + 1) + '</span>' + esc(f.caption) + '</div>'
+      : '<div style="font-size:11px;color:var(--ink-4);margin-top:6px"><span class="mono">' + (i + 1) + '</span> · ' + esc(f.file_name) + '</div>';
+    return '<figure style="margin:0 0 18px">' + img + cap + '</figure>';
+  }).join('');
+  return '<div class="page" style="padding-top:6px"><div class="doc-anim">' +
+    '<div class="eyebrow" style="font-size:9.5px;margin-bottom:4px">Appendix</div>' +
+    '<h2 style="font-size:19px;letter-spacing:-.02em;font-weight:640;margin:0 0 4px">Demo Walkthrough</h2>' +
+    '<div style="font-size:12px;color:var(--ink-4);margin-bottom:14px">Each screenshot shows one action, in the order the build team should read them.' +
+    (APP.viewSeq != null ? ' Sealed with this version.' : '') + '</div>' + figs + '</div></div>';
+}
+
 export function walkthroughTabHTML(APP) {
   const frozen = APP.viewSeq != null;
   const snap = frozen && APP.snapshots[APP.viewSeq] ? APP.snapshots[APP.viewSeq].snapshot : null;
