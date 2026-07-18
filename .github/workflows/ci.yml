@@ -12,5 +12,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Symmetry audit (blocks the build on any mismatch)
+        run: node tools/audit.mjs
       - name: Domain + concurrency suites
         run: npm test
+      - name: Install backend test dependencies
+        run: npm ci
+      - name: Backend end-to-end suite (embedded Postgres)
+        run: npm run test:backend

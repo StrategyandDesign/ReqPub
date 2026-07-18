@@ -1,5 +1,46 @@
 # Changelog
 
+## 2.31.0 · audit gates
+
+Two new tools close the gap where the frontend, the schema, and the
+deployed backend could drift apart without anything failing.
+
+- **tools/audit.mjs, the static gate.** Runs in CI before the suites and
+  exits nonzero on any mismatch: every data-action in rendered markup,
+  querySelector lookup, and palette entry has a handler and every handler
+  is used somewhere; every rpc() callsite resolves to a function defined
+  in supabase/schema.sql; every edge invocation, including the direct
+  fetch to attachment-upload, has a folder under supabase/functions;
+  node --check passes on all sixteen app/js modules; and app/js plus
+  every served page carries no em dash and none of the AI-tell
+  vocabulary (list in tools/audit-lib.mjs). Dynamic data-action
+  concatenations must resolve to string literals or the build blocks.
+- **tools/smoke.mjs, the live prober.** Run after a deploy: origin
+  defaults from CNAME, keys from config.js. Confirms production serves
+  this exact repo (sha256 over index.html, app/index.html, and each
+  app/js module), that all 54 callable schema functions answer at
+  /rest/v1/rpc (trigger functions excluded; the set is generated from
+  schema.sql, so a migration never applied fails loudly), that the four
+  edge functions are reachable, and that direct anon writes to versions
+  and sign_requests are refused at the privilege layer. Probes cannot
+  mutate: no session, nil-uuid filters, impossible foreign keys, and
+  Prefer: tx=rollback on every write attempt. --plan prints the probe
+  set without touching the network.
+- **CI blocks on symmetry.** The audit runs first in the workflow; the
+  backend end-to-end suite joins after the unit suites, so a push that
+  breaks either a symmetry or a server path never reaches green.
+- **create_org and claim_invites are committed** (schema section 18).
+  Both have existed in production since v1 but were never in schema.sql,
+  so a fresh install from the committed schema could not create its
+  first workspace or honor an invite. Folded in verbatim from the
+  deployed definitions; the backend suite applies both copies in one
+  database and proves they agree.
+
+Checks unchanged at 221 unit and 316 backend; the audit stands in front
+of them as a sixth gate of its own. Deploy: re-run schema.sql
+(idempotent) so section 18 lands, push the frontend, then run
+node tools/smoke.mjs against production.
+
 ## 2.30.2 · problem section tightened
 
 The problem and why-now paragraphs are shorter and the figures carry

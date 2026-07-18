@@ -1886,3 +1886,47 @@ begin
   return jsonb_build_object('ok', true);
 end; $$;
 grant execute on function record_template_touch(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 18) Org bootstrap (folded from the v1 baseline, v2.31)
+-- ----------------------------------------------------------------------------
+-- Both functions have existed in production since v1 but were never committed
+-- here, so a fresh install from this file alone could not create its first
+-- workspace or honor an invite. Folded in verbatim from the deployed
+-- definitions (mirrored by tests/backend-e2e/v1-backend.sql, which the backend
+-- suite applies before this file and re-applies after, proving the two copies
+-- agree). They reference the v1 org tables (orgs, org_members, org_invites,
+-- partners); on a bare project, create those from the v1 baseline first.
+
+-- Create a workspace and make the caller its first manager.
+create or replace function create_org(p_name text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare new_id uuid;
+begin
+  insert into orgs(name, created_by) values (coalesce(nullif(trim(p_name),''),'My workspace'), auth.uid())
+    returning id into new_id;
+  insert into org_members(org_id, user_id, email, role)
+    values (new_id, auth.uid(), (select email from auth.users where id = auth.uid()), 'manager');
+  return new_id;
+end; $$;
+grant execute on function create_org(text) to authenticated;
+
+-- Claim any pending invites for my email, and link any partner row by email.
+-- Returns the number of memberships joined plus partner rows linked, so
+-- partner-only invites are recognized at sign-up.
+create or replace function claim_invites()
+returns int language plpgsql security definer set search_path = public as $$
+declare my_email text; n int := 0; p int := 0;
+begin
+  select email into my_email from auth.users where id = auth.uid();
+  if my_email is null then return 0; end if;
+  insert into org_members(org_id, user_id, email, role)
+    select i.org_id, auth.uid(), my_email, i.role from org_invites i where lower(i.email) = lower(my_email)
+    on conflict (org_id, user_id) do nothing;
+  get diagnostics n = row_count;
+  delete from org_invites where lower(email) = lower(my_email);
+  update partners set user_id = auth.uid() where lower(email) = lower(my_email) and user_id is null;
+  get diagnostics p = row_count;
+  return n + p;
+end; $$;
+grant execute on function claim_invites() to authenticated;
