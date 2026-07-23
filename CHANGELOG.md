@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.34.1 · the components move to where they are read
+
+Copy placement only. No schema, no behavior, no database step.
+
+The hero's third line listed what the record contains: acceptance
+thresholds, requirements with fit criteria, named approvals, one
+immutable baseline, one fingerprint verified outside the platform. In
+the hero it was answering a question the reader has not asked yet.
+Three seconds into the page, nobody knows they want a fingerprint.
+
+It now opens the How it works section, where the enterprise buyer starts
+reading technically and is looking for what the thing actually is. The
+lead sentence sits under the section heading, and the five components
+render as a numbered specification strip above the three steps. Same
+words, in the place where they answer a question the reader is holding.
+
+The hero is now two lines: the category, then the failure. docs/
+POSITIONING.md pins both verbatim and records where the third line went,
+so the doc and the page cannot drift apart.
+
+Checks unchanged at 231 unit and 399 backend. Deploy: push and hard-
+refresh. Nothing to run in Supabase.
+
 ## 2.34.0 · the client portal, and the update link as a panel
 
 Five changes. One fixes a defect the client could see, three widen what

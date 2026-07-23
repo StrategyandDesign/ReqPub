@@ -156,18 +156,29 @@ verifies outside the platform. The buyer is the consulting partner or PM
 on the hook for the outcome. The beachhead is programs where a vendor's
 forward-deployed engineers build inside the client's systems.
 
-### The hero, verbatim (v2.34.0)
+### The hero, verbatim (v2.34.1)
 
-The site leads with the category, then the failure, then the mechanism.
-This doc and the H1 must never drift; if one changes, change both.
+The site leads with the category, then the failure. This doc and the H1
+must never drift; if one changes, change both.
 
 1. **H1.** The accountability record for enterprise AI development.
 2. **Subhead.** Projects don't fail at the build. They fail at "that's
    not what we agreed."
-3. **Third line.** All parties sign the measurable definition of done.
-   Acceptance thresholds. Requirements with fit criteria. Named
-   approvals. One immutable baseline. One fingerprint verified outside
-   the platform.
+
+The hero stops there. Through v2.34.0 it carried a third line listing
+what the record contains, and that line has moved down to the head of
+the How it works section, where it now reads as a specification: the
+lead sentence "All parties sign the measurable definition of done,"
+then the five components as a numbered strip above the three steps.
+
+The move was made on placement, not wording. In the hero the list was
+answering a question the reader has not asked yet: someone three seconds
+into the page does not know he wants a fingerprint. The same six phrases
+land differently once the problem section has run and the reader is
+looking for what the thing actually is. That is also the moment the
+enterprise buyer starts reading technically, and the components are the
+technical answer. The hero sells the span; How it works sells the
+mechanism; the body sells the artifact.
 
 Why "accountability" over "acceptance" at the H1: acceptance names one
 moment at the end, and the reader who has not yet had the scope fight
@@ -177,7 +188,7 @@ about who agreed to what. "Development" over "programs" for the same
 reason: it is the word the buyer uses for the work while it is
 happening. The precise phrases stay in the body, where they carry the
 mechanism: acceptance thresholds, acceptance baseline, signed
-acceptance record. The H1 sells the span; the body sells the artifact.
+acceptance record.
 
 The problem section further down no longer repeats the subhead. It now
 reads "Everyone agreed. Nobody agreed to the same thing." - the same

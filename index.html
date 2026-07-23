@@ -57,8 +57,16 @@
   .hero::before{content:"";position:absolute;inset:0;background:radial-gradient(900px 420px at 80% -8%,var(--sky) 0%,rgba(230,240,255,0) 62%);pointer-events:none}
   .hero-grid{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1.05fr);gap:54px;align-items:center;position:relative}
   .hero h1{font-size:56px;line-height:1.04;font-weight:680}
-  .hero .hero-sub{font-size:22px;line-height:1.32;color:var(--ink-2);font-weight:600;margin:20px 0 0;max-width:540px;letter-spacing:-.012em}
-  .hero .lead{font-size:19px;color:var(--ink-3);margin:14px 0 30px;max-width:520px}
+  .hero .hero-sub{font-size:22px;line-height:1.32;color:var(--ink-2);font-weight:600;margin:20px 0 30px;max-width:540px;letter-spacing:-.012em}
+  /* What the record contains: the components stated as a specification, above
+     the three things you do with them. Five columns on desktop, two on tablet,
+     one on phone, so no phrase ever wraps to a single orphaned word. */
+  .spec{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2);margin:0 0 34px}
+  .spec-i{padding:17px 20px;font-size:14px;font-weight:600;color:var(--ink-2);line-height:1.45;border-left:1px solid var(--line)}
+  .spec-i:first-child{border-left:0;padding-left:0}
+  .spec-i span{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);font-weight:400;margin-bottom:5px}
+  @media(max-width:900px){.spec{grid-template-columns:repeat(2,1fr)}.spec-i{border-left:0;padding-left:0}}
+  @media(max-width:560px){.spec{grid-template-columns:1fr}}
   .hero-cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
   .hero-note{margin-top:18px;font-size:13.5px;color:var(--ink-2);display:flex;align-items:center;gap:8px}
   .hero-note .dot{width:7px;height:7px;border-radius:50%;background:#16a34a;flex:0 0 auto}
@@ -203,7 +211,6 @@
       <span class="eyebrow">Requirements Publications</span>
       <h1 style="margin-top:14px">The accountability record for enterprise AI development.</h1>
       <p class="hero-sub">Projects don't fail at the build. They fail at "that's not what we agreed."</p>
-      <p class="lead">All parties sign the measurable definition of done. Acceptance thresholds. Requirements with fit criteria. Named approvals. One immutable baseline. One fingerprint verified outside the platform.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="#intro">Request an introduction
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
@@ -250,9 +257,17 @@
 
 <section class="block" id="how">
   <div class="wrap">
-    <div class="sec-head">
+    <div class="sec-head" style="margin-bottom:30px">
       <span class="eyebrow">How it works</span>
       <h2 style="margin-top:12px">Baseline it. Gate it. Export the record.</h2>
+      <p>All parties sign the measurable definition of done.</p>
+    </div>
+    <div class="spec">
+      <div class="spec-i"><span>01</span>Acceptance thresholds</div>
+      <div class="spec-i"><span>02</span>Requirements with fit criteria</div>
+      <div class="spec-i"><span>03</span>Named approvals</div>
+      <div class="spec-i"><span>04</span>One immutable baseline</div>
+      <div class="spec-i"><span>05</span>One fingerprint verified outside the platform</div>
     </div>
     <div class="steps">
       <div class="step">
