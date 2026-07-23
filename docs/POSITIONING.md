@@ -108,13 +108,39 @@ Gantt, RAG rollups, RAID logs, timelines, notification engines,
 auto-advancing workflows, portfolio dashboards. Each converts the record into
 a tracker and hands back the only ground that is uncontested.
 
+### The line this list draws (v2.34.0)
+
+The ban is on the platform forming a view about delivery. It is not a ban
+on the parties writing one down and signing it. A risks and issues table
+authored by the team, rendered in the document, frozen into the baseline,
+and signed by the client is record content, exactly like the gate plan
+and the acceptance thresholds. A risk register the platform keeps live,
+ages, escalates, and rolls up into a colour is a tracker.
+
+The test, applied to any proposed field:
+
+- **Who wrote the value?** A person, in the worksheet, in their own
+  words: allowed. The platform, by computing over other rows: forbidden.
+- **Does it move on its own?** If it changes without an author changing
+  it, it is a status engine and the answer is no.
+- **What does it do outside the baseline?** Nothing. Content travels in
+  the snapshot and appears wherever the snapshot appears. It never
+  aggregates across projects and never renders as a verdict.
+
+So: the risks and issues rows (v2.34.0) are permitted and shipped. A
+computed RAG rollup over them, a health verdict derived from them, a
+project-status dashboard reading them, and any auto-escalation are all
+still forbidden, and the status column is authored text for that reason -
+the moment the platform picks that word, the record has become a party
+to delivery rather than the evidence of what was agreed.
+
 ## The visual
 
 `docs/positioning.svg` - one page, two layers, four audience lines. Brand-
 neutral, names nobody, safe for any room.
 
 
-## The informed position (July 2026): the signed acceptance record for enterprise AI programs
+## The informed position (July 2026): the accountability record for enterprise AI development
 
 Adopted after two research passes over the live market. The lane above
 (record next to the tracker) stands; this section names the money flow the
@@ -122,13 +148,41 @@ record attaches to and the words the site now leads with.
 
 ### The position
 
-ReqPub is the signed acceptance record for enterprise AI programs. The
+ReqPub is the accountability record for enterprise AI development. The
 client signs a measurable definition of done: acceptance thresholds
 (dimension, metric, threshold), requirements with fit criteria and
 priorities, named approvals, one immutable fingerprinted baseline that
 verifies outside the platform. The buyer is the consulting partner or PM
 on the hook for the outcome. The beachhead is programs where a vendor's
 forward-deployed engineers build inside the client's systems.
+
+### The hero, verbatim (v2.34.0)
+
+The site leads with the category, then the failure, then the mechanism.
+This doc and the H1 must never drift; if one changes, change both.
+
+1. **H1.** The accountability record for enterprise AI development.
+2. **Subhead.** Projects don't fail at the build. They fail at "that's
+   not what we agreed."
+3. **Third line.** All parties sign the measurable definition of done.
+   Acceptance thresholds. Requirements with fit criteria. Named
+   approvals. One immutable baseline. One fingerprint verified outside
+   the platform.
+
+Why "accountability" over "acceptance" at the H1: acceptance names one
+moment at the end, and the reader who has not yet had the scope fight
+does not know he wants it. Accountability names the whole span the
+record covers, from the signed definition to the answer months later
+about who agreed to what. "Development" over "programs" for the same
+reason: it is the word the buyer uses for the work while it is
+happening. The precise phrases stay in the body, where they carry the
+mechanism: acceptance thresholds, acceptance baseline, signed
+acceptance record. The H1 sells the span; the body sells the artifact.
+
+The problem section further down no longer repeats the subhead. It now
+reads "Everyone agreed. Nobody agreed to the same thing." - the same
+diagnosis stated as the condition rather than the symptom, so the page
+does not say one sentence twice.
 
 ### The facts underneath it (sourced July 2026)
 
@@ -167,7 +221,13 @@ forward-deployed engineers build inside the client's systems.
 - That ReqPub scores, tests, monitors, or certifies an AI system.
 - Any use of "AI acceptance criteria" as a product name; that phrase
   belongs to agile ticket generators. The product phrase is "acceptance
-  record" or "acceptance baseline".
+  record" or "acceptance baseline". "Accountability record" is the
+  category line at the H1 only; it never replaces those two in the body,
+  because it names what the record is for rather than what it is.
+- That the record holds anyone accountable for delivery. It holds the
+  agreement. Accountability here is evidentiary, never managerial: the
+  record answers who agreed to what and when, and it never grades,
+  rates, or judges the party who agreed.
 
 ### Kill criteria
 

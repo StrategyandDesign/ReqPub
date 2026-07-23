@@ -34,6 +34,12 @@ export const SECTIONS = [
   // artifact, approvers the deciders, the state machine the decision; this
   // table is the plan. Content, so it prints, diffs, and versions like content.
   { key: 'gates', num: null, title: 'Gate Plan', cond: (a) => isEngagement(a) },
+  // Engagement-only, same shape as the gate plan above: authored content, so it
+  // prints, diffs, and versions like content. What the parties WROTE about the
+  // risk, not what the platform concluded about it. There is deliberately no
+  // rollup, no colour, and no derived verdict anywhere over these rows; see the
+  // never-build list in docs/POSITIONING.md for why that line is load-bearing.
+  { key: 'risks', num: null, title: 'Risks and Issues', cond: (a) => isEngagement(a) },
   { key: 'data', num: 10, title: 'Data, Privacy, and Safeguarding', cond: reqOnly },
   { key: 'interfaces', num: 11, title: 'Interfaces and Integrations', cond: reqOnly },
   { key: 'verification', num: 12, title: 'Verification and Acceptance', cond: reqOnly },
@@ -70,15 +76,17 @@ export const ENG_SECTIONS = [
 // from engagement mode hid the platform's sharpest asset from them.
 const ENG_AIEVAL = { key: 'aieval', title: 'AI Acceptance Criteria' };
 const ENG_GATES = { key: 'gates', title: 'Gate Plan' };
+const ENG_RISKS = { key: 'risks', title: 'Risks and Issues' };
 export const engSections = (a) => {
   const hasAI = a && a.has_ai === 'Yes';
   const hasGates = a && rowsFilled(a.gates).length > 0;
-  if (!hasAI && !hasGates) return ENG_SECTIONS;
+  const hasRisks = a && rowsFilled(a.risks).length > 0;
+  if (!hasAI && !hasGates && !hasRisks) return ENG_SECTIONS;
   // Order: objective, metrics, then the gate plan (the schedule of decisions),
-  // then AI acceptance (the numbers those decisions sign), then everything
-  // else - contiguous in every shape, so charters without either are
-  // byte-identical to before.
-  const mid = [...(hasGates ? [ENG_GATES] : []), ...(hasAI ? [ENG_AIEVAL] : [])];
+  // then AI acceptance (the numbers those decisions sign), then the risks and
+  // issues authored against both, then everything else - contiguous in every
+  // shape, so charters without any of the three are byte-identical to before.
+  const mid = [...(hasGates ? [ENG_GATES] : []), ...(hasAI ? [ENG_AIEVAL] : []), ...(hasRisks ? [ENG_RISKS] : [])];
   return [ENG_SECTIONS[0], ENG_SECTIONS[1], ...mid, ...ENG_SECTIONS.slice(2)]
     .map((s, i) => ({ ...s, num: i + 1 }));
 };
@@ -86,6 +94,7 @@ const ENG_TITLE2KEY = {};
 ENG_SECTIONS.forEach((s) => { ENG_TITLE2KEY[s.title] = s.key; });
 ENG_TITLE2KEY[ENG_AIEVAL.title] = ENG_AIEVAL.key;
 ENG_TITLE2KEY[ENG_GATES.title] = ENG_GATES.key;
+ENG_TITLE2KEY[ENG_RISKS.title] = ENG_RISKS.key;
 
 // The section number to display for a section key, given the document type. PRD
 // keeps its fixed numbering; an engagement renders contiguously from its layout.
@@ -143,6 +152,12 @@ export const Q = [
   { id: 'eval', sec: 'aieval', type: 'rows', prompt: 'AI evaluation criteria', help: 'For each quality dimension, state the metric, the method, a numeric threshold, and the named eval set it is measured on, with its sampling rule. A threshold without a named set can be cherry-picked; a threshold on a named set is a number the client can sign. Always include a grounding or hallucination guardrail and a safety threshold.', add: 'Add criterion', cond: (a) => a.has_ai === 'Yes', cols: [{ k: 'dim', l: 'Quality dimension', ph: 'e.g. Hallucination guardrail' }, { k: 'metric', l: 'Metric and method', ph: 'What is measured and how' }, { k: 'thresh', l: 'Threshold', ph: 'e.g. at least 95%' }, { k: 'dataset', l: 'Eval set', ph: 'e.g. acceptance-set v3 · 100 cases · fixed sample' }, { k: 'comp', l: 'Component', dyn: 'components' }] },
   { id: 'golden', sec: 'aieval', type: 'long', prompt: 'Golden dataset and red-team approach', help: 'What the labeled benchmark set covers, and how you probe for hallucination and sycophancy.', cond: (a) => a.has_ai === 'Yes' },
   { id: 'gates', sec: 'gates', type: 'rows', prompt: 'Stage gates', help: 'Each gate: what must be true, who decides, by when. Name the gate on the baseline when you generate it, and the gate packet carries the evidence into the room.', add: 'Add gate', cond: (a) => isEngagement(a), cols: [{ k: 'gate', l: 'Gate', ph: 'e.g. Requirements Baseline' }, { k: 'criteria', l: 'Criteria', ph: 'What must be true to pass' }, { k: 'decider', l: 'Deciding role', ph: 'e.g. Sponsor' }, { k: 'target', l: 'Target date', ph: 'to confirm' }] },
+  // Status is a fixed list rather than a free text box on purpose. Left open,
+  // the column fills with Red, Amber, and Green within one engagement, and a
+  // RAG vocabulary in the record is the first step toward the rollup the
+  // product must never build. These four words describe what the owner is
+  // doing about it, which is authored fact, not a health verdict.
+  { id: 'risks', sec: 'risks', type: 'rows', prompt: 'Risks and issues', help: 'What could stop this, or already has. One line each, with the person who owns it by name and where it stands. Authored by the team and signed with the baseline like everything else here: the record carries what you wrote, and never grades the engagement on top of it.', add: 'Add risk or issue', cond: (a) => isEngagement(a), cols: [{ k: 'risk', l: 'Risk or issue', ph: 'e.g. Source data access not yet granted' }, { k: 'impact', l: 'Impact', ph: 'What it costs if it lands' }, { k: 'owner', l: 'Owner', ph: 'Named person' }, { k: 'status', l: 'Status', sel: ['Open', 'Mitigating', 'Accepted', 'Closed'] }] },
 
   { id: 'data_entities', sec: 'data', type: 'rows', prompt: 'Data entities held', help: 'Each data entity the product holds and its sensitivity.', add: 'Add entity', cols: [{ k: 'entity', l: 'Data entity', ph: 'e.g. Assessment responses' }, { k: 'sens', l: 'Sensitivity', ph: 'e.g. Personal and sensitive' }] },
   { id: 'vulnerable', sec: 'data', type: 'choice', prompt: 'Does the product serve vulnerable users or collect sensitive data?', options: ['Yes', 'No'], help: 'If yes, a safeguarding response is required and needs clinical or policy sign-off.' },
@@ -457,6 +472,12 @@ function engGates(a, n) {
   return '## ' + n + '. Gate Plan\n\n' + mdTable(['Gate', 'Criteria', 'Deciding Role', 'Target'],
     g.map((r) => [r.gate || '', r.criteria || '', r.decider || 'to confirm', r.target || 'to confirm']));
 }
+function engRisks(a, n) {
+  const r = rowsFilled(a.risks);
+  if (!r.length) return null;
+  return '## ' + n + '. Risks and Issues\n\n' + mdTable(['Risk or Issue', 'Impact', 'Owner', 'Status'],
+    r.map((x) => [x.risk || '', x.impact || '', x.owner || 'to confirm', x.status || 'Open']));
+}
 function engEval(a, n) {
   if (a.has_ai !== 'Yes') return null;
   const ev = rowsFilled(a.eval);
@@ -477,6 +498,7 @@ export function assembleEngagement(sections, a) {
       case 'overview': b = engObjective(a, sec.num); break;
       case 'metrics': b = engMetrics(a, sec.num); break;
       case 'gates': b = engGates(a, sec.num); break;
+      case 'risks': b = engRisks(a, sec.num); break;
       case 'aieval': b = engEval(a, sec.num); break;
       case 'solution': b = engScope(a, sec.num); break;
       case 'adc': b = engADC(a, sec.num); break;

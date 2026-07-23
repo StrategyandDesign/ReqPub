@@ -1313,6 +1313,80 @@ grant execute on function request_submit(text, text, text) to anon, authenticate
 alter table partners add column if not exists title text not null default '';
 alter table partners add column if not exists company text not null default '';
 
+-- One partner identity per email per workspace (v2.34.0). partners carried no
+-- uniqueness on (org_id, email), so one client email could hold two identities
+-- in one workspace, each with its own partner_access grant to the same project
+-- - and every read joining partner_access -> partners -> projects returned that
+-- project once per identity, so the portal rendered it twice.
+--
+-- The merge below must precede the index: the index cannot be created while
+-- the condition it forbids still exists. Both are idempotent, so re-running
+-- schema.sql is a no-op once the table is clean. See
+-- supabase/fix-partner-identity.sql (identical content) for the live-DB patch
+-- and the full rationale on what the merge preserves.
+do $$
+declare g record; v_keep uuid; v_dups uuid[];
+begin
+  for g in
+    select org_id, lower(email) as key from partners
+    where coalesce(trim(email), '') <> ''
+    group by org_id, lower(email) having count(*) > 1
+  loop
+    select id into v_keep from partners
+    where org_id = g.org_id and lower(email) = g.key
+    order by created_at asc nulls last, id asc limit 1;
+    select array_agg(id) into v_dups from partners
+    where org_id = g.org_id and lower(email) = g.key and id <> v_keep;
+
+    -- The oldest row is often the one a manager typed; the newer one is often
+    -- the one claimed at signup. Lift user_id (and any profile text the keeper
+    -- lacks) so a merge never costs the partner their own login.
+    update partners k set
+      user_id = coalesce(k.user_id, (select d.user_id from partners d
+        where d.id = any(v_dups) and d.user_id is not null
+        order by d.created_at asc nulls last, d.id asc limit 1)),
+      name = coalesce(nullif(trim(k.name), ''), (select nullif(trim(d.name), '') from partners d
+        where d.id = any(v_dups) and coalesce(trim(d.name), '') <> ''
+        order by d.created_at asc nulls last, d.id asc limit 1)),
+      title = coalesce(nullif(trim(k.title), ''), (select nullif(trim(d.title), '') from partners d
+        where d.id = any(v_dups) and coalesce(trim(d.title), '') <> ''
+        order by d.created_at asc nulls last, d.id asc limit 1), ''),
+      company = coalesce(nullif(trim(k.company), ''), (select nullif(trim(d.company), '') from partners d
+        where d.id = any(v_dups) and coalesce(trim(d.company), '') <> ''
+        order by d.created_at asc nulls last, d.id asc limit 1), '')
+    where k.id = v_keep;
+
+    -- Access is the union of both identities' grants. Two statements because
+    -- (partner_id, project_id) is the primary key: a blind update collides on
+    -- every project both identities already reach.
+    update partner_access pa set partner_id = v_keep
+    where pa.partner_id = any(v_dups)
+      and not exists (select 1 from partner_access k
+                      where k.partner_id = v_keep and k.project_id = pa.project_id);
+    delete from partner_access where partner_id = any(v_dups);
+
+    -- Repoint history BEFORE the delete. comms.partner_id and
+    -- partner_notes.partner_id are both ON DELETE SET NULL, so deleting first
+    -- would leave every note that partner wrote unattributed and would drop it
+    -- out of partner_thread_v2, which filters on partner_id.
+    update comms set partner_id = v_keep where partner_id = any(v_dups);
+    if to_regclass('public.partner_notes') is not null then
+      execute 'update partner_notes set partner_id = $1 where partner_id = any($2)'
+        using v_keep, v_dups;
+    end if;
+
+    delete from partners where id = any(v_dups);
+  end loop;
+end $$;
+
+-- Case-insensitive: Ada@client.com and ada@client.com are one person, and that
+-- pair is exactly what the portal duplicated. Blank emails are excluded rather
+-- than collapsed - they are unclaimed placeholders, not identities, and
+-- merging them would join unrelated people.
+create unique index if not exists partners_org_email_uniq
+  on partners (org_id, lower(email))
+  where coalesce(trim(email), '') <> '';
+
 create or replace function partner_update_profile(p_name text, p_title text, p_company text)
 returns boolean language plpgsql security definer set search_path = public as $$
 begin
@@ -1332,21 +1406,29 @@ returns jsonb language sql security definer stable set search_path = public as $
   -- collaborator logo/label is a *current* property of the project, so overlay
   -- the live brand at read time (jsonb || overwrites the two keys) - a logo added
   -- after the brief was shared reaches the partner with no re-publish.
+  -- The distinct is deliberately redundant with partners_org_email_uniq above.
+  -- The index is the guarantee; this is the blast radius if that guarantee is
+  -- ever dropped, bypassed by a later migration, or defeated by an identity
+  -- path that does not exist yet. A duplicate identity should be a data
+  -- problem, never a visible defect in the client's portal.
   select coalesce(jsonb_agg(jsonb_build_object(
-    'project_id', pa.project_id,
-    'name', pr.name,
-    'payload', (select s.payload || jsonb_build_object('logo', pr.brand_logo, 'brandLabel', pr.brand_label)
+    'project_id', t.project_id,
+    'name', t.name,
+    'payload', (select s.payload || jsonb_build_object('logo', t.brand_logo, 'brandLabel', t.brand_label)
                  from shares s
-                 where s.project_id = pa.project_id and s.kind = 'brief' and s.revoked = false
+                 where s.project_id = t.project_id and s.kind = 'brief' and s.revoked = false
                  order by s.version_seq desc limit 1))), '[]'::jsonb)
-  from partner_access pa
-  join partners p on p.id = pa.partner_id
-  join projects pr on pr.id = pa.project_id
-  where p.user_id = auth.uid()
-    -- Only surface PRDs the team has actually published a brief for: a partner
-    -- should see things ready to review, not assignments still being drafted.
-    and exists (select 1 from shares s2
-                where s2.project_id = pa.project_id and s2.kind = 'brief' and s2.revoked = false);
+  from (
+    select distinct pr.id as project_id, pr.name, pr.brand_logo, pr.brand_label
+    from partner_access pa
+    join partners p on p.id = pa.partner_id
+    join projects pr on pr.id = pa.project_id
+    where p.user_id = auth.uid()
+      -- Only surface PRDs the team has actually published a brief for: a partner
+      -- should see things ready to review, not assignments still being drafted.
+      and exists (select 1 from shares s2
+                  where s2.project_id = pa.project_id and s2.kind = 'brief' and s2.revoked = false)
+  ) t;
 $$;
 grant execute on function partner_projects_v2() to authenticated;
 
@@ -1733,11 +1815,17 @@ revoke insert, update, delete on updates from authenticated, anon;
 -- Publish: seq allocated under a project lock (the create_version discipline),
 -- server-generated token, size-capped payload, activity logged. The payload
 -- arrives assembled and approved by the composer; publishing freezes it.
+-- v2.34.0 added two recipient arguments. `create or replace` cannot change an
+-- argument list - it would leave the old four-argument version in place as a
+-- second overload and make the PostgREST call ambiguous - so the previous
+-- signature is dropped explicitly first.
+drop function if exists update_publish(text, jsonb, timestamptz, text);
 create or replace function update_publish(
   p_project text, p_payload jsonb, p_window_from timestamptz default null,
-  p_prepared_by text default '')
+  p_prepared_by text default '', p_recipient_name text default '',
+  p_recipient_email text default '')
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_org uuid; v_seq integer; v_token text; v_id uuid;
+declare v_org uuid; v_seq integer; v_token text; v_id uuid; v_ver uuid;
 begin
   v_org := project_org(p_project);
   if v_org is null or not is_org_manager(v_org) then
@@ -1751,20 +1839,47 @@ begin
   end if;
   perform pg_advisory_xact_lock(hashtextextended('upd/' || p_project, 42));
   select coalesce(max(seq), 0) + 1 into v_seq from updates where project_id = p_project;
+  -- The baseline this update reported on, taken from the record rather than
+  -- from the payload the composer assembled, so the link's signature panel and
+  -- the printed footer can never point at two different versions.
+  select id into v_ver from versions where project_id = p_project order by seq desc limit 1;
   v_token := url_token();
-  insert into updates(org_id, project_id, seq, token, window_from, prepared_by, payload)
+  insert into updates(org_id, project_id, seq, token, window_from, prepared_by, payload,
+                      version_id, recipient_name, recipient_email)
   values (v_org, p_project, v_seq, v_token, p_window_from,
-          left(coalesce(trim(p_prepared_by), ''), 120), p_payload)
+          left(coalesce(trim(p_prepared_by), ''), 120), p_payload, v_ver,
+          left(coalesce(trim(p_recipient_name), ''), 120),
+          left(coalesce(trim(p_recipient_email), ''), 200))
   returning id into v_id;
   perform log_activity(v_org, p_project, 'update.published', 'update', v_id::text,
     'Weekly update #' || v_seq || ' published', jsonb_build_object('seq', v_seq));
   return jsonb_build_object('ok', true, 'id', v_id, 'seq', v_seq, 'token', v_token);
 end; $$;
-grant execute on function update_publish(text, jsonb, timestamptz, text) to authenticated;
+grant execute on function update_publish(text, jsonb, timestamptz, text, text, text) to authenticated;
 
 -- Everything the client's page needs, keyed by token. Revoked rows return
 -- a marker instead of the payload, so the page can say "withdrawn" plainly
 -- rather than pretending the link never existed.
+-- v2.34.0: the page is now a panel, and every panel below is a READ of state
+-- that already exists elsewhere in the record.
+--
+--   signatures  every signature request on this update's baseline, pending and
+--               completed, each carrying its own sign token so the recipient
+--               lands on the real sign page rather than an approval built into
+--               this link. Authorization happens at #sign/<token>, on the exact
+--               baseline, through the machinery that already produces evidence.
+--               Revoked requests are omitted: a revoked link is not a pending
+--               signature and showing it would invite a dead click.
+--   baselines   every baseline of this project, newest first, with a read-only
+--               present-mode token WHERE ONE HAS ALREADY BEEN PUBLISHED and a
+--               fingerprint WHERE ONE HAS ALREADY BEEN RECORDED. This function
+--               mints no share tokens and computes no fingerprints. Publishing
+--               a baseline to a link is a manager's disclosure decision, and
+--               reading an update must never make it on their behalf; a
+--               fingerprint is a fact captured at a moment, and inventing one
+--               here would put an unverified hash next to a signature.
+--   recipient   who the link was issued to. Drives attribution on comments and
+--               nothing else.
 create or replace function update_context(p_token text)
 returns jsonb language sql security definer set search_path = public as $$
   select case when u.revoked then
@@ -1775,7 +1890,37 @@ returns jsonb language sql security definer set search_path = public as $$
       'project', p.name, 'logo', p.brand_logo, 'brandLabel', p.brand_label,
       'seq', u.seq, 'preparedBy', u.prepared_by,
       'windowFrom', u.window_from, 'windowTo', u.window_to,
-      'publishedAt', u.published_at, 'payload', u.payload)
+      'publishedAt', u.published_at, 'payload', u.payload,
+      'recipient', jsonb_build_object('name', u.recipient_name, 'email', u.recipient_email),
+      -- The project id is already client-visible: every present-mode link the
+      -- team shares carries it in the URL. The panel needs it to build those
+      -- same links, and it exposes nothing a shared baseline has not already.
+      'projectId', u.project_id,
+      'baselineLabel', (select v.label from versions v where v.id = u.version_id),
+      'signatures', coalesce((
+        select jsonb_agg(jsonb_build_object(
+                 'token', r.token, 'email', r.signer_email, 'name', r.signer_name,
+                 'role', r.signer_role, 'status', r.status,
+                 'sentAt', r.sent_at, 'signedAt', r.signed_at, 'signedName', r.signed_name)
+                 order by r.sent_at)
+        from sign_requests r
+        where r.version_id = u.version_id and r.revoked = false), '[]'::jsonb),
+      'baselines', coalesce((
+        select jsonb_agg(b order by b.seq desc) from (
+          select v.seq, v.label, v.status, v.created_at,
+            (select s.token from shares s
+              where s.project_id = v.project_id and s.kind = 'present'
+                and s.version_seq = v.seq and s.revoked = false
+              order by s.updated_at desc limit 1) as "presentToken",
+            coalesce(
+              (select r.doc_fingerprint from sign_requests r
+                where r.version_id = v.id and coalesce(r.doc_fingerprint, '') <> ''
+                order by r.sent_at desc limit 1),
+              (select u2.payload #>> '{baseline,fp}' from updates u2
+                where u2.version_id = v.id and u2.payload #>> '{baseline,fp}' is not null
+                order by u2.seq desc limit 1),
+              '') as fingerprint
+          from versions v where v.project_id = u.project_id) b), '[]'::jsonb))
   end
   from updates u
   join projects p on p.id = u.project_id
@@ -1797,6 +1942,63 @@ begin
   return true;
 end; $$;
 grant execute on function update_revoke(uuid) to authenticated;
+
+-- A comment from the update link. It lands in comms as external input, filed
+-- against the same baseline the update reported on, and it is the ONLY thing
+-- the token page writes.
+--
+-- Attribution is the recipient the token was issued to, never anonymous and
+-- never typed by the sender: the box has no name field, so the name on the
+-- record is the one the manager addressed the link to. A link issued with no
+-- recipient at all therefore cannot accept comments - refusing is correct,
+-- because an unattributed comment on an accountability record is worse than
+-- no comment. That is also why the token is not shareable as a comment
+-- channel: whoever it is forwarded to still writes as the named recipient,
+-- which is exactly the property the record needs and the reason the composer
+-- asks for a name.
+--
+-- What it is not: an approval, an authorization, or a change to the
+-- agreement. It is a message. It becomes part of the record only if a manager
+-- promotes it, through the same promotion path as every other inbound note.
+create or replace function update_comment(p_token text, p_body text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare u updates%rowtype; v_name text; v_title text; v_n int; v_ref text;
+        v_seq integer; v_id uuid;
+begin
+  select * into u from updates where token = p_token and revoked = false;
+  if u.id is null then return jsonb_build_object('ok', false, 'error', 'invalid_link'); end if;
+  if coalesce(trim(p_body), '') = '' or length(p_body) > 20000 then
+    return jsonb_build_object('ok', false, 'error', 'bad_body');
+  end if;
+  v_name := coalesce(nullif(trim(u.recipient_name), ''), nullif(trim(u.recipient_email), ''));
+  if v_name is null then return jsonb_build_object('ok', false, 'error', 'no_recipient'); end if;
+
+  -- A self-describing headline from the first line, so no two comments read
+  -- the same in the inbox (the partner_post convention).
+  v_title := left(regexp_replace(split_part(btrim(p_body), E'\n', 1), '\s+', ' ', 'g'), 72);
+  if length(v_title) < length(regexp_replace(btrim(p_body), '\s+', ' ', 'g')) then
+    v_title := v_title || '…';
+  end if;
+  if v_title = '' then v_title := 'Update comment'; end if;
+
+  -- Shares the monotonic per-project note counter, so a reference is never
+  -- reused across the two external note paths.
+  update projects set partner_note_seq = partner_note_seq + 1
+    where id = u.project_id returning partner_note_seq into v_n;
+  v_ref := 'UC-' || v_n;
+
+  select seq into v_seq from versions where id = u.version_id;
+  insert into comms(org_id, project_id, origin, version_seq, author_name, author_email,
+                    title, body, ref)
+  values (u.org_id, u.project_id, 'update', v_seq, v_name, u.recipient_email,
+          v_title, p_body, v_ref)
+  returning id into v_id;
+  perform log_activity(u.org_id, u.project_id, 'comm.received', 'comm', v_id::text,
+    v_ref || ' from ' || v_name || ' on update no. ' || u.seq,
+    jsonb_build_object('ref', v_ref, 'update_seq', u.seq));
+  return jsonb_build_object('ok', true, 'ref', v_ref, 'author', v_name);
+end; $$;
+grant execute on function update_comment(text, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 17. Firm templates (v2.30.0). The standing structure of an engagement,
@@ -2113,3 +2315,64 @@ revoke execute on function walkthrough_image_access(text, uuid) from public;
 do $$ begin
   execute 'grant execute on function walkthrough_image_access(text, uuid) to service_role';
 exception when undefined_object then null; end $$;
+
+-- ----------------------------------------------------------------------------
+-- 21) Notes at a baseline + the update panel (v2.34.0)
+--     Two related moves, both of which keep the record the only source of
+--     record state:
+--
+--     a. discovery_entries gains version_seq, the column comms has carried
+--        since v2. A note or a discovery entry is now filed against the
+--        baseline that was current when it was written, so "what was said
+--        around v1.3" is answerable without inference. The stamp is metadata
+--        ABOUT a note, never content IN a baseline: snapshots still contain
+--        only answers and sections, and promotion remains the only path by
+--        which a note becomes part of the agreement.
+--
+--     b. update_context grows from "the frozen digest" into a view onto the
+--        record around it: the signature requests on the update's baseline,
+--        the prior baselines with their recorded fingerprints, and a comment
+--        box attributed to the named recipient. Every one of those is a READ
+--        of state that already exists. The single exception is the comment,
+--        which is an inbound message, not record state - it lands in comms
+--        exactly like a reviewer's note and changes nothing about the
+--        agreement until a manager promotes it.
+-- ----------------------------------------------------------------------------
+
+-- a) Parity with comms.
+alter table discovery_entries add column if not exists version_seq integer;
+create index if not exists disc_ver on discovery_entries(project_id, version_seq)
+  where version_seq is not null;
+create index if not exists comms_ver on comms(project_id, version_seq)
+  where version_seq is not null;
+
+-- b) The update row learns which baseline it reported on and who it was for.
+-- version_id is stamped server-side from the project's newest baseline at
+-- publish, so it cannot disagree with the seq the composer used. The recipient
+-- is the attribution for any comment that arrives back through the link; a
+-- link issued to nobody accepts no comments (see update_comment).
+alter table updates add column if not exists version_id uuid references versions(id) on delete set null;
+alter table updates add column if not exists recipient_name text not null default '';
+alter table updates add column if not exists recipient_email text not null default '';
+
+-- A comment from an update link is external input, and the inbox should say so
+-- rather than disguising it as a reviewer or a client contact. The origin
+-- vocabulary is additive; every existing value keeps its meaning.
+alter table comms drop constraint if exists comms_origin_check;
+alter table comms add constraint comms_origin_check
+  check (origin in ('app','brief','sme','partner','team','meeting','update'));
+
+-- The external-origin flag now covers it, so an update comment raises the same
+-- "new reply" signal to the team as any other outside voice.
+create or replace function comms_flag_external()
+returns trigger language plpgsql as $$
+begin
+  if new.origin in ('app','brief','sme','partner','update')
+     and (coalesce(new.body,'') <> '' or coalesce(new.verdict,'') <> '' or coalesce(new.steps,'') <> '') then
+    new.last_ext_at := coalesce(new.last_ext_at, now());
+  end if;
+  return new;
+end; $$;
+drop trigger if exists comms_flag_external_t on comms;
+create trigger comms_flag_external_t before insert on comms
+  for each row execute function comms_flag_external();

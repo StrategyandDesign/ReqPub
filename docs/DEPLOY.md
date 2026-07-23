@@ -89,3 +89,31 @@ Approved - because a pill saying Draft above a row saying Approved was a
 hand-maintained status contradicting the record. Deriving status from
 decisions is record truth; moving work items along a pipeline is a
 tracker. The wall separates those two, not automation from typing.
+
+The risks and issues rows (v2.34.0) are admitted by the same test, and
+they are worth spelling out because at first glance they look like the
+RAID log the list forbids. They are not, and the difference is not
+subtle. A RAID log is a register the platform maintains beside the
+record, ages, escalates, and rolls up into a colour; it can drift from
+what the parties signed and it forms the platform's own view about
+delivery. These rows are worksheet content: a person authors them, the
+client signs them, and they freeze into the baseline with everything
+else. Read "nothing is hand-maintained" above as what it means - the
+weekly update digest has no typed lines - not as a claim that the record
+holds no typed content. Every acceptance threshold and every gate in the
+product was typed by somebody. The three questions that separate the two
+cases, in full in `docs/POSITIONING.md`: who wrote the value, does it
+move without an author moving it, and what does it do outside the
+baseline. Content answers person, no, and nothing.
+
+The status column on those rows is a fixed list - Open, Mitigating,
+Accepted, Closed - rather than a free text box, and that is a doctrine
+decision rather than a UI one. Left open, the column fills with Red and
+Amber inside a single engagement, and once RAG vocabulary is in the
+record somebody will reasonably ask for the rollup that summarizes it.
+The words were chosen to describe what the owner is doing, which is
+authored fact, instead of how the project is faring, which is a verdict.
+Still forbidden over these rows, on any pull: a computed RAG rollup, a
+health verdict, a project-status dashboard, and any auto-escalation. The
+moment the platform picks the word in that column, the record has become
+a party to delivery instead of the evidence of what was agreed.

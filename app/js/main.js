@@ -462,6 +462,16 @@ async function ensureSnapshot(seq) {
   if (s) { APP.snapshots[seq] = s; scheduleRender('snapshot'); }
 }
 
+/* The baseline a note or discovery entry is being written against: the newest
+   version that exists right now, or null before the first one. Stamped at
+   creation and never recomputed, so "what was said around v1.3" stays true
+   after v1.4 exists. This is metadata ABOUT the note. It puts nothing inside
+   the snapshot, and it promotes nothing into the agreement. */
+function baselineSeq() {
+  const vs = APP.versions || [];
+  return vs.length ? vs.reduce((m, v) => (v.seq > m ? v.seq : m), vs[0].seq) : null;
+}
+
 /* ---------------- generate version ---------------- */
 async function generateVersion() {
   const g = APP.gen;
@@ -1412,7 +1422,8 @@ async function handleAction(a, id, t, e) {
       const cbody = c.body || '';
       await repo.addDiscovery({
         org_id: APP.orgId, project_id: APP.pid, takeaway: c.title || cbody.slice(0, 120) || '(no text)',
-        notes: cbody, who: c.author_name, source: 'Promoted from ' + c.origin, author_name: (APP.ctx && APP.ctx.display_name) || ''
+        notes: cbody, who: c.author_name, source: 'Promoted from ' + c.origin, author_name: (APP.ctx && APP.ctx.display_name) || '',
+        version_seq: c.version_seq != null ? c.version_seq : baselineSeq()
       });
       await repo.setCommFields(id, { promoted_to: 'discovery' });
       c.promoted_to = 'discovery';
@@ -1510,7 +1521,7 @@ async function handleAction(a, id, t, e) {
         org_id: APP.orgId, project_id: APP.pid, origin,
         author_name: origin === 'team' ? ((APP.ctx && APP.ctx.display_name) || 'Team') : (APP.noteBy || (origin === 'sme' ? 'SME' : 'Meeting')),
         author_user: APP.user.id, title: origin === 'team' ? 'Note' : origin === 'sme' ? 'SME note' : 'Meeting note',
-        body, status: 'new'
+        body, status: 'new', version_seq: baselineSeq()
       });
       if (r.error) { toast('Could not save note'); break; }
       if (!APP.comms.some((c) => c.id === r.data.id)) APP.comms.unshift(r.data);
@@ -1570,7 +1581,8 @@ async function handleAction(a, id, t, e) {
       const r = await repo.addDiscovery({
         org_id: APP.orgId, project_id: APP.pid, takeaway: d.takeaway.trim(),
         notes: (d.notes || '').trim(), who: (d.who || '').trim(), source: (d.source || '').trim(),
-        tags: (d.tags || '').trim(), author_name: (APP.ctx && APP.ctx.display_name) || ''
+        tags: (d.tags || '').trim(), author_name: (APP.ctx && APP.ctx.display_name) || '',
+        version_seq: baselineSeq()
       });
       if (r.error) { toast('Could not add entry'); break; }
       if (!APP.discovery.some((x) => x.id === r.data.id)) APP.discovery.unshift(r.data);
@@ -1773,7 +1785,8 @@ async function handleAction(a, id, t, e) {
       }
       APP.upd.busy = true; render();
       try {
-        const r = await repo.updatePublish(APP.pid, payload, d.window.from, val('updprep').trim());
+        const r = await repo.updatePublish(APP.pid, payload, d.window.from, val('updprep').trim(),
+          val('updrecip').trim(), val('updrecipemail').trim());
         const out = r.data;
         if (!out || !out.ok) { toast(out && out.error === 'forbidden' ? 'Only a manager can publish an update' : 'Could not publish - try again'); break; }
         APP.upd = null;
@@ -1803,6 +1816,30 @@ async function handleAction(a, id, t, e) {
       if (!area) break;
       area.innerHTML = updateArtifactHTML(g);
       window.print();
+      break;
+    }
+    /* ---- update panel: the one write the token page performs ---- */
+    case 'updcommentsend': {
+      const f = APP.shareForm || (APP.shareForm = {});
+      if (f.commentBusy) break;
+      const body = val('updcommentbox').trim();
+      if (!body) { toast('Write something first'); break; }
+      f.comment = body; f.commentBusy = true; render();
+      try {
+        const r = await repo.updateComment(APP.shareToken, body);
+        const out = r.data;
+        if (out && out.ok) {
+          f.commentSent = true; f.commentRef = out.ref; f.comment = '';
+          toast('Comment sent to the team');
+        } else {
+          // no_recipient means the link was issued without a name, so there is
+          // nobody to attribute the comment to. The box should not have
+          // rendered; say so plainly rather than filing it anonymously.
+          toast(out && out.error === 'no_recipient'
+            ? 'This link cannot take comments - ask your contact to reissue it'
+            : 'Could not send - try again');
+        }
+      } finally { f.commentBusy = false; render(); }
       break;
     }
     /* ---- e-sign v1: the signer's page ---- */

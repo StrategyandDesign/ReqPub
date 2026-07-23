@@ -302,17 +302,23 @@ export const repo = {
   sendSignReceipt(token) {
     return sb.functions.invoke('send-sign-receipt', { body: { token } });
   },
-  updatePublish(pid, payload, windowFrom, preparedBy) {
-    return rpc('update_publish', { p_project: pid, p_payload: payload, p_window_from: windowFrom, p_prepared_by: preparedBy });
+  updatePublish(pid, payload, windowFrom, preparedBy, recipientName, recipientEmail) {
+    return rpc('update_publish', { p_project: pid, p_payload: payload, p_window_from: windowFrom, p_prepared_by: preparedBy,
+      p_recipient_name: recipientName || '', p_recipient_email: recipientEmail || '' });
   },
   async updatesFor(pid) {
     const r = await durable(() => sb.from('updates')
-      .select('id,seq,token,window_from,window_to,prepared_by,payload,published_at,revoked')
+      .select('id,seq,token,window_from,window_to,prepared_by,payload,published_at,revoked,recipient_name,recipient_email')
       .eq('project_id', pid).order('seq', { ascending: false }));
     return r.data || [];
   },
   updateContext(token) {
     return rpc('update_context', { p_token: token });
+  },
+  // The one write the update link performs. Attribution is server-side, from
+  // the recipient the token was issued to, so nothing here carries a name.
+  updateComment(token, body) {
+    return rpc('update_comment', { p_token: token, p_body: body });
   },
   updateRevoke(id) {
     return rpc('update_revoke', { p_id: id });

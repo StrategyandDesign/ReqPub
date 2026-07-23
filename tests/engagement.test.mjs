@@ -206,4 +206,46 @@ test('gates and AI acceptance stack: plan at 3, the signed numbers at 4, contigu
   assert.equal(docSecNum(both, 'aieval'), 4);
 });
 
+/* ---- risks and issues: authored record content, never a rollup ---- */
+const riskRows = { risks: [
+  { id: 'r1', k: 1, data: { risk: 'Source data access not yet granted', impact: 'Slips the eval window a week', owner: 'Ada Lovelace', status: 'Open' }, pos: 1, rev: 1 },
+  { id: 'r2', k: 2, data: { risk: 'Second reviewer unnamed', impact: 'No sign-off path at Gate V', owner: '', status: 'Mitigating' }, pos: 2, rev: 1 },
+] };
+const riskAnswers = base({ ctrl_type: { value: ENGAGEMENT } }, riskRows);
+const riskDoc = assemble(buildSections(riskAnswers, '1.0', versions), riskAnswers);
+
+test('risks render in the charter as an authored table', () => {
+  assert.ok(riskDoc.includes('## 3. Risks and Issues'), 'section is numbered into the charter');
+  ['Risk or Issue', 'Impact', 'Owner', 'Status'].forEach((h) => assert.ok(riskDoc.includes(h), 'missing column ' + h));
+  assert.ok(riskDoc.includes('Source data access not yet granted'));
+  assert.ok(riskDoc.includes('Ada Lovelace'));
+  assert.ok(!engDoc.includes('Risks and Issues'), 'a charter with no risks is untouched');
+});
+
+test('an unowned risk says to confirm rather than inventing an owner', () => {
+  assert.ok(riskDoc.includes('to confirm'), 'blank owner falls back to to confirm');
+});
+
+test('risks travel in the answers, so they travel in the baseline', () => {
+  assert.equal(riskAnswers.risks.length, 2);
+  assert.equal(riskAnswers.risks[0].status, 'Open');
+});
+
+test('the three optional sections stack contiguously: gates 3, acceptance 4, risks 5', () => {
+  const all3 = base(
+    { ctrl_type: { value: ENGAGEMENT }, has_ai: { value: 'Yes' } },
+    { ...gateRows, ...riskRows, eval: [{ id: 'e', k: 1, data: { dim: 'Guardrail', metric: 'Rate', thresh: '95%' }, pos: 1, rev: 1 }] }
+  );
+  const doc = assemble(buildSections(all3, '1.0', versions), all3);
+  ['## 3. Gate Plan', '## 4. AI Acceptance Criteria', '## 5. Risks and Issues', '## 6. Scope and Approach', '## 11. Revision History']
+    .forEach((h) => assert.ok(doc.includes(h), 'missing ' + h));
+  assert.equal(docSecNum(all3, 'risks'), 5);
+});
+
+test('risks stay out of the PRD path, exactly like the gate plan', () => {
+  const prdWithRisks = base({}, riskRows);
+  const doc = assemble(buildSections(prdWithRisks, '1.0', versions), prdWithRisks);
+  assert.ok(!doc.includes('Risks and Issues'), 'engagement-only, like gates');
+});
+
 console.log('\nengagement.test: ' + n + '/' + n + ' passed');

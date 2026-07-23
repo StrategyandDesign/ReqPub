@@ -537,6 +537,77 @@ export function updateArtifactHTML(g) {
     ' · this link always renders exactly this update</div></div>';
 }
 
+/* ---------------- the update panel (v2.34.0) ----------------
+   Everything below the published artifact is a VIEW onto the record, not a
+   second copy of it and not a place record state begins. Signatures link out
+   to the real sign page. Baselines link out to read-only presentation links
+   that already exist. The comment box files a message into the inbox and
+   changes nothing about the agreement. Nothing here approves, authorizes, or
+   edits; the panel's whole job is to make the record reachable from the
+   client's ten-second read. */
+function updSignaturesHTML(g) {
+  const sigs = g.signatures || [];
+  if (!sigs.length) return '';
+  const label = g.baselineLabel ? 'v' + esc(g.baselineLabel) : 'this baseline';
+  const row = (s) => {
+    const done = s.status === 'signed';
+    const declined = s.status === 'declined';
+    const state = done ? 'Signed ' + esc(updFmtDay(s.signedAt)) + (s.signedName ? ' as ' + esc(s.signedName) : '')
+      : declined ? 'Declined'
+        : 'Awaiting signature';
+    const color = done ? 'var(--ok,#1a7f4b)' : declined ? '#a13030' : 'var(--ink-4)';
+    return '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--line);font-size:13px">' +
+      '<span style="flex:1;min-width:0"><strong>' + esc(s.name || s.email || 'Signer') + '</strong>' +
+      (s.role ? ' <span style="color:var(--ink-4)">· ' + esc(s.role) + '</span>' : '') +
+      '<div style="font-size:11.5px;color:' + color + ';margin-top:1px">' + state + '</div></span>' +
+      '<a class="btn btn-sec btn-sm" href="#sign/' + escA(s.token) + '" style="font-size:11.5px;flex:0 0 auto">' +
+      (done ? 'View receipt' : declined ? 'Open' : 'Open to sign') + '</a></div>';
+  };
+  return '<div class="card" style="padding:18px 20px;margin-top:14px">' +
+    '<div class="eyebrow" style="font-size:9px;margin-bottom:3px">Signatures on ' + label + '</div>' +
+    sigs.map(row).join('') +
+    '<div style="font-size:11px;color:var(--ink-4);margin-top:9px;line-height:1.55">Each link opens the signature page for that person, on the exact baseline. Signing happens there, never here.</div></div>';
+}
+
+function updBaselinesHTML(g) {
+  const bs = (g.baselines || []).filter((b) => b.presentToken || b.fingerprint);
+  if (!bs.length) return '';
+  // Same shape the team's own present links use: #present/pid/seq/token.
+  const pLink = (b) => '#present/' + encodeURIComponent(g.projectId || '') + '/' + b.seq + '/' + encodeURIComponent(b.presentToken);
+  const fp = (h) => 'sha256:' + String(h).slice(0, 12) + '\u2026';
+  const row = (b) => '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--line);font-size:13px">' +
+    '<span class="mono" style="font-weight:600;flex:0 0 auto">v' + esc(b.label) + '</span>' +
+    '<span style="flex:1;min-width:0;color:var(--ink-4);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+    (b.fingerprint ? '<span class="mono">' + esc(fp(b.fingerprint)) + '</span>' : 'no fingerprint recorded') + '</span>' +
+    (b.presentToken
+      ? '<a class="btn btn-ghost btn-sm" href="' + escA(pLink(b)) + '" style="font-size:11.5px;flex:0 0 auto">Read</a>'
+      : '<span style="font-size:11px;color:var(--ink-4);flex:0 0 auto">not published</span>') + '</div>';
+  return '<div class="card" style="padding:18px 20px;margin-top:14px">' +
+    '<div class="eyebrow" style="font-size:9px;margin-bottom:3px">Baselines</div>' +
+    bs.map(row).join('') +
+    '<div style="font-size:11px;color:var(--ink-4);margin-top:9px;line-height:1.55">Read-only copies of what was agreed at each baseline. The fingerprint is the one recorded when that baseline was sent for signature; it identifies the exact document and verifies outside this platform.</div></div>';
+}
+
+function updCommentHTML(APP, g) {
+  const who = (g.recipient || {}).name || '';
+  if (!who) return '';
+  const f = APP.shareForm || {};
+  if (f.commentSent) {
+    return '<div class="card" style="padding:18px 20px;margin-top:14px;border-left:3px solid var(--brand)">' +
+      '<div style="font-size:13.5px;font-weight:620;margin-bottom:3px">Comment sent</div>' +
+      '<div style="font-size:12.5px;color:var(--ink-3);line-height:1.55">It reached the team\u2019s inbox' +
+      (f.commentRef ? ' as ' + esc(f.commentRef) : '') + ', recorded under your name. It is a message on the record, not a change to it.</div></div>';
+  }
+  return '<div class="card" style="padding:18px 20px;margin-top:14px">' +
+    '<div class="eyebrow" style="font-size:9px;margin-bottom:6px">Comment</div>' +
+    '<textarea class="input" id="updcommentbox" rows="3" placeholder="Anything you want on the record about this update" style="font-size:13px;resize:vertical;min-height:64px;line-height:1.5">' + esc(f.comment || '') + '</textarea>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap">' +
+    '<span style="font-size:11px;color:var(--ink-4)">Recorded as <strong>' + esc(who) + '</strong>.</span>' +
+    '<button class="btn btn-primary btn-sm" data-action="updcommentsend"' + (f.commentBusy ? ' disabled' : '') + '>' +
+    (f.commentBusy ? 'Sending\u2026' : 'Send comment') + '</button></div>' +
+    '<div style="font-size:11px;color:var(--ink-4);margin-top:8px;line-height:1.55">This is a message, not an approval. Nothing you write here changes the agreement. To authorize anything, use a signature link above.</div></div>';
+}
+
 export function renderUpdatePage(APP) {
   const g = APP.updatePage;
   if (!g || !g.ok) return wrap(invalidCard('update'), 720);
@@ -545,5 +616,6 @@ export function renderUpdatePage(APP) {
     '<div style="color:var(--ink-3);font-size:14px;line-height:1.5">The team replaced it. Ask your contact for the current one.</div></div>', 720);
   const bar = '<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px">' +
     '<button class="btn btn-sec btn-sm" data-action="updprint">' + ico(IC.print, 'i-sm') + 'Print / save PDF</button></div>';
-  return wrap(bar + updateArtifactHTML(g), 720);
+  return wrap(bar + updateArtifactHTML(g) +
+    updSignaturesHTML(g) + updBaselinesHTML(g) + updCommentHTML(APP, g), 720);
 }

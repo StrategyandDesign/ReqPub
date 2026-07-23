@@ -584,6 +584,35 @@ function renderVersions(APP) {
         '<button class="btn btn-sec btn-sm" data-action="signsend" data-id="' + escA(v.id) + '" data-seq="' + v.seq + '"' + (APP.signSendBusy ? ' disabled' : '') + '>' + (APP.signSendBusy ? 'Sending…' : 'Request signature') + '</button></div>' +
         '<div class="hint" style="font-size:10.5px;margin-top:5px">Sends a private link to sign this exact baseline. The signature lands above as a named sign-off with a timestamp and audit trail, and the link stays live as the signer\u2019s archive copy. Recorded e-signature; cryptographic sealing is the next phase.</div></div>'
       : '';
+    // What was said around this baseline: comms and discovery entries stamped
+    // with this version_seq at the moment they were written. Read only, and
+    // deliberately so - the snapshot above contains answers and sections and
+    // nothing else, and promotion stays the only path by which any of this
+    // becomes part of the agreement. There is no control here to include a
+    // note in the baseline, because that control would make the baseline
+    // mean something other than what the parties signed.
+    const atComms = (APP.comms || []).filter((c) => c.version_seq === v.seq);
+    const atDisc = (APP.discovery || []).filter((d) => d.version_seq === v.seq);
+    const noteLine = (pill, color, title, who, at) =>
+      '<div style="display:flex;align-items:baseline;gap:7px;padding:5px 0;border-top:1px solid var(--line);font-size:12px">' +
+      '<span class="pill" style="height:17px;font-size:9px;padding:0 5px;flex:0 0 auto;border-color:' + color + ';color:' + color + '">' + esc(pill) + '</span>' +
+      '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(title || '(untitled)') + '</span>' +
+      '<span style="color:var(--ink-4);font-size:10.5px;flex:0 0 auto">' + esc(who || '') + (at ? ' · ' + esc(relTime(at)) : '') + '</span></div>';
+    const atTotal = atComms.length + atDisc.length;
+    const atRows = atTotal
+      ? atComms.slice(0, 5).map((c) => noteLine(ORIGIN_LABEL[c.origin] || c.origin, srcColor(c.origin), c.title || c.body, c.author_name, c.created_at)).join('') +
+        atDisc.slice(0, 5).map((d) => noteLine('Discovery', 'var(--ink-3)', d.takeaway, d.author_name || d.who, d.created_at)).join('') +
+        (atComms.length > 5 || atDisc.length > 5
+          ? '<div style="font-size:10.5px;color:var(--ink-4);padding-top:5px">and ' +
+            ((atComms.length > 5 ? atComms.length - 5 : 0) + (atDisc.length > 5 ? atDisc.length - 5 : 0)) +
+            ' more filed at this baseline</div>' : '')
+      : '';
+    const notesPanel = atRows
+      ? '<div style="border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:9px;background:var(--bg)">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px"><span class="eyebrow" style="font-size:9px">Notes at this baseline</span>' +
+        '<span style="font-size:10px;color:var(--ink-4)">' + atTotal + (atTotal === 1 ? ' entry' : ' entries') + '</span></div>' + atRows +
+        '<div class="hint" style="font-size:10.5px;margin-top:6px">Filed against v' + esc(v.label) + ' when they were written. They sit next to the baseline, never inside it: the snapshot holds answers and sections only. Promote a note to make it part of the agreement.</div></div>'
+      : '';
     const signPanel = (signRows || signForm)
       ? '<div style="border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:9px;background:var(--bg)">' +
         '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (signRows ? '2px' : '0') + '"><span class="eyebrow" style="font-size:9px">Signatures</span></div>' +
@@ -603,7 +632,7 @@ function renderVersions(APP) {
       ((APP.fingers || {})[v.id] ? esc(fmtFingerprint(APP.fingers[v.id])) + ' · copied' : 'Fingerprint') + '</button></div>' +
       ((apprRows || addAppr || tbtns) ? '<div style="border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-top:9px;background:var(--bg)">' +
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:' + (apprRows || addAppr ? '7px' : '0') + '"><span class="eyebrow" style="font-size:9px">Approval workflow</span><div style="flex:1"></div>' + tbtns + '</div>' +
-        apprRows + addAppr + '</div>' : '') + signPanel +
+        apprRows + addAppr + '</div>' : '') + signPanel + notesPanel +
       '</div>';
   }).join('');
   return '<div class="page" style="max-width:560px"><h2 style="font-size:20px;letter-spacing:-.02em;font-weight:620;margin:0 0 6px">Version history</h2>' +
@@ -727,6 +756,11 @@ export function renderUpdates(APP, a) {
       '<div class="eyebrow" style="font-size:9px;margin:12px 0 5px">Open on the record - derived, not editable here; fix the record to change it</div>' + (openRows || '<div style="font-size:12px;color:var(--ink-3)">Nothing open.</div>') +
       '<div class="eyebrow" style="font-size:9px;margin:12px 0 5px">Next - one sentence in your voice</div>' +
       '<input class="input" id="updnext" placeholder="e.g. Gate V authorization, then the observation window locks" style="height:30px;font-size:12.5px;width:100%">' +
+      '<div class="eyebrow" style="font-size:9px;margin:12px 0 5px">Issued to - the name every comment on this link is recorded under</div>' +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<input class="input" id="updrecip" value="' + escA((last && last.recipient_name) || '') + '" placeholder="Recipient\u2019s name" style="height:30px;font-size:12.5px;flex:1;min-width:150px">' +
+      '<input class="input" id="updrecipemail" value="' + escA((last && last.recipient_email) || '') + '" placeholder="Their email (optional)" style="height:30px;font-size:12.5px;flex:1;min-width:150px"></div>' +
+      '<div style="font-size:10.5px;color:var(--ink-4);margin-top:5px">Leave the name blank and the link is read only: the comment box does not appear, because an unattributed comment on this record is worse than none.</div>' +
       '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">' +
       '<input class="input" id="updprep" value="' + escA((last && last.prepared_by) || (APP.ctx && APP.ctx.display_name) || '') + '" placeholder="Prepared by" style="height:30px;font-size:12.5px;flex:1;min-width:150px">' +
       '<button class="btn btn-primary btn-sm" data-action="updpublish"' + (APP.upd.busy ? ' disabled' : '') + '>' + (APP.upd.busy ? 'Publishing\u2026' : 'Publish and copy link') + '</button>' +

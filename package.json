@@ -1,12 +1,12 @@
 {
   "name": "reqpub",
-  "version": "2.33.1",
+  "version": "2.34.0",
   "private": true,
   "type": "module",
   "description": "ReqPub - discovery to versioned, approved, testable requirements. Static frontend (GitHub Pages) + Supabase backend.",
   "scripts": {
     "test": "node tests/domain.test.mjs && node tests/sync.test.mjs && node tests/share.test.mjs && node tests/msgdedup.test.mjs && node tests/engagement.test.mjs && node tests/health.test.mjs && node tests/templates.test.mjs && node tests/fingerprint.test.mjs && node tests/views.test.mjs && node tests/projdedup.test.mjs && node tests/zipstore.test.mjs && node tests/implpkg.test.mjs && node tests/intake.test.mjs && node tests/update.test.mjs",
-    "test:backend": "node tests/backend-e2e/run.mjs && node tests/backend-e2e/brand-overlay.test.mjs && node tests/backend-e2e/sme-workspace.test.mjs && node tests/backend-e2e/attachments.test.mjs && node tests/backend-e2e/partner-notes.test.mjs && node tests/backend-e2e/approvals.test.mjs && node tests/backend-e2e/seed-prds.test.mjs && node tests/backend-e2e/deploy-fathering.test.mjs && node tests/backend-e2e/new-reply.test.mjs && node tests/backend-e2e/discovery-promote.test.mjs && node tests/backend-e2e/version-integrity.test.mjs && node tests/backend-e2e/esign.test.mjs && node tests/backend-e2e/name-sync.test.mjs && node tests/backend-e2e/updates.test.mjs && node tests/backend-e2e/record-templates.test.mjs && node tests/backend-e2e/walkthrough.test.mjs",
+    "test:backend": "node tests/backend-e2e/run.mjs && node tests/backend-e2e/brand-overlay.test.mjs && node tests/backend-e2e/sme-workspace.test.mjs && node tests/backend-e2e/attachments.test.mjs && node tests/backend-e2e/partner-notes.test.mjs && node tests/backend-e2e/approvals.test.mjs && node tests/backend-e2e/seed-prds.test.mjs && node tests/backend-e2e/deploy-fathering.test.mjs && node tests/backend-e2e/new-reply.test.mjs && node tests/backend-e2e/discovery-promote.test.mjs && node tests/backend-e2e/version-integrity.test.mjs && node tests/backend-e2e/esign.test.mjs && node tests/backend-e2e/name-sync.test.mjs && node tests/backend-e2e/updates.test.mjs && node tests/backend-e2e/record-templates.test.mjs && node tests/backend-e2e/walkthrough.test.mjs && node tests/backend-e2e/partner-identity.test.mjs && node tests/backend-e2e/update-panel.test.mjs",
     "seed:prds": "node tools/gen-prd-seed.mjs"
   },
   "devDependencies": {

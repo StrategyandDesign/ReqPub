@@ -1,5 +1,95 @@
 # Changelog
 
+## 2.34.0 · the client portal, and the update link as a panel
+
+Five changes. One fixes a defect the client could see, three widen what
+the record answers without widening what it decides, and one moves the
+words on the front page.
+
+- **The site leads with accountability.** The H1 is now "The
+  accountability record for enterprise AI development," with the old
+  problem line promoted to the subhead beneath it and the measurable
+  definition of done as the third line. Acceptance names one moment at
+  the end; accountability names the whole span the record covers, and
+  development is the word the buyer uses while the work is happening.
+  The precise phrases stay in the body, where they carry the mechanism.
+  The problem section further down no longer repeats the subhead: it
+  reads "Everyone agreed. Nobody agreed to the same thing."
+  docs/POSITIONING.md carries the hero verbatim so the doc and the page
+  cannot drift, plus the reasoning and two new never-claim lines.
+
+- **One partner identity per email per workspace.** partners carried no
+  uniqueness on organization and email, so one client email could hold
+  two identities in one workspace, each with its own access grant to the
+  same project - and every read joining access to identities to projects
+  returned that project once per identity. The portal rendered it twice.
+  A unique index on (org_id, lower(email)) now forbids it, preceded by a
+  merge that keeps the oldest row. The merge lifts the login link off
+  whichever row was actually claimed at signup, because the oldest row
+  is often the one a manager typed first and keeping it naively would
+  cost the partner their own account. It lifts profile text the keeper
+  lacks, unions both identities' project grants, and repoints every note
+  before deleting anything: comms and partner_notes are both ON DELETE
+  SET NULL, so deleting first would leave a partner's whole history
+  unattributed and drop it out of their thread. partner_projects_v2 now
+  selects a distinct project list as a second layer, deliberately
+  redundant with the index, so a future identity defect stays a data
+  problem instead of a visible one.
+
+- **Notes at a baseline.** discovery_entries gains the version_seq
+  column comms has carried since v2, and both are stamped at creation
+  with the baseline that was current when they were written. Each
+  version card now lists what was filed against it, read only. The stamp
+  is metadata about a note and never content in a baseline: snapshots
+  still hold answers and sections only, there is no control anywhere to
+  include a note in one, and promotion remains the single path by which
+  a note becomes part of the agreement.
+
+- **The update link becomes a panel.** Inside the existing token page,
+  and every piece of it a read of state that already exists: every
+  pending and completed signature on the update's baseline, each linking
+  to its own signature page; read-only links to prior baselines in
+  presentation mode with their recorded fingerprints; and a comment box.
+  Authorization links point at the existing sign page, never at a new
+  approval mechanism. The panel mints no share tokens and computes no
+  fingerprints - publishing a baseline to a link is the team's
+  disclosure decision and reading an update must not make it for them,
+  and a fingerprint is a fact captured at a moment, so a baseline
+  without one shows nothing rather than an invented hash. The comment is
+  the one write: it lands in comms under a new external origin,
+  attributed to the recipient the token was issued to, filed against the
+  same baseline the update reported on. There is no name field, so the
+  name on the record is the one the sender addressed the link to; a link
+  issued to nobody refuses comments rather than filing them anonymously.
+  A comment approves nothing and changes nothing about the agreement.
+
+- **Risks and issues, authored.** A rows question - the risk or issue,
+  its impact, a named owner, a status - following the gate plan pattern
+  exactly: engagement content that prints, diffs, versions, travels in
+  the baseline, and appears in the update panel because it is in the
+  record. Status is a fixed list (Open, Mitigating, Accepted, Closed)
+  rather than free text, because an open column fills with Red and Amber
+  inside one engagement and RAG vocabulary in the record is the first
+  step toward the rollup this product must never build. No computed
+  rollup, health verdict, or project-status dashboard exists over these
+  rows, and docs/POSITIONING.md now states the test that separates
+  authored content from a tracker: who wrote the value, does it move on
+  its own, and what does it do outside the baseline.
+
+Checks: 231 unit (five new on the risks section: rendering, the unowned
+owner fallback, travel in the answers, three-way contiguous renumbering,
+and exclusion from the PRD path), 399 backend (two new suites -
+partner-identity at 20 covering uniqueness, the merge, portal
+deduplication with the index dropped, and history preservation;
+update-panel at 37 covering the version_seq wall around the snapshot,
+the panel reads, and the comment's attribution and powerlessness).
+
+Deploy: run supabase/fix-partner-identity.sql, then
+supabase/fix-update-panel.sql, then supabase/fix-updates.sql - or re-run
+schema.sql end to end, which does all three and needs none of them.
+Frontend is a push and a hard refresh. node tools/smoke.mjs now expects
+61 functions and 5 edge routes.
+
 ## 2.33.1 · images unblocked
 
 One line. The app page's Content-Security-Policy allowed images only
